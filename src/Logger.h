@@ -10,38 +10,47 @@
 #include <fstream>
 #include <thread>
 #include <mutex>
+#include <optional>
 
-#define LOG(logger, message) ((logger).log((logger).getPriority(), message, __FILE__, __LINE__))
-#define LOG_TRACE(logger, message) ((logger).log(logPriority::TRACE, message, __FILE__, __LINE__))
-#define LOG_DEBUG(logger, message) ((logger).log(logPriority::DEBUG, message, __FILE__, __LINE__))
-#define LOG_INFO(logger, message) ((logger).log(logPriority::INFO, message, __FILE__, __LINE__))
-#define LOG_WARNING(logger, message) ((logger).log(logPriority::WARNING, message, __FILE__, __LINE__))
-#define LOG_ERROR(logger, message) ((logger).log(logPriority::ERROR, message, __FILE__, __LINE__))
-#define LOG_CRITICAL(logger, message) ((logger).log(logPriority::CRITICAL, message, __FILE__, __LINE__))
+// small problem here. if LOG is called with manually set TRACE priority on logger, there will be no function name.
+// on the other hand, who on Earth would do that (aside from testing) when LOG_TRACE exists?
+#define LOG(logger, message) ((logger).Log((logger).get_priority(), std::nullopt, message, __FILE__, __LINE__))
+#define LOG_TRACE(logger, message) ((logger).Log(LogPriority::TRACE, __FUNCTION__, message, __FILE__, __LINE__))
 
-enum logPriority {
+// TODO: set auto start/end(+restart for server) functions logging (by scope?)
+#define LOG_DEBUG(logger, message) ((logger).Log(LogPriority::DEBUG, std::nullopt, message, __FILE__, __LINE__))
+#define LOG_PROD(logger, message) ((logger).Log(LogPriority::PROD, std::nullopt, message, __FILE__, __LINE__))
+
+#define LOG_WARNING(logger, message) ((logger).Log(LogPriority::WARNING, std::nullopt, message, __FILE__, __LINE__))
+#define LOG_ERROR(logger, message) ((logger).Log(LogPriority::ERROR, std::nullopt, message, __FILE__, __LINE__))
+
+enum LogPriority
+{
 	TRACE,
 	DEBUG,
+	PROD,
 	INFO,
 	WARNING,
-	ERROR,
-	CRITICAL
+	ERROR
 };
 
 
-class Logger {
-private:
-	static logPriority priority;
-	std::mutex logMutex;
+class Logger
+{
+	static LogPriority s_priority;
+	std::mutex m_log_mutex;
 
 public:
 	Logger();
-	// TODO: define logger with params
-	// explicit Logger(logPriority userPriority);
+	explicit Logger(LogPriority user_priority);
 	~Logger() = default;
-	static logPriority getPriority();
-	static void setPriority(logPriority userPriority);
-	void log(logPriority userPriority, const std::string &message, const std::string &file, int line);
+	static LogPriority get_priority();
+	static void set_priority(LogPriority user_priority);
+	void Log(LogPriority user_priority, const std::optional<std::string>& function_name, const std::string& message,
+			const std::string& file, int line);
+	void PrintLogging(const std::string& color, const std::string& output_priority,
+					const std::optional<std::string>& function_name,
+					const std::string& message, const std::string& file, int line);
 };
 
 #endif // LOGGER_H
