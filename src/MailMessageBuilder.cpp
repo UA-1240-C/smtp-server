@@ -3,6 +3,7 @@
 #include "MailAddress.h"
 #include "MailAttachment.h"
 #include "MailMessage.h"
+#include <iostream>
 
 namespace ISXSC {
 MailMessageBuilder& MailMessageBuilder::SetFrom(const std::string& email,
@@ -56,7 +57,8 @@ MailMessageBuilder& MailMessageBuilder::AddAttachment(const std::string& path) {
 MailMessage MailMessageBuilder::Build() {
     if (mail_message_.from_.get_address().empty() ||
         mail_message_.to_.empty()) {
-        throw std::runtime_error("Not all required fields are filled");
+        std::cerr << "Error: Not all required fields are filled\n";
+        return MailMessage();  // Return an empty MailMessage object
     }
 
     return mail_message_;

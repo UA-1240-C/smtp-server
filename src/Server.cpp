@@ -178,8 +178,6 @@ void SmtpServer::saveData(const std::string& line,
         in_data = false;
         tempSaveMail(mail_builder.Build());
         sendResponse(std::move(socket_wrapper), "250 OK\r\n");
-    } else {
-        // mail_builder.AddBody(line);
     }
 }
 
@@ -211,8 +209,7 @@ void SmtpServer::handleData(SocketWrapper socket_wrapper) {
             processDataMessage(data_message, socket_wrapper);
         }
     } catch (const std::exception& e) {
-        std::cerr << "Exception during DATA handling: " << e.what()
-                  << std::endl;
+        handleException("Data handling", e);
         throw;
     }
 }
@@ -283,6 +280,11 @@ void SmtpServer::handleHelp(SocketWrapper socket_wrapper) {
                  "QUIT, NOOP, RSET, VRFY, HELP\r\n");
 }
 
+void SmtpServer::handleException(std::string where,
+                                 const std::exception& e) const {
+    std::cerr << where << " error: " << e.what() << "\n";
+}
+
 void SmtpServer::handleStartTLS(SocketWrapper socket_wrapper) {
     // Upgrade the connection to TLS
     auto tcp_socket = socket_wrapper.get<TcpSocket>();
@@ -319,17 +321,17 @@ void SmtpServer::handleAuth(SocketWrapper socket_wrapper,
     std::string username = decoded_data.substr(0, pos);
     std::string password = decoded_data.substr(pos + 1);
 
-	/*
+    /*
     // Should be implemented Hash/Validate
     if (validateCredentials(username, password)) {
         sendResponse(std::move(socket_wrapper),
-                     "235 Authentication successful\r\n");
+                    "235 Authentication successful\r\n");
     } else {
         sendResponse(std::move(socket_wrapper),
-                     "535 Authentication failed\r\n");
+                    "535 Authentication failed\r\n");
     }
 
-	*/
+    */
 }
 
 void SmtpServer::handleQuit(SocketWrapper socket_wrapper) {
@@ -351,13 +353,13 @@ void SmtpServer::handleQuitSsl(SocketWrapper socket_wrapper) {
         boost::system::error_code error;
         ssl_socket->shutdown(error);
         if (error) {
-            std::cerr << "Error during SSL shutdown: " << error.message()
-                      << std::endl;
+            handleBoostError("SSL shutdown", error);
         }
+
         ssl_socket->lowest_layer().close(error);
+
         if (error) {
-            std::cerr << "Error closing SSL socket: " << error.message()
-                      << std::endl;
+            handleBoostError("SSL closing socket", error);
         }
     }
 }
@@ -369,13 +371,13 @@ void SmtpServer::handleQuitTcp(SocketWrapper socket_wrapper) {
         tcp_socket->shutdown(boost::asio::ip::tcp::socket::shutdown_both,
                              error);
         if (error) {
-            std::cerr << "Error during TCP shutdown: " << error.message()
-                      << std::endl;
+            handleBoostError("TCP shutdown", error);
         }
+
         tcp_socket->close(error);
+
         if (error) {
-            std::cerr << "Error closing TCP socket: " << error.message()
-                      << std::endl;
+            handleBoostError("TCP closing socket", error);
         }
     }
 }
@@ -385,32 +387,67 @@ void SmtpServer::tempSaveMail(const MailMessage& message) {
     try {
         std::string file_name = tempCreateFileName();
         std::ofstream output_file = tempOpenFile(file_name);
+
         tempWriteEmailContent(output_file, message);
         tempWriteAttachments(output_file, message);
+
         output_file.close();
         std::cout << "Mail saved to " << file_name << std::endl;
+
     } catch (const std::exception& e) {
-        std::cerr << "Failed to save mail: " << e.what() << std::endl;
+        handleException("Save mail", e);
     }
 }
 
 std::string SmtpServer::tempCreateFileName() const {
     std::ostringstream file_name_stream;
-    file_name_stream << "mail_" << std::time(nullptr) << ".eml";
-    return file_name_stream.str();
+
+    // Getting the current time
+    std::time_t current_time = std::time(nullptr);
+    if (current_time == -1) {
+        std::cerr << "Error: Failed to get current time\n";
+        return "";
+    }
+
+    file_name_stream << "mail_" << current_time << ".eml";
+
+    std::string file_name = file_name_stream.str();
+    if (file_name.empty()) {
+        std::cerr << "Error: Failed to create file name\n";
+        return "";
+    }
+
+    return file_name;
 }
 
 std::ofstream SmtpServer::tempOpenFile(const std::string& file_name) const {
-    std::ofstream output_file(file_name, std::ios::out | std::ios::binary);
-    if (!output_file) {
-        throw std::runtime_error("Failed to open file for writing: " +
-                                 file_name);
+    try {
+        std::ofstream output_file(file_name, std::ios::out | std::ios::binary);
+        if (!tempIsOutputFileValid(output_file)) {
+            std::cerr << "Failed to open file for writing\n";
+            return std::ofstream();
+        }
+        return output_file;  // std::move is not necessary
+
+    } catch (const std::exception& e) {
+        handleException("Open file", e);
+        return std::ofstream();
     }
-    return std::move(output_file);
+}
+
+bool ISXSC::SmtpServer::tempIsOutputFileValid(
+    const std::ofstream& output_file) const {
+    if (!output_file) {
+        std::cerr << "Invalid output file stream\n";
+        return false;
+    }
+    return true;
 }
 
 void SmtpServer::tempWriteEmailContent(std::ofstream& output_file,
                                        const MailMessage& message) const {
+    if (!tempIsOutputFileValid(output_file)) return;
+
     output_file << "From: " << message.from_ << "\r\n";
     for (const auto& to : message.to_) {
         output_file << "To: " << to << "\r\n";
@@ -428,12 +465,15 @@ void SmtpServer::tempWriteEmailContent(std::ofstream& output_file,
 
 void SmtpServer::tempWriteAttachments(std::ofstream& output_file,
                                       const MailMessage& message) const {
+    if (!tempIsOutputFileValid(output_file)) return;
+
     for (const auto& attachment : message.attachments_) {
         std::ifstream attachment_file(attachment.get_path(),
                                       std::ios::in | std::ios::binary);
         if (!attachment_file) {
-            throw std::runtime_error("Failed to open attachment: " +
-                                     attachment.get_path().string());
+            std::cerr << "Failed to open attachment: "
+                      << attachment.get_path().string() << "\n";
+            continue;
         }
 
         output_file << "\r\n--boundary\r\n";

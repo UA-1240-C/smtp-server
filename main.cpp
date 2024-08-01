@@ -1,12 +1,15 @@
 #include <boost/asio.hpp>
 #include <iostream>
+
 #include "Server.h"
+#include "SignalHandler.h"
 
 using boost::asio::ip::tcp;
 
 int main() {
-    try
-    {
+    SignalHandler::setupSignalHandlers();
+
+    try {
         boost::asio::io_context io_context;
         boost::asio::ssl::context ssl_context(boost::asio::ssl::context::tlsv12_server);
         ThreadPool<> thread_pool;
@@ -23,9 +26,7 @@ int main() {
         std::cout << "Server is running. Press Ctrl+C to stop." << std::endl;
 
         io_context.run();
-    }
-    catch (const std::exception& e)
-    {
+    } catch (const std::exception& e) {
         std::cerr << "Exception: " << e.what() << std::endl;
     }
     return 0;

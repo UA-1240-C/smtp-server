@@ -50,6 +50,7 @@ private:
     void handleStartTLS(SocketWrapper socket_wrapper);
     void handleAuth(SocketWrapper socket_wrapper, const std::string& line);
 
+
 private:
     // Should be implemented Hash/Validate
     /*
@@ -88,6 +89,8 @@ private:
     void handleBoostError(const std::string where,
                           const boost::system::error_code& error) const;
 
+    void handleException(std::string where, const std::exception& e) const;
+
 private:
     void tempSaveMail(const MailMessage& message);
     void tempWriteEmailContent(std::ofstream& output_file,
@@ -97,6 +100,8 @@ private:
 
     std::string tempCreateFileName() const;
     std::ofstream tempOpenFile(const std::string& fileName) const;
+
+    bool tempIsOutputFileValid(const std::ofstream& output_file) const;
 
 private:
     void handleQuit(SocketWrapper socket_wrapper);
@@ -109,7 +114,8 @@ private:
     void processDataMessage(std::string& data_message,
                             SocketWrapper& socket_wrapper);
     void handleEndOfData(SocketWrapper& socket_wrapper);
+
 };
-}  // namespace ISXSC
+}  // namespace ISXSCІ
 
 #endif  // SERVER_H
