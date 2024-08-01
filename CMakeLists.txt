@@ -15,3 +15,10 @@ endif()
 project ("SMTPLogger")
 # Add source to this project's executable.
 add_executable (Logger "src/Logger.cpp" "src/Logger.h")
+
+# Define the root project directory
+set(ROOT_PROJECT_DIR ${CMAKE_SOURCE_DIR})
+# Define the log file path
+set(SERVERLOG "${ROOT_PROJECT_DIR}/serverlog.txt")
+# Pass the log file path as macro
+add_definitions(-DSERVERLOG=\"${SERVERLOG}\")
