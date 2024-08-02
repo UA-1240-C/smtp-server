@@ -1,0 +1,14 @@
+# Target labels
+ pqxx-populate
+# Source files and their labels
+/home/shevmee/CLionProjects/SoftServe/smtp-server-SCRUM-35-Error-handling/cmake-build-debug/_deps/pqxx-subbuild/CMakeFiles/pqxx-populate
+/home/shevmee/CLionProjects/SoftServe/smtp-server-SCRUM-35-Error-handling/cmake-build-debug/_deps/pqxx-subbuild/CMakeFiles/pqxx-populate.rule
+/home/shevmee/CLionProjects/SoftServe/smtp-server-SCRUM-35-Error-handling/cmake-build-debug/_deps/pqxx-subbuild/CMakeFiles/pqxx-populate-complete.rule
+/home/shevmee/CLionProjects/SoftServe/smtp-server-SCRUM-35-Error-handling/cmake-build-debug/_deps/pqxx-subbuild/pqxx-populate-prefix/src/pqxx-populate-stamp/pqxx-populate-build.rule
+/home/shevmee/CLionProjects/SoftServe/smtp-server-SCRUM-35-Error-handling/cmake-build-debug/_deps/pqxx-subbuild/pqxx-populate-prefix/src/pqxx-populate-stamp/pqxx-populate-configure.rule
+/home/shevmee/CLionProjects/SoftServe/smtp-server-SCRUM-35-Error-handling/cmake-build-debug/_deps/pqxx-subbuild/pqxx-populate-prefix/src/pqxx-populate-stamp/pqxx-populate-download.rule
+/home/shevmee/CLionProjects/SoftServe/smtp-server-SCRUM-35-Error-handling/cmake-build-debug/_deps/pqxx-subbuild/pqxx-populate-prefix/src/pqxx-populate-stamp/pqxx-populate-install.rule
+/home/shevmee/CLionProjects/SoftServe/smtp-server-SCRUM-35-Error-handling/cmake-build-debug/_deps/pqxx-subbuild/pqxx-populate-prefix/src/pqxx-populate-stamp/pqxx-populate-mkdir.rule
+/home/shevmee/CLionProjects/SoftServe/smtp-server-SCRUM-35-Error-handling/cmake-build-debug/_deps/pqxx-subbuild/pqxx-populate-prefix/src/pqxx-populate-stamp/pqxx-populate-patch.rule
+/home/shevmee/CLionProjects/SoftServe/smtp-server-SCRUM-35-Error-handling/cmake-build-debug/_deps/pqxx-subbuild/pqxx-populate-prefix/src/pqxx-populate-stamp/pqxx-populate-test.rule
+/home/shevmee/CLionProjects/SoftServe/smtp-server-SCRUM-35-Error-handling/cmake-build-debug/_deps/pqxx-subbuild/pqxx-populate-prefix/src/pqxx-populate-stamp/pqxx-populate-update.rule

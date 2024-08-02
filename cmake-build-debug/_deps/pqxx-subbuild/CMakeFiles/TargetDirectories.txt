@@ -1,0 +1,3 @@
+/home/shevmee/CLionProjects/SoftServe/smtp-server-SCRUM-35-Error-handling/cmake-build-debug/_deps/pqxx-subbuild/CMakeFiles/pqxx-populate.dir
+/home/shevmee/CLionProjects/SoftServe/smtp-server-SCRUM-35-Error-handling/cmake-build-debug/_deps/pqxx-subbuild/CMakeFiles/edit_cache.dir
+/home/shevmee/CLionProjects/SoftServe/smtp-server-SCRUM-35-Error-handling/cmake-build-debug/_deps/pqxx-subbuild/CMakeFiles/rebuild_cache.dir
