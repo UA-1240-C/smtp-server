@@ -1,3 +1,0 @@
-/home/shevmee/CLionProjects/SoftServe/smtp-server-SCRUM-35-Error-handling/cmake-build-debug/_deps/googletest-subbuild/CMakeFiles/googletest-populate.dir
-/home/shevmee/CLionProjects/SoftServe/smtp-server-SCRUM-35-Error-handling/cmake-build-debug/_deps/googletest-subbuild/CMakeFiles/edit_cache.dir
-/home/shevmee/CLionProjects/SoftServe/smtp-server-SCRUM-35-Error-handling/cmake-build-debug/_deps/googletest-subbuild/CMakeFiles/rebuild_cache.dir
