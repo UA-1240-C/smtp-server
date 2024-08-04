@@ -4,4 +4,4 @@ cmake-build-debug/
 
 server.crt
 server.key
-
+server.csr
