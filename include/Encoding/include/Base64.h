@@ -1,7 +1,7 @@
+#pragma once
+
 #ifndef BASE64_H
 #define BASE64_H
-
-#pragma once
 
 #include <boost/beast/core/detail/base64.hpp>
 #include <string>

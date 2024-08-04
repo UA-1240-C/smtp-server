@@ -10,27 +10,33 @@ find_package(PkgConfig REQUIRED)
 pkg_check_modules(LIBSODIUM REQUIRED libsodium)
 
 # Add subdirectories
-add_subdirectory(include/DataBase/DataBase-main/libs/MailDB)
+add_subdirectory(include/CommandHandler)
+add_subdirectory(include/DataBase/DataBase-main)
+add_subdirectory(include/Encoding)
+add_subdirectory(include/MailMessageFormatter)
+add_subdirectory(include/Server)
+add_subdirectory(include/SignalHandler)
+add_subdirectory(include/SocketWrapper)
+add_subdirectory(include/Utils)
 
 # Add executable
-add_executable(SMTP_server
-        main.cpp
-        src/Server.cpp
-        src/MailAddress.cpp
-        src/MailAttachment.cpp
-        src/MailMessageBuilder.cpp
-        src/Base64.cpp
-        src/SignalHandler.cpp
-)
+add_executable(SMTP_server src/main.cpp)
 
 # Link libraries
-target_link_libraries(SMTP_server
+target_link_libraries(SMTP_server PRIVATE
+        CommandHandler
+        DataBase-main
+        Encoding
+        MailMessageFormatter
+        Server
+        SignalHandler
+        SocketWrapper
+        Utils
         Boost::system
         Boost::thread
         ${OPENSSL_LIBRARIES}
-        MailDB
         pqxx
-        ${LIBSODIUM_LIBRARIES}  # Add libsodium
+        ${LIBSODIUM_LIBRARIES}
 )
 
 # Include directories
@@ -38,6 +44,6 @@ target_include_directories(SMTP_server PRIVATE
         ${CMAKE_SOURCE_DIR}/include
         ${Boost_INCLUDE_DIRS}
         ${OPENSSL_INCLUDE_DIR}
-        ${CMAKE_SOURCE_DIR}/DataBase/DataBase-main/libs/MailDB
-        ${LIBSODIUM_INCLUDE_DIRS}  # Add libsodium include directories
+        ${LIBSODIUM_INCLUDE_DIRS}
+        ${CMAKE_SOURCE_DIR}/CommandHandler/include
 )

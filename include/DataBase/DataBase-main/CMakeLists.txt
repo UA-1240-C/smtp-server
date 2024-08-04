@@ -4,48 +4,47 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-set(MAILDATABASE_PROJECT_NAME
-    MailDataBase
-)
-set(MAILDATABASE_SOURCE_DIR
-    src
-)
+project(MailDataBase)
+
+# Source files
+set(MAILDATABASE_SOURCE_DIR src)
 set(MAILDATABASE_SOURCE
-    ${MAILDATABASE_SOURCE_DIR}/main.cpp
-)
-set(MAILDATABASE_LIBRARIES_DIR
-    libs
+        ${MAILDATABASE_SOURCE_DIR}/main.cpp
 )
 
-set(MAILDATABASE_LIBRARIES 
-    MailDB
+# Libraries
+set(MAILDATABASE_LIBRARIES_DIR libs)
+set(MAILDATABASE_LIBRARIES
+        MailDB
 )
 
-include(FetchContent)
+# Create executable
+add_executable(${PROJECT_NAME} ${MAILDATABASE_SOURCE})
 
-project(${MAILDATABASE_PROJECT_NAME})
-
-add_executable(${MAILDATABASE_PROJECT_NAME} ${MAILDATABASE_SOURCE})
-set_property(TARGET ${MAILDATABASE_PROJECT_NAME} PROPERTY CXX_STANDARD 17)
-
+# Add subdirectories for libraries
 foreach(LIBRARY ${MAILDATABASE_LIBRARIES})
     add_subdirectory("${MAILDATABASE_LIBRARIES_DIR}/${LIBRARY}")
-endforeach(LIBRARY)
+endforeach()
 
-target_link_libraries(${MAILDATABASE_PROJECT_NAME} ${MAILDATABASE_LIBRARIES})
+# Link libraries
+target_link_libraries(${PROJECT_NAME} ${MAILDATABASE_LIBRARIES})
 
-
+# Fetch and add GoogleTest
+include(FetchContent)
 
 FetchContent_Declare(googletest
-	GIT_REPOSITORY https://github.com/google/googletest
-	GIT_TAG v1.15.0)
-FetchContent_GetProperties(googletest)
+        GIT_REPOSITORY https://github.com/google/googletest
+        GIT_TAG v1.15.0)
 
+FetchContent_GetProperties(googletest)
 if(NOT googletest_POPULATED)
     FetchContent_Populate(googletest)
-    add_subdirectory(${googletest_SOURCE_DIR} ${googletest_BUILD_DIR})
+    add_subdirectory(${googletest_SOURCE_DIR} ${googletest_BINARY_DIR})
 endif()
 
+# Create test executable
 add_executable(testRunner test/test.cpp)
-target_link_libraries(testRunner ${MAILDATABASE_LIBRARIES} gtest_main gmock_main)
+target_link_libraries(testRunner ${MAILDATABASE_LIBRARIES} GTest::gtest_main GTest::gmock_main)
 
+# Enable testing
+enable_testing()

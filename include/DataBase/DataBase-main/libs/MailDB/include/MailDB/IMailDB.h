@@ -29,10 +29,7 @@ struct Mail
     std::string body;
 
     Mail(std::string sender, std::string subject, std::string body)
-        : sender(sender), subject(subject), body(body)
-    {
-    }
-    
+        : sender(std::move(sender)), subject(std::move(subject)), body(std::move(body)) {}
 };
 
 class IMailDB
