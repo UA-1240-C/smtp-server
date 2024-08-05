@@ -5,6 +5,8 @@
 #include <fstream>
 #include <iostream>
 #include <sodium.h>
+#include "../../ErrorHandler/include/ErrorHandler.h"
+
 
 using namespace ISXSC;
 
@@ -39,7 +41,7 @@ void SmtpServer::Accept() {
                     handleClient(SocketWrapper(new_socket));
                 });
             } else {
-                CommandHandler::handleBoostError("Accept", error);
+                ErrorHandler::handleBoostError("Accept", error);
             }
             Accept();
         });
@@ -58,7 +60,7 @@ void SmtpServer::handleClient(SocketWrapper socket_wrapper) {
             command_handler_.readFromSocket(socket_wrapper, buffer, length, error);
 
             if (error) {
-                CommandHandler::handleBoostError("Read from socket", error);
+                ErrorHandler::handleBoostError("Read from socket", error);
                 if (error == boost::asio::error::eof) {
                     std::cout << "Client disconnected." << std::endl;
                     break;
@@ -90,7 +92,7 @@ void SmtpServer::tempHandleDataMode(const std::string& line,
         try {
             socket_wrapper.sendResponse("500 Command not recognized\r\n");
         } catch (const std::exception& e) {
-            command_handler_.handleException("Handle Data Mode", e);
+            ErrorHandler::handleException("Handle Data Mode", e);
         }
     }
 }
@@ -123,7 +125,7 @@ void SmtpServer::tempSaveMail(const MailMessage& message) {
         std::cout << "Mail saved to " << file_name << std::endl;
 
     } catch (const std::exception& e) {
-        command_handler_.handleException("Save mail", e);
+        ErrorHandler::handleException("Save mail", e);
     }
 }
 
@@ -158,7 +160,7 @@ std::ofstream SmtpServer::tempOpenFile(const std::string& file_name) const {
         return output_file;  // std::move is not necessary
 
     } catch (const std::exception& e) {
-        command_handler_.handleException("Open file", e);
+        ErrorHandler::handleException("Open file", e);
         return std::ofstream();
     }
 }

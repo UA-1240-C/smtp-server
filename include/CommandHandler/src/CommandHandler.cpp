@@ -1,6 +1,7 @@
 #include <iostream>
 
 #include "CommandHandler.h"
+#include "../../ErrorHandler/include/ErrorHandler.h"
 
 using namespace ISXSC;
 
@@ -94,7 +95,7 @@ void CommandHandler::handleEhlo(SocketWrapper& socket_wrapper) {
     try {
         socket_wrapper.sendResponse("250 Hello\r\n");
     } catch (const std::exception& e) {
-        handleException("Handle EHLO", e);
+        ErrorHandler::handleException("Handle EHLO", e);
     }
 }
 
@@ -102,7 +103,7 @@ void CommandHandler::handleNoop(SocketWrapper& socket_wrapper) {
     try {
         socket_wrapper.sendResponse("250 OK\r\n");
     } catch (const std::exception& e) {
-        handleException("Handle NOOP", e);
+        ErrorHandler::handleException("Handle NOOP", e);
     }
 }
 
@@ -111,7 +112,7 @@ void CommandHandler::handleRset(SocketWrapper& socket_wrapper) {
     try {
         socket_wrapper.sendResponse("250 OK\r\n");
     } catch (const std::exception& e) {
-        handleException("Handle RSET", e);
+        ErrorHandler::handleException("Handle RSET", e);
     }
 }
 
@@ -123,7 +124,7 @@ void CommandHandler::handleHelp(SocketWrapper& socket_wrapper) {
             "QUIT, NOOP, RSET, VRFY, HELP\r\n"
         );
     } catch (const std::exception& e) {
-        handleException("Handle HELP", e);
+        ErrorHandler::handleException("Handle HELP", e);
     }
 }
 
@@ -146,7 +147,7 @@ void CommandHandler::handleVrfy(SocketWrapper& socket_wrapper, const std::string
             socket_wrapper.sendResponse("550 User does not exist\r\n");
         }
     } catch (const ISXMailDB::MailException& e) {
-        handleError("Handle VRFY", e, socket_wrapper, "550 Internal Server Error\r\n");
+        ErrorHandler::handleError("Handle VRFY", e, socket_wrapper, "550 Internal Server Error\r\n");
     }
 }
 
@@ -168,7 +169,7 @@ void CommandHandler::handleExpn(SocketWrapper& socket_wrapper, const std::string
             socket_wrapper.sendResponse("550 Mailing list does not exist\r\n");
         }
     } catch (const ISXMailDB::MailException& e) {
-        handleError("Handle EXPN", e, socket_wrapper, "550 Internal Server Error\r\n");
+        ErrorHandler::handleError("Handle EXPN", e, socket_wrapper, "550 Internal Server Error\r\n");
     }
 }
 
@@ -176,7 +177,7 @@ void CommandHandler::handleQuit(SocketWrapper& socket_wrapper) {
     try {
         socket_wrapper.sendResponse("221 Bye\r\n");
     } catch (const std::exception& e) {
-        handleException("Handle QUIT", e);
+        ErrorHandler::handleException("Handle QUIT", e);
     }
 
     if (socket_wrapper.is_tls()) {
@@ -195,12 +196,12 @@ void CommandHandler::handleQuitSsl(SocketWrapper& socket_wrapper) {
         boost::system::error_code error;
         ssl_socket->shutdown(error);
         if (error) {
-            handleBoostError("SSL shutdown", error);
+            ErrorHandler::handleBoostError("SSL shutdown", error);
         }
 
         ssl_socket->lowest_layer().close(error);
         if (error) {
-            handleBoostError("SSL closing socket", error);
+            ErrorHandler::handleBoostError("SSL closing socket", error);
         }
     }
 }
@@ -211,12 +212,12 @@ void CommandHandler::handleQuitTcp(SocketWrapper& socket_wrapper) {
         boost::system::error_code error;
         tcp_socket->shutdown(TcpSocket::shutdown_both, error);
         if (error) {
-            handleBoostError("TCP shutdown", error);
+            ErrorHandler::handleBoostError("TCP shutdown", error);
         }
 
         tcp_socket->close(error);
         if (error) {
-            handleBoostError("TCP closing socket", error);
+            ErrorHandler::handleBoostError("TCP closing socket", error);
         }
     }
 }
@@ -237,7 +238,7 @@ void CommandHandler::handleMailFrom(SocketWrapper& socket_wrapper, const std::st
         }
     } catch (const std::exception& e) {
         std::cerr << "Exception in handleMailFrom: " << e.what() << std::endl;
-        handleException("Handle MAIL FROM", e);
+        ErrorHandler::handleException("Handle MAIL FROM", e);
         socket_wrapper.sendResponse("550 Internal Server Error\r\n");
     }
 }
@@ -253,11 +254,11 @@ void CommandHandler::handleRcptTo(SocketWrapper& socket_wrapper,
         mail_builder_.AddTo(recipient);
         socket_wrapper.sendResponse("250 OK\r\n");
     } catch (const std::exception& e) {
-        handleException("Handle RCPT TO", e);
+        ErrorHandler::handleException("Handle RCPT TO", e);
         try {
             socket_wrapper.sendResponse("550 Internal Server Error\r\n");
         } catch (const std::exception& e) {
-            handleException("Send Internal Server Error response", e);
+            ErrorHandler::handleException("Send Internal Server Error response", e);
         }
     }
 }
@@ -273,7 +274,7 @@ void CommandHandler::handleData(SocketWrapper& socket_wrapper) {
             processDataMessage(socket_wrapper, data_message);
         }
     } catch (const std::exception& e) {
-        handleException("Data handling", e);
+        ErrorHandler::handleException("Data handling", e);
         throw;
     }
 }
@@ -288,7 +289,7 @@ void CommandHandler::readData(SocketWrapper& socket_wrapper, std::string& data_m
     readFromSocket(socket_wrapper, buffer, length, error);
 
     if (error) {
-        handleBoostError("Read Data", error);
+        ErrorHandler::handleBoostError("Read Data", error);
         if (error == boost::asio::error::eof) {
             std::cout << "Client disconnected." << std::endl;
             in_data_ = false;
@@ -333,13 +334,13 @@ void CommandHandler::handleEndOfData(SocketWrapper& socket_wrapper) {
                 std::cout << "Full DATA message: " << std::endl;
             }
         } catch (const std::exception& e) {
-            handleException("Build and Save Mail", e);
+            ErrorHandler::handleException("Build and Save Mail", e);
             socket_wrapper.sendResponse("550 Internal Server Error\r\n");
         }
 
         mail_builder_ = MailMessageBuilder();
     } catch (const std::exception& e) {
-        handleException("Handle End Of Data", e);
+        ErrorHandler::handleException("Handle End Of Data", e);
     }
 }
 
@@ -394,11 +395,11 @@ void CommandHandler::handleAuth(SocketWrapper& socket_wrapper, const std::string
         data_base_->Login(username, hashed_password);
         socket_wrapper.sendResponse("235 Authentication successful\r\n");
     } catch (const std::runtime_error& e) {
-        handleError("Handle AUTH", e, socket_wrapper, "501 Syntax error in parameters or arguments\r\n");
+        ErrorHandler::handleError("Handle AUTH", e, socket_wrapper, "501 Syntax error in parameters or arguments\r\n");
     } catch (const ISXMailDB::MailException& e) {
-        handleError("Handle AUTH", e, socket_wrapper, "535 Authentication failed\r\n");
+        ErrorHandler::handleError("Handle AUTH", e, socket_wrapper, "535 Authentication failed\r\n");
     } catch (const std::exception& e) {
-        handleError("Handle AUTH", e, socket_wrapper, "535 Internal Server Error\r\n");
+        ErrorHandler::handleError("Handle AUTH", e, socket_wrapper, "535 Internal Server Error\r\n");
     }
 }
 
@@ -413,11 +414,11 @@ void CommandHandler::handleRegister(SocketWrapper& socket_wrapper, const std::st
             socket_wrapper.sendResponse("250 User registered successfully\r\n");
         }
     } catch (const std::runtime_error& e) {
-        handleError("Handle REGISTER", e, socket_wrapper, "501 Syntax error in parameters or arguments\r\n");
+        ErrorHandler::handleError("Handle REGISTER", e, socket_wrapper, "501 Syntax error in parameters or arguments\r\n");
     } catch (const ISXMailDB::MailException& e) {
-        handleError("Handle REGISTER", e, socket_wrapper, "550 Registration failed\r\n");
+        ErrorHandler::handleError("Handle REGISTER", e, socket_wrapper, "550 Registration failed\r\n");
     } catch (const std::exception& e) {
-        handleError("Handle REGISTER", e, socket_wrapper, "550 Internal Server Error\r\n");
+        ErrorHandler::handleError("Handle REGISTER", e, socket_wrapper, "550 Internal Server Error\r\n");
     }
 }
 
@@ -453,22 +454,4 @@ std::string CommandHandler::hashPassword(const std::string& password)
 
     hashed_password.assign(hash.begin(), hash.end());
     return hashed_password;
-}
-
-void CommandHandler::handleBoostError(
-  const std::string& where, const boost::system::error_code& error)
-{
-  std::cerr << where << " error: " << error.message() << std::endl;
-}
-
-void CommandHandler::handleException(const std::string& where, const std::exception& e) const
-{
-  std::cerr << where << " error: " << e.what() << "\n";
-}
-
-void CommandHandler::handleError(const std::string& context, const std::exception& e, SocketWrapper& socket_wrapper,
-    const std::string& error_response)
-{
-    std::cerr << context << " error: " << e.what() << std::endl;
-    socket_wrapper.sendResponse(error_response);
 }

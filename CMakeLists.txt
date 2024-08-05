@@ -18,12 +18,14 @@ add_subdirectory(include/SignalHandler)
 add_subdirectory(include/SocketWrapper)
 add_subdirectory(include/MailMessageFormatter)
 add_subdirectory(include/Utils)
+add_subdirectory(include/ErrorHandler)
 
 # Add executable
 add_executable(SMTP_server src/main.cpp)
 
 # Link libraries
 target_link_libraries(SMTP_server PRIVATE
+        ErrorHandler
         CommandHandler
         MailMessage
         MailDB
@@ -45,6 +47,7 @@ target_include_directories(SMTP_server PRIVATE
     ${Boost_INCLUDE_DIRS}
     ${OPENSSL_INCLUDE_DIR}
     ${LIBSODIUM_INCLUDE_DIRS}
+    ${CMAKE_SOURCE_DIR}/include/ErrorHandler
     ${CMAKE_SOURCE_DIR}/include/CommandHandler/include
     ${CMAKE_SOURCE_DIR}/include/Encoding/include
     ${CMAKE_SOURCE_DIR}/include/Server/include
