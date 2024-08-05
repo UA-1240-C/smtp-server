@@ -7,101 +7,113 @@
 
 class JSON {
 public:
-    enum Type { OBJECT, STRING, NUMBER, BOOL, NIL };
+    enum Type { OBJECT, STRING, NUMBER, BOOL, NIL }; // Enum to define the type of JSON value
 
-    JSON() : type(NIL) {}
-    JSON(Type t) : type(t) {}
-    JSON(const std::string &value) : type(STRING), str_value(value) {}
-    JSON(double value) : type(NUMBER), num_value(value) {}
-    JSON(bool value) : type(BOOL), bool_value(value) {}
+    JSON() : type(NIL) {} // Default constructor for NIL type
+    JSON(Type t) : type(t) {} // Constructor for different types
+    JSON(const std::string &value) : type(STRING), str_value(value) {} // Constructor for STRING type
+    JSON(double value) : type(NUMBER), num_value(value) {} // Constructor for NUMBER type
+    JSON(bool value) : type(BOOL), bool_value(value) {} // Constructor for BOOL type
 
-    Type type;
+    Type get_Type() const { return type; } // Getter for the type of JSON value
 
-    std::unordered_map<std::string, JSON> object_value;
-    std::string str_value;
-    double num_value;
-    bool bool_value;
+    const std::unordered_map<std::string, JSON>& get_Object_value() const { return object_value; } // Getter for OBJECT value
+    const std::string& get_String_value() const { return str_value; } // Getter for STRING value
+    double get_Number_value() const { return num_value; } // Getter for NUMBER value
+    bool get_Bool_value() const { return bool_value; } // Getter for BOOL value
 
-    static JSON parse(const std::string &content);
+    static JSON Parse(const std::string &content); // Static method to parse JSON from string
+
 private:
-    static JSON parseObject(std::stringstream &ss);
-    static JSON parseString(std::stringstream &ss);
-    static JSON parseNumber(std::stringstream &ss);
-    static JSON parseBool(std::stringstream &ss);
-    static JSON parseNull(std::stringstream &ss);
-    static void skipWhitespace(std::stringstream &ss);
+    static JSON ParseObject(std::stringstream &ss); // Method to parse JSON object
+    static JSON ParseString(std::stringstream &ss); // Method to parse JSON string
+    static JSON ParseNumber(std::stringstream &ss); // Method to parse JSON number
+    static JSON ParseBool(std::stringstream &ss); // Method to parse JSON boolean
+    static JSON ParseNull(std::stringstream &ss); // Method to parse JSON null
+    static void SkipWhitespace(std::stringstream &ss); // Helper method to skip whitespace characters
+
+    Type type; // Type of the JSON value
+    std::unordered_map<std::string, JSON> object_value; // Holds OBJECT type values
+    std::string str_value; // Holds STRING type values
+    double num_value; // Holds NUMBER type values
+    bool bool_value; // Holds BOOL type values
 };
 
-void JSON::skipWhitespace(std::stringstream &ss) {
+// Helper method to skip whitespace characters in the stream
+void JSON::SkipWhitespace(std::stringstream &ss) {
     while (ss.peek() == ' ' || ss.peek() == '\n' || ss.peek() == '\t' || ss.peek() == '\r') {
         ss.get();
     }
 }
 
-JSON JSON::parse(const std::string &content) {
+// Static method to parse JSON from a string
+JSON JSON::Parse(const std::string &content) {
     std::stringstream ss(content);
-    skipWhitespace(ss);
+    SkipWhitespace(ss);
     char c = ss.peek();
     if (c == '{') {
-        return parseObject(ss);
+        return ParseObject(ss); // Parse as JSON object
     } else if (c == '"') {
-        return parseString(ss);
+        return ParseString(ss); // Parse as JSON string
     } else if (isdigit(c) || c == '-') {
-        return parseNumber(ss);
+        return ParseNumber(ss); // Parse as JSON number
     } else if (c == 't' || c == 'f') {
-        return parseBool(ss);
+        return ParseBool(ss); // Parse as JSON boolean
     } else if (c == 'n') {
-        return parseNull(ss);
+        return ParseNull(ss); // Parse as JSON null
     } else {
-
-        throw std::runtime_error("Invalid JSON input");
+        throw std::runtime_error("Invalid JSON input"); // Handle invalid JSON input
     }
 }
 
-JSON JSON::parseObject(std::stringstream &ss) {
+// Method to parse a JSON object from the stream
+JSON JSON::ParseObject(std::stringstream &ss) {
     JSON obj(OBJECT);
-    bool firtsItem = true;
-    ss.get(); // consume '{'
-    skipWhitespace(ss);
+    bool firstItem = true;
+    ss.get(); // Consume '{'
+    SkipWhitespace(ss);
     while (ss.peek() != '}') {
-        if(firtsItem){
-            firtsItem = false;
+        if (firstItem) {
+            firstItem = false;
         } else {
-            while(ss.peek() != ',' && ss.peek() != -1){
+            // Skip to the next comma or end of stream
+            while (ss.peek() != ',' && ss.peek() != -1) {
                 ss.get();
             }
-            if(ss.peek() == -1){
+            if (ss.peek() == -1) {
                 break;
             }
-            ss.get(); // consume ','
+            ss.get(); // Consume ','
         }
-        skipWhitespace(ss);
-        JSON key = parseString(ss);
-        skipWhitespace(ss);
-        ss.get(); // consume ':'
-        skipWhitespace(ss);
-        obj.object_value[key.str_value] = parse(ss.str().substr(ss.tellg()));
-        skipWhitespace(ss);
+        SkipWhitespace(ss);
+        JSON key = ParseString(ss); // Parse the key
+        SkipWhitespace(ss);
+        ss.get(); // Consume ':'
+        SkipWhitespace(ss);
+        obj.object_value[key.get_String_value()] = Parse(ss.str().substr(ss.tellg())); // Parse the value and add to the object
+        SkipWhitespace(ss);
         if (ss.peek() == ',') {
-            ss.get(); // consume ','
-            skipWhitespace(ss);
+            ss.get(); // Consume ','
+            SkipWhitespace(ss);
         }
     }
-    ss.get(); // consume '}'
+    ss.get(); // Consume '}'
     return obj;
 }
 
-JSON JSON::parseString(std::stringstream &ss) {
-    ss.get(); // consume '"'
+// Method to parse a JSON string from the stream
+JSON JSON::ParseString(std::stringstream &ss) {
+    ss.get(); // Consume '"'
     std::string value;
     while (ss.peek() != '"') {
         value += ss.get();
     }
-    ss.get(); // consume '"'
+    ss.get(); // Consume '"'
     return JSON(value);
 }
 
-JSON JSON::parseNumber(std::stringstream &ss) {
+// Method to parse a JSON number from the stream
+JSON JSON::ParseNumber(std::stringstream &ss) {
     std::string value;
     while (isdigit(ss.peek()) || ss.peek() == '.' || ss.peek() == '-') {
         value += ss.get();
@@ -110,7 +122,8 @@ JSON JSON::parseNumber(std::stringstream &ss) {
     return JSON(value_double);
 }
 
-JSON JSON::parseBool(std::stringstream &ss) {
+// Method to parse a JSON boolean from the stream
+JSON JSON::ParseBool(std::stringstream &ss) {
     std::string value;
     while (isalpha(ss.peek())) {
         value += ss.get();
@@ -124,7 +137,8 @@ JSON JSON::parseBool(std::stringstream &ss) {
     }
 }
 
-JSON JSON::parseNull(std::stringstream &ss) {
+// Method to parse a JSON null value from the stream
+JSON JSON::ParseNull(std::stringstream &ss) {
     std::string value;
     while (isalpha(ss.peek())) {
         value += ss.get();
