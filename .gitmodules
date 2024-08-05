@@ -1,3 +1,0 @@
-[submodule "include/MailMessageFormatter"]
-	path = include/MailMessageFormatter
-	url = git@github.com:UA-1240-C/smtp-client.git
