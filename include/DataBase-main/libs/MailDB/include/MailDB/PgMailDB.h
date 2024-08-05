@@ -1,4 +1,6 @@
 #pragma once
+#ifndef PG_MAIL_DB
+#define PG_MAIL_DB
 
 #include <memory>
 #include <pqxx/pqxx>
@@ -52,3 +54,5 @@ protected:
 };
 
 }
+
+#endif  // PG_MAIL_DB

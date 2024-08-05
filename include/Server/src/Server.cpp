@@ -176,19 +176,22 @@ void SmtpServer::tempWriteEmailContent(std::ofstream& output_file,
                                        const MailMessage& message) const {
     if (!tempIsOutputFileValid(output_file)) return;
 
-    output_file << "From: " << message.from << "\r\n";
+    /*
+        The overload << operator is not implemented
+        output_file << "From: " << message.from << "\r\n";
+    */
     for (const auto& to : message.to) {
-        output_file << "To: " << to << "\r\n";
+        //output_file << "To: " << to << "\r\n";
     }
     for (const auto& cc : message.cc) {
-        output_file << "Cc: " << cc << "\r\n";
+        //output_file << "Cc: " << cc << "\r\n";
     }
     for (const auto& bcc : message.bcc) {
-        output_file << "Bcc: " << bcc << "\r\n";
+        //output_file << "Bcc: " << bcc << "\r\n";
     }
-    output_file << "Subject: " << message.subject << "\r\n";
-    output_file << "\r\n";  // Empty line between headers and body
-    output_file << message.body << "\r\n";
+    //output_file << "Subject: " << message.subject << "\r\n";
+    //output_file << "\r\n";  // Empty line between headers and body
+    //output_file << message.body << "\r\n";
 }
 
 void SmtpServer::tempWriteAttachments(std::ofstream& output_file,

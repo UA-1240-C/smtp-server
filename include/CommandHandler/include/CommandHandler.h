@@ -3,14 +3,15 @@
 #ifndef COMMANDHANDLER_H
 #define COMMANDHANDLER_H
 
-#include <string>
 #include <sodium/crypto_pwhash.h>
-#include <boost/asio/ssl.hpp>
 
-#include <Base64.h>
-#include "SocketWrapper.h"
-#include "MailMessageFormatter/headers/MailMessageBuilder.h"
+#include <boost/asio/ssl.hpp>
+#include <string>
+
+#include "Base64.h"
 #include "MailDB/PgMailDB.h"
+#include "MailMessageBuilder.h"
+#include "SocketWrapper.h"
 
 namespace ISXSC {
   class CommandHandler {

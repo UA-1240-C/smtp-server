@@ -15,8 +15,8 @@ int main() {
         ThreadPool<> thread_pool;
 
         // Load server certificates and private key
-        ssl_context.use_certificate_chain_file("../server.crt");
-        ssl_context.use_private_key_file("../server.key", boost::asio::ssl::context::pem);
+        ssl_context.use_certificate_chain_file("server.crt");
+        ssl_context.use_private_key_file("server.key", boost::asio::ssl::context::pem);
 
         std::cout << "SSL context set up with certificates." << std::endl;
 

@@ -18,7 +18,7 @@ set(LIBRARY_SOURCE ${LIBRARY_SOURCE_DIR}/PgMailDB.cpp)
 FetchContent_Declare(
         libpqxx
         GIT_REPOSITORY https://github.com/jtv/libpqxx.git
-        GIT_TAG 7.7.4
+        GIT_TAG master
 )
 FetchContent_MakeAvailable(libpqxx)
 

@@ -30,16 +30,7 @@ public:
 		}
 	}
 
-	void sendResponse(const std::string& message) {
-		std::cout << "Sending response: " << message << std::endl;
-		if (auto tcp_socket = get<TcpSocket>()) {
-			boost::asio::write(*tcp_socket, boost::asio::buffer(message));
-		} else if (auto ssl_socket = get<SslSocket>()) {
-			boost::asio::write(*ssl_socket, boost::asio::buffer(message));
-		} else {
-			std::cerr << "Error: No valid socket available for sending data." << std::endl;
-		}
-	}
+	void sendResponse(const std::string& message);
 
 	void start_tls(boost::asio::ssl::context& context);
 
