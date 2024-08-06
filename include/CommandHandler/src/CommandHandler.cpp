@@ -429,7 +429,6 @@ void CommandHandler::handleAuth(SocketWrapper& socket_wrapper, const std::string
         }
 
         std::string stored_hashed_password = data_base_->GetPasswordHash(username);
-        // Assuming `verifyPassword` is a function that verifies the password
         if (!verifyPassword(password, stored_hashed_password)) {
             throw std::runtime_error("Authentication failed");
         }
@@ -453,7 +452,7 @@ void CommandHandler::handleRegister(SocketWrapper& socket_wrapper, const std::st
             return;
         }
 
-        std::string hashed_password = hashPassword(password); // Assuming `hashPassword` is a function that hashes the password
+        std::string hashed_password = hashPassword(password);
         data_base_->SignUp(username, hashed_password);
         socket_wrapper.sendResponseAsync("250 User registered successfully\r\n").get();
     } catch (const std::runtime_error& e) {
@@ -464,7 +463,6 @@ void CommandHandler::handleRegister(SocketWrapper& socket_wrapper, const std::st
         ErrorHandler::handleError("Handle REGISTER", e, socket_wrapper, "550 Internal Server Error\r\n");
     }
 }
-
 
 std::pair<std::string, std::string> CommandHandler::decodeAndSplitPlain(const std::string& encoded_data) {
     std::string decoded_data = ISXBase64::Base64Decode(encoded_data);
