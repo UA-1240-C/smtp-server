@@ -1,92 +1,128 @@
-#include "Logger.h"
+#include "../include/Logger.h"  // TODO: change to "Logger.h" through CMake;
 
-LogPriority Logger::s_priority = INFO;
 std::mutex Logger::s_log_mutex;
+// TODO: merge with parser to retrieve needed variables (m_current_log_level, m_flush, m_log_file)
 
-LogPriority Logger::get_priority()
+Logger& Logger::get_logger()
 {
-	return s_priority;
+	static Logger logger;
+	return logger;
 }
 
-void Logger::set_priority(const LogPriority user_priority = INFO)
+std::string Logger::set_log_file(const std::string& filename)
 {
-	s_priority = user_priority;
+	m_log_file = filename;
+	return m_log_file;
 }
 
-Logger::Logger()
+std::string Logger::get_log_file() const
 {
-	set_priority();
+	return m_log_file;
 }
 
-Logger::Logger(const LogPriority user_priority)
+LogLevel Logger::set_log_level(const int& log_level)
 {
-	set_priority(user_priority);
-}
-
-
-void Logger::Log(LogPriority user_priority, const std::optional<std::string>& function_name, const std::string& message,
-				const std::string& file, int line)
-{
-	std::lock_guard<std::mutex> guard(s_log_mutex);
-	std::string output_priority{};
-
-	switch (user_priority)
+	const boost::shared_ptr<logging::core> core = logging::core::get();
+	switch (log_level)
 	{
-	case TRACE:
-		output_priority = "TRACE";
+	case 0:
+		m_current_log_level = {};
+		core->set_filter(logging::trivial::severity > ERROR);
 		break;
-	case DEBUG:
-		output_priority = "DEBUG";
+	case 1:
+		m_current_log_level = PROD;
+		core->set_filter(logging::trivial::severity >= PROD);
 		break;
-	case PROD:
-		output_priority = "PROD";
+	case 2:
+		m_current_log_level = DEBUG;
+		core->set_filter(logging::trivial::severity == DEBUG);
 		break;
-	case INFO:
-		output_priority = "INFO";
-		break;
-	case WARNING:
-		output_priority = "WARNING";
-		break;
-	case ERROR:
-		output_priority = "ERROR";
+	case 3:
+		m_current_log_level = TRACE;
+		core->set_filter(logging::trivial::severity == TRACE);
 		break;
 	default:
-		output_priority = "UNKNOWN";
+		m_current_log_level = {};
+		core->set_filter(logging::trivial::severity > ERROR);
 		break;
 	}
-
-	FileLogging(output_priority, function_name, message, file, line);
+	return m_current_log_level;
 }
 
-void Logger::FileLogging(const std::string& output_priority,
-						const std::optional<std::string>& function_name, const std::string& message,
-						const std::string& file, const int line)
+LogLevel Logger::get_log_level() const
 {
-	const auto now_time_point = std::chrono::system_clock::now();
-	const std::time_t now_time = std::chrono::system_clock::to_time_t(now_time_point);
-	std::tm now{};
+	return m_current_log_level;
+}
 
-#ifdef _WIN32
-	localtime_s(&now, &now_time);
-#else
-	localtime_r(&now_time, &now);
-#endif
+bool Logger::set_flush(const int& flush)
+{
+	m_flush = flush ? true : false;
+	return m_flush;
+}
 
-	// file output
-	std::ofstream log_file(SERVERLOG, std::ios_base::out | std::ios::app);
-	if (!log_file.is_open())
+bool Logger::get_flush() const
+{
+	return m_flush;
+}
+
+
+boost::shared_ptr<sink_ostream> Logger::init_logging()
+{
+	logging::add_file_log(
+		keywords::file_name = get_logger().get_log_file(),
+		keywords::format = "[%TimeStamp]: %Message%"
+	);
+
+	const boost::shared_ptr<logging::core> core = logging::core::get();
+	logging::add_common_attributes(); // LineID, TimeStamp, ProcessID, ThreadID
+	core->add_global_attribute("Severity", attrs::constant<LogLevel>(TRACE));
+	BOOST_LOG_FUNCTION()
+
+	if (get_logger().get_log_level() == DEBUG)
 	{
-		std::cerr << "error while opening the " << SERVERLOG << "! bad!";
-		return;
+		core->add_global_attribute("Scope", attrs::named_scope());
 	}
-	log_file << std::put_time(&now, "%Y-%m-%d %H:%M:%S") << " [" << output_priority << "] ";
-	if (function_name.has_value())
+	BOOST_LOG_TRIVIAL(info) << "Logger initialized";
+
+	// Create a backend and initialize it with a stream
+	const auto backend = boost::make_shared<sinks::text_ostream_backend>();
+	backend->add_stream(boost::shared_ptr<std::ostream>(&std::clog, boost::null_deleter()));
+
+	// Wrap it into the frontend and register in the core
+	boost::shared_ptr<sink_ostream> sink(new sink_ostream(backend));
+	core->add_sink(sink);
+	sink->set_formatter(
+		expr::stream
+		<< expr::format_date_time<boost::posix_time::ptime>("TimeStamp", "%a %d/%m/%Y %H:%M:%S")
+		<< " [" << get_logger().get_log_level() << "] "
+
+		// TODO: fix this
+		/*<< if_(expr::has_attr<std::string>("Scope"))
+		[
+			expr::stream << expr::format_named_scope(
+				"Scope", "%a (%F:%l) ")
+		]*/
+
+		<< expr::message
+	);
+
+
+	// TODO: decide what to do with this scope thing from documentation
+	// You can also manage backend in a thread-safe manner
 	{
-		log_file << "(" << function_name.value() << ") ";
-	}
-	if (!file.empty())
+		std::lock_guard<std::mutex> log(s_log_mutex);
+		const sink_ostream::locked_backend_ptr p = sink->locked_backend();
+		p->add_stream(boost::make_shared<std::ofstream>());
+	} // the backend gets released here
+
+	return sink;
+}
+
+void Logger::stop_logging()
+{
+	logging::core::get()->remove_all_sinks();
+	if (get_logger().get_flush())
 	{
-		log_file << file.substr(file.find("src")) << ":(" << line << ')' << ' ';
+		logging::core::get()->flush();
 	}
-	log_file << message << '\n';
 }

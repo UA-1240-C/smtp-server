@@ -1,24 +1,23 @@
-# CMakeList.txt : CMake project for Logger, include source and define
-# project specific logic here.
-#
-cmake_minimum_required (VERSION 3.12)
+cmake_minimum_required(VERSION 3.28)
+project(SMTPLogger)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
-# Enable Hot Reload for MSVC compilers if supported.
-if (POLICY CMP0141)
-  cmake_policy(SET CMP0141 NEW)
-  set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT "$<IF:$<AND:$<C_COMPILER_ID:MSVC>,$<CXX_COMPILER_ID:MSVC>>,$<$<CONFIG:Debug,RelWithDebInfo>:EditAndContinue>,$<$<CONFIG:Debug,RelWithDebInfo>:ProgramDatabase>>")
+find_package(Boost 1.85 REQUIRED COMPONENTS log thread)
+if(Boost_FOUND)
+    message(STATUS "Boost include directories: ${Boost_INCLUDE_DIRS}")
+    message(STATUS "Boost libraries: ${Boost_LIBRARIES}")
+    include_directories(${Boost_INCLUDE_DIRS})
+    link_directories(${Boost_LIBRARYDIR})
+else()
+    message(FATAL_ERROR "Could not find Boost")
 endif()
+find_package(Threads REQUIRED)
 
-project ("SMTPLogger")
-# Add source to this project's executable.
-add_executable (Logger "src/Logger.cpp" "src/Logger.h")
+include_directories(${CMAKE_SOURCE_DIR}/include)
 
-# Define the root project directory
-set(ROOT_PROJECT_DIR ${CMAKE_SOURCE_DIR})
-# Define the log file path
-set(SERVERLOG "${ROOT_PROJECT_DIR}/serverlog.txt")
-# Pass the log file path as macro
-add_definitions(-DSERVERLOG=\"${SERVERLOG}\")
+add_executable(Logger src/Logger.cpp)
+target_include_directories(Logger PRIVATE ${CMAKE_SOURCE_DIR}/include ${Boost_INCLUDE_DIRS})
+
+target_link_libraries(Logger Boost::log Boost::thread Threads::Threads)
