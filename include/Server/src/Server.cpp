@@ -51,30 +51,29 @@ void SmtpServer::handleClient(SocketWrapper socket_wrapper) {
     try {
         bool in_data = false;
         MailMessageBuilder mail_builder;
-        std::array<char, 1024> buffer{};
         std::string current_line;
 
         while (true) {
-            boost::system::error_code error;
-            size_t length{};
-            command_handler_.readFromSocket(socket_wrapper, buffer, length, error);
+            size_t length = 1024;
+            auto future_data = socket_wrapper.readFromSocketAsync(length);
 
-            if (error) {
-                ErrorHandler::handleBoostError("Read from socket", error);
-                if (error == boost::asio::error::eof) {
+            try {
+                std::string buffer = future_data.get(); // Получаем данные
+                current_line.append(buffer);
+                std::size_t pos;
+
+                while ((pos = current_line.find("\r\n")) != std::string::npos) {
+                    std::string line = current_line.substr(0, pos);
+                    current_line.erase(0, pos + 2);
+                    command_handler_.processLine(line, socket_wrapper, in_data, mail_builder);
+                }
+            } catch (const std::exception& e) {
+                ErrorHandler::handleException("Read from socket", e);
+                if (dynamic_cast<const boost::system::system_error*>(&e)) {
                     std::cout << "Client disconnected." << std::endl;
                     break;
                 }
-                throw boost::system::system_error(error);
-            }
-
-            current_line.append(buffer.data(), length);
-            std::size_t pos;
-
-            while ((pos = current_line.find("\r\n")) != std::string::npos) {
-                std::string line = current_line.substr(0, pos);
-                current_line.erase(0, pos + 2);
-                command_handler_.processLine(line, socket_wrapper, in_data, mail_builder);
+                throw;
             }
         }
     } catch (std::exception& e) {
@@ -90,7 +89,7 @@ void SmtpServer::tempHandleDataMode(const std::string& line,
         saveData(line, mail_builder, socket_wrapper, in_data);
     } else {
         try {
-            socket_wrapper.sendResponse("500 Command not recognized\r\n");
+            socket_wrapper.sendResponseAsync("500 Command not recognized\r\n").get();
         } catch (const std::exception& e) {
             ErrorHandler::handleException("Handle Data Mode", e);
         }
@@ -105,7 +104,7 @@ void SmtpServer::saveData(const std::string& line,
         try {
             tempSaveMail(mail_builder.Build());
 
-            socket_wrapper.sendResponse("250 OK\r\n");
+            socket_wrapper.sendResponseAsync("250 OK\r\n").get();
         } catch (const std::exception& e) {
             // Обработка ошибок
             std::cerr << "Error while saving data or sending response: " << e.what() << std::endl;

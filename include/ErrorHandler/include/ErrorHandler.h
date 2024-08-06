@@ -31,7 +31,13 @@ namespace ISXSC {
     SocketWrapper& socket_wrapper, const std::string& error_response)
   {
     std::cerr << context << " error: " << e.what() << std::endl;
-    socket_wrapper.sendResponse(error_response);
+    auto future = socket_wrapper.sendResponseAsync(error_response + "\r\n");
+    try {
+      future.get(); // Ожидание завершения асинхронной операции
+      std::cout << "Response sent successfully." << std::endl;
+    } catch (const std::exception& e) {
+      std::cerr << "Error sending response: " << e.what() << std::endl;
+    }
   }
 }
 
