@@ -1,7 +1,7 @@
 #include <iostream>
 
 #include "CommandHandler.h"
-#include "../../ErrorHandler/include/ErrorHandler.h"
+#include "ErrorHandler.h"
 
 using namespace ISXSC;
 
@@ -420,11 +420,23 @@ void CommandHandler::handleStartTLS(SocketWrapper& socket_wrapper) {
 void CommandHandler::handleAuth(SocketWrapper& socket_wrapper, const std::string& line) {
     try {
         auto [username, password] = decodeAndSplitPlain(line.substr(11));
-        std::string hashed_password = hashPassword(password);
-        data_base_->Login(username, hashed_password);
+        std::cout << "Username exists: " << data_base_->UserExists(username) << std::endl;
+
+        if (!data_base_->UserExists(username)) {
+            std::cout << "User " << username << " with password " << password << " does not exist\n";
+            socket_wrapper.sendResponseAsync("535 Authentication failed\r\n").get();
+            return;
+        }
+
+        std::string stored_hashed_password = data_base_->GetPasswordHash(username);
+        // Assuming `verifyPassword` is a function that verifies the password
+        if (!verifyPassword(password, stored_hashed_password)) {
+            throw std::runtime_error("Authentication failed");
+        }
+
         socket_wrapper.sendResponseAsync("235 Authentication successful\r\n").get();
     } catch (const std::runtime_error& e) {
-        ErrorHandler::handleError("Handle AUTH", e, socket_wrapper, "501 Syntax error in parameters or arguments\r\n");
+        ErrorHandler::handleError("Handle AUTH", e, socket_wrapper, "535 Authentication failed\r\n");
     } catch (const ISXMailDB::MailException& e) {
         ErrorHandler::handleError("Handle AUTH", e, socket_wrapper, "535 Authentication failed\r\n");
     } catch (const std::exception& e) {
@@ -435,13 +447,15 @@ void CommandHandler::handleAuth(SocketWrapper& socket_wrapper, const std::string
 void CommandHandler::handleRegister(SocketWrapper& socket_wrapper, const std::string& line) {
     try {
         auto [username, password] = decodeAndSplitPlain(line.substr(9));
+
         if (data_base_->UserExists(username)) {
             socket_wrapper.sendResponseAsync("550 User already exists\r\n").get();
-        } else {
-            std::string hashed_password = hashPassword(password);
-            data_base_->SignUp(username, hashed_password);
-            socket_wrapper.sendResponseAsync("250 User registered successfully\r\n").get();
+            return;
         }
+
+        std::string hashed_password = hashPassword(password); // Assuming `hashPassword` is a function that hashes the password
+        data_base_->SignUp(username, hashed_password);
+        socket_wrapper.sendResponseAsync("250 User registered successfully\r\n").get();
     } catch (const std::runtime_error& e) {
         ErrorHandler::handleError("Handle REGISTER", e, socket_wrapper, "501 Syntax error in parameters or arguments\r\n");
     } catch (const ISXMailDB::MailException& e) {
@@ -450,6 +464,7 @@ void CommandHandler::handleRegister(SocketWrapper& socket_wrapper, const std::st
         ErrorHandler::handleError("Handle REGISTER", e, socket_wrapper, "550 Internal Server Error\r\n");
     }
 }
+
 
 std::pair<std::string, std::string> CommandHandler::decodeAndSplitPlain(const std::string& encoded_data) {
     std::string decoded_data = ISXBase64::Base64Decode(encoded_data);
@@ -477,17 +492,20 @@ std::pair<std::string, std::string> CommandHandler::decodeAndSplitPlain(const st
 }
 
 
-std::string CommandHandler::hashPassword(const std::string& password)
-{
-    std::string hashed_password;
-    std::vector<unsigned char> hash(crypto_pwhash_STRBYTES);
+bool CommandHandler::verifyPassword(const std::string& password,
+                                    const std::string& hashed_password) {
+    return crypto_pwhash_str_verify(hashed_password.c_str(), password.c_str(),
+                                    password.size()) == 0;
+}
 
-    if (crypto_pwhash_str(reinterpret_cast<char*>(hash.data()), password.c_str(),
+std::string CommandHandler::hashPassword(const std::string& password) {
+    std::string hashed_password(crypto_pwhash_STRBYTES, '\0');
+
+    if (crypto_pwhash_str(hashed_password.data(), password.c_str(),
                           password.size(), crypto_pwhash_OPSLIMIT_INTERACTIVE,
                           crypto_pwhash_MEMLIMIT_INTERACTIVE) != 0) {
         throw std::runtime_error("Password hashing failed");
                           }
 
-    hashed_password.assign(hash.begin(), hash.end());
     return hashed_password;
 }

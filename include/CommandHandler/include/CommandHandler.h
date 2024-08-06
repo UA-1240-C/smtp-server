@@ -46,6 +46,8 @@ namespace ISXSC {
     void handleRegister(SocketWrapper& socket_wrapper, const std::string& line);
     std::pair<std::string, std::string> decodeAndSplitPlain(const std::string& encoded_data);
 
+    bool verifyPassword(const std::string& password,
+                                    const std::string& hashed_password);
     std::string hashPassword(const std::string& password);
     void saveMailToDatabase(const MailMessage& message);
 

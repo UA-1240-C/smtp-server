@@ -8,8 +8,16 @@ Use PgMailDB class to establish connection with database. PgMailDB inherits from
 ```C++
 PgMailDB pg("host or server name");
 
-// use "postgresql://postgres.qotrdwfvknwbfrompcji:yUf73LWenSqd9Lt4@aws-0-eu-central-1.pooler.supabase.com:6543/postgres?sslmode=require"
-// to connect to remote db
+try
+{
+  // use "postgresql://postgres.qotrdwfvknwbfrompcji:yUf73LWenSqd9Lt4@aws-0-eu-central-1.pooler.supabase.com:6543/postgres?sslmode=require"
+  // to connect to remote db
+  pg.Connect(connection_string);
+}
+catch (const MailException& e)
+{
+  cerr << "connection failed\n";
+}
 
 ```
 # Database

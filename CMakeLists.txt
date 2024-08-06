@@ -37,7 +37,7 @@ target_link_libraries(SMTP_server PRIVATE
         Boost::system
         Boost::thread
         ${OPENSSL_LIBRARIES}
-        pqxx
+        libpqxx::pqxx
         ${LIBSODIUM_LIBRARIES}
 )
 

@@ -58,7 +58,7 @@ void SmtpServer::handleClient(SocketWrapper socket_wrapper) {
             auto future_data = socket_wrapper.readFromSocketAsync(length);
 
             try {
-                std::string buffer = future_data.get(); // Получаем данные
+                std::string buffer = future_data.get();
                 current_line.append(buffer);
                 std::size_t pos;
 
