@@ -9,5 +9,6 @@ using namespace ISXMailDB;
 
 int main()
 {
-    return 0;
+    Mail m = {"recipeint", "sender", "subject", "body"};
+    std::cout << m << std::endl;
 }

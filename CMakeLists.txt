@@ -1,5 +1,5 @@
-cmake_minimum_required(VERSION 3.13)
-project(SMTP_server)
+cmake_minimum_required(VERSION 3.28)
+project(SMTP_server VERSION 1.0.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 
