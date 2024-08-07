@@ -15,12 +15,12 @@ public:
     JSON(double value) : type(NUMBER), num_value(value) {} // Constructor for NUMBER type
     JSON(bool value) : type(BOOL), bool_value(value) {} // Constructor for BOOL type
 
-    Type get_Type() const { return type; } // Getter for the type of JSON value
+    Type get_type() const { return type; } // Getter for the type of JSON value
 
-    const std::unordered_map<std::string, JSON>& get_Object_value() const { return object_value; } // Getter for OBJECT value
-    const std::string& get_String_value() const { return str_value; } // Getter for STRING value
-    double get_Number_value() const { return num_value; } // Getter for NUMBER value
-    bool get_Bool_value() const { return bool_value; } // Getter for BOOL value
+    const std::unordered_map<std::string, JSON>& get_object_value() const { return object_value; } // Getter for OBJECT value
+    const std::string& get_string_value() const { return str_value; } // Getter for STRING value
+    double get_number_value() const { return num_value; } // Getter for NUMBER value
+    bool get_bool_value() const { return bool_value; } // Getter for BOOL value
 
     static JSON Parse(const std::string &content); // Static method to parse JSON from string
 
@@ -90,7 +90,7 @@ JSON JSON::ParseObject(std::stringstream &ss) {
         SkipWhitespace(ss);
         ss.get(); // Consume ':'
         SkipWhitespace(ss);
-        obj.object_value[key.get_String_value()] = Parse(ss.str().substr(ss.tellg())); // Parse the value and add to the object
+        obj.object_value[key.get_string_value()] = Parse(ss.str().substr(ss.tellg())); // Parse the value and add to the object
         SkipWhitespace(ss);
         if (ss.peek() == ',') {
             ss.get(); // Consume ','
