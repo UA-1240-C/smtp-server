@@ -5,6 +5,10 @@
 + **IMailDB(const std::string_view host_name)** - set m_host_name to host_name.
   + Exceptions thrown:
     + MailException("Host name couldn't be empty") - if host_name is empty.
+   
++ **IMailDB(const IMailDB& other)** - set m_host_name to other.m_host_name.
+  + Exceptions thrown:
+    + MailException("Host name couldn't be empty") - if other.m_host_name is empty.
 
 + **bool Connect(const std::string &connection_string)** - establish connection between client and database server.
   + Pass connection_string of one of the following format:
@@ -17,6 +21,8 @@
 
 + **bool IsConnected()** const - return true, if connection established and exists, otherwise false. 
 
++ **std::string GetPasswordHash(const std::string_view user_name)** - return hash password for user with specified user_name. If user doesn't exist return empty string.
+  
 + **void SignUp(const std::string_view user_name, const std::string_view hash_password)** - creates user with name and password on host, specified in constructor.
   + Exceptions thrown:
     + MailException("User already exists") - if user exists with the same name on host.
@@ -36,16 +42,10 @@
 + **void MarkEmailsAsReceived(const std::string_view user_name)** - marks **all** emails as received for user with user_name.
   + Exceptions thrown:
     + MailException("User doesn't exist") - If user doesn't exist on host.                            
-
       
 + **std::vector<Mail> RetrieveEmails(const std::string_view user_name, bool should_retrieve_all = false) const** - if should_retrieve_all = false return mails that haven't been received, otherwise return all emails for user with user_name. The order of mails in vector is the following: newer ones first.
   + Exceptions thrown:
     + MailException("User doesn't exist") - If user doesn't exist on host.
-
-+ **bool InsertEmailContent(const std::string_view content)** - inserts given content in database.
-  + Exceptions thrown:
-    + MailException(appropriate pqxx error message) - if transaction failed; 
-    + MailException("Connection with database lost or was manually already closed") - if connection with database was lost.
   
 + **bool InsertEmail(const std::string_view sender, const std::string_view receiver,
                             const std::string_view subject, const std::string_view body)** - inserts email with single receiver passed. Also implicitly insert mail content into database.
@@ -76,7 +76,7 @@
     + MailException("Given value doesn't exist in database.") - if passed user doesn't exist;
     + MailException("Connection with database lost or was manually already closed") - if connection with database was lost.
 
-## Helper sturcts
+## Helper structs
 ```C++
 struct User
 {

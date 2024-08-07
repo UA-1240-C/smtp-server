@@ -21,9 +21,6 @@ namespace ISXSC {
 
     void processLine(const std::string& line, SocketWrapper& socket_wrapper,
                      bool in_data, MailMessageBuilder& mail_builder);
-    void readFromSocket(SocketWrapper& socket_wrapper,
-                                std::array<char, 1024>& buffer, size_t& length,
-                                boost::system::error_code& error);
   private:
     void handleEhlo(SocketWrapper& socket_wrapper) ;
     void handleMailFrom(SocketWrapper& socket_wrapper, const std::string& line);
@@ -40,7 +37,6 @@ namespace ISXSC {
     void handleVrfy(SocketWrapper& socket_wrapper, const std::string& line);
     void handleExpn(SocketWrapper& socket_wrapper, const std::string& line);
 
-
     void handleQuit(SocketWrapper& socket_wrapper);
     void handleQuitSsl(SocketWrapper& socket_wrapper);
     void handleQuitTcp(SocketWrapper& socket_wrapper);
@@ -50,11 +46,13 @@ namespace ISXSC {
     void handleRegister(SocketWrapper& socket_wrapper, const std::string& line);
     std::pair<std::string, std::string> decodeAndSplitPlain(const std::string& encoded_data);
 
+    bool verifyPassword(const std::string& password,
+                                    const std::string& hashed_password);
     std::string hashPassword(const std::string& password);
     void saveMailToDatabase(const MailMessage& message);
 
-    void ConnectToDatabase();
-    void DisconnectFromDatabase();
+    void ConnectToDatabase() const;
+    void DisconnectFromDatabase() const;
 
     boost::asio::ssl::context& ssl_context_;
     std::unique_ptr<ISXMailDB::PgMailDB> data_base_;

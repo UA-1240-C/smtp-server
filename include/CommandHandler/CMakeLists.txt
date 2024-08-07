@@ -18,8 +18,7 @@ target_include_directories(CommandHandler PRIVATE
         ${CMAKE_SOURCE_DIR}/include/SocketWrapper/include
         ${CMAKE_SOURCE_DIR}/include/MailMessageFormatter/include
         ${CMAKE_SOURCE_DIR}/include/DataBase-main/libs/MailDB/include
-        
-
+        ${CMAKE_SOURCE_DIR}/include/ErrorHandler/include
 )
 
 target_compile_features(CommandHandler PRIVATE cxx_std_17)

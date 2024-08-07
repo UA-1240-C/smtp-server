@@ -19,6 +19,13 @@
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Release"
             }
+        },
+        {  
+            "name": "windows only",
+            "description": "Defalut windows settings for my cmake project",
+            "hidden": false,
+            "generator": "Visual Studio 17 2022",
+            "binaryDir": "${workspaceFolder}/build"
         }
 
     ]

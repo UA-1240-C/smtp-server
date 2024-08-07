@@ -11,10 +11,8 @@ namespace ISXMailDB
 struct User
 {
     User(const std::string& user_name, const std::string& user_password, const std::string& host_name)
-        : user_name{user_name}, user_password{user_password}, host_name{host_name} {}
-
-    std::string GetPasswordHash() const {
-        return user_password;
+        : user_name{user_name}, user_password{user_password}, host_name{host_name}
+    {
     }
 
     std::string user_name;
@@ -29,7 +27,10 @@ struct Mail
     std::string body;
 
     Mail(std::string sender, std::string subject, std::string body)
-        : sender(std::move(sender)), subject(std::move(subject)), body(std::move(body)) {}
+        : sender(sender), subject(subject), body(body)
+    {
+    }
+    
 };
 
 class IMailDB
@@ -45,7 +46,7 @@ public:
     }
     virtual ~IMailDB() = default;
 
-    IMailDB(const IMailDB&) = delete;
+    IMailDB(const IMailDB&);
     IMailDB& operator=(const IMailDB&) = delete;
 
     IMailDB(IMailDB&&) = delete;
@@ -59,14 +60,14 @@ public:
     // TODO: Denys
     virtual void SignUp(const std::string_view user_name, const std::string_view hash_password) = 0;
     virtual void Login(const std::string_view user_name, const std::string_view hash_password) = 0;
+    virtual std::string GetPasswordHash(const std::string_view user_name) = 0;
 
     // TODO: Viacheslav
     virtual std::vector<User> RetrieveUserInfo(const std::string_view user_name = "") = 0;
-    virtual void InsertEmailContent(const std::string_view content) = 0;
     virtual std::vector<std::string> RetrieveEmailContentInfo(const std::string_view content = "") = 0;
     virtual void InsertEmail(const std::string_view sender, const std::string_view receiver,
                                 const std::string_view subject, const std::string_view body) = 0;
-    virtual void InsertEmail(const std::string_view sender, std::vector<std::string_view> receivers,
+    virtual void InsertEmail(const std::string_view sender, const std::vector<std::string_view> receivers,
                                 const std::string_view subject, const std::string_view body) = 0;
 
     // TODO: Denys
