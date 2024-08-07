@@ -1,14 +1,13 @@
-<<<<<<< HEAD
-cmake-build-debug/
-
 .idea/
 **/.idea/
-=======
 .idea/
 
 cmake-build-debug/
 
 server.crt
 server.key
+server.csr
 
->>>>>>> origin/SCRUM-74/Integrate-a-DB-to-the-server
+.vscode
+build
+.clang-format
