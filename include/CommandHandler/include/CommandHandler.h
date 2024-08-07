@@ -21,9 +21,6 @@ namespace ISXSC {
 
     void processLine(const std::string& line, SocketWrapper& socket_wrapper,
                      bool in_data, MailMessageBuilder& mail_builder);
-    static void handleBoostError(const std::string& where, const boost::system::error_code& error);
-    void handleException(const std::string& where, const std::exception& e) const;
-    void handleError(const std::string& context, const std::exception& e, SocketWrapper& socket_wrapper, const std::string& error_response);
     void readFromSocket(SocketWrapper& socket_wrapper,
                                 std::array<char, 1024>& buffer, size_t& length,
                                 boost::system::error_code& error);
