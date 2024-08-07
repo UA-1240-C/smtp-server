@@ -66,7 +66,7 @@ std::future<std::string> SocketWrapper::ReadFromSocketAsync(size_t max_length) {
                     promise->set_value(*buffer);
                 }
             });
-    } else if (auto ssl_socket = get<boost::asio::ssl::stream<boost::asio::ip::tcp::socket>>()) {
+    } else if (auto ssl_socket = get<SslSocket>()) {
         ssl_socket->async_read_some(boost::asio::buffer(*buffer),
             [promise, buffer](const boost::system::error_code& error, std::size_t length) {
                 if (error) {
@@ -88,7 +88,7 @@ std::future<void> SocketWrapper::StartTlsAsync(boost::asio::ssl::context& contex
     auto future = promise->get_future();
 
     auto tcp_socket = get<boost::asio::ip::tcp::socket>();
-    auto ssl_socket = std::make_shared<boost::asio::ssl::stream<boost::asio::ip::tcp::socket>>(std::move(*tcp_socket), context);
+    auto ssl_socket = std::make_shared<SslSocket>(std::move(*tcp_socket), context);
 
     ssl_socket->set_verify_mode(boost::asio::ssl::verify_none);
 

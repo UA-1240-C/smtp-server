@@ -119,7 +119,7 @@ std::string PgMailDB::GetPasswordHash(const std::string_view user_name)
     
 }
 
- std::vector<User> PgMailDB::RetrieveUserInfo(const std::string_view user_name)
+std::vector<User> PgMailDB::RetrieveUserInfo(const std::string_view user_name)
     {
         if (!IsConnected())
         {
@@ -308,7 +308,7 @@ std::vector<Mail> PgMailDB::RetrieveEmails(const std::string_view user_name, boo
 
     for (auto [sender, subject, body] : ntx.query<std::string, std::string, std::string>(query))
     {
-        resutl_mails.emplace_back(sender, subject, body);
+        resutl_mails.emplace_back(user_name,sender, subject, body);
     }
 
     return resutl_mails;
