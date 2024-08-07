@@ -11,6 +11,7 @@
 #define LOGGER_H
 
 #pragma once
+#include <cassert>
 #include <chrono>
 #include <ctime>
 #include <fstream>
@@ -18,32 +19,39 @@
 #include <iostream>
 #include <mutex>
 #include <optional>
+#include <sstream>
 #include <string>
 #include <thread>
 #include <vector>
 
 #include <boost/make_shared.hpp>
 #include <boost/shared_ptr.hpp>
+#include <boost/config/user.hpp>
+#include <boost/core/null_deleter.hpp>
+#include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/log/attributes.hpp>
+#include <boost/log/common.hpp>
 #include <boost/log/core.hpp>
 #include <boost/log/expressions.hpp>
+#include <boost/log/sinks.hpp>
 #include <boost/log/trivial.hpp>
 #include <boost/log/attributes/named_scope.hpp>
+#include <boost/log/attributes/scoped_attribute.hpp>
 #include <boost/log/sinks/async_frontend.hpp>
 #include <boost/log/sinks/text_file_backend.hpp>
 #include <boost/log/sinks/text_ostream_backend.hpp>
-#include <boost/log/sources/global_logger_storage.hpp>
 #include <boost/log/sources/exception_handler_feature.hpp>
+#include <boost/log/sources/global_logger_storage.hpp>
 #include <boost/log/sources/logger.hpp>
 #include <boost/log/sources/severity_channel_logger.hpp>
 #include <boost/log/support/date_time.hpp>
+#include <boost/log/utility/record_ordering.hpp>
+#include <boost/log/utility/manipulators/add_value.hpp>
 #include <boost/log/utility/setup/common_attributes.hpp>
 #include <boost/log/utility/setup/console.hpp>
 #include <boost/log/utility/setup/file.hpp>
-#include <boost/config/user.hpp>
+#include <boost/smart_ptr/shared_ptr.hpp>
 #include <boost/thread/thread.hpp>
-#include <boost/log/attributes/scoped_attribute.hpp>
-#include <boost/log/utility/record_ordering.hpp>
 
 
 namespace logging = boost::log;
@@ -53,67 +61,51 @@ namespace sinks = boost::log::sinks;
 namespace keywords = boost::log::keywords;
 namespace attrs = boost::log::attributes;
 
+enum
+{
+	NONE_LVL = 0,
+	PROD_AND_WARNING_AND_ERROR_LVL = 1,
+	DEBUG_LVL = 2,
+	TRACE_LVL = 3
+};
 
 enum LogLevel
 {
-	TRACE = logging::trivial::trace,
-	DEBUG = logging::trivial::debug,
-	PROD = logging::trivial::info,
-	WARNING = logging::trivial::warning,
-	ERROR = logging::trivial::error
+	TRACE,
+	DEBUG,
+	PROD,
+	WARNING,
+	ERROR
 };
 
+//#define SIGN __FILE__ <<":(" << __LINE__ << ")" << __FUNCTION_SIGNATURE__
 
-BOOST_LOG_ATTRIBUTE_KEYWORD(line_id, "LineID", unsigned int)
-BOOST_LOG_ATTRIBUTE_KEYWORD(timestamp, "TimeStamp", boost::posix_time::ptime)
-BOOST_LOG_ATTRIBUTE_KEYWORD(scope, "Scope", attrs::named_scope)
-BOOST_LOG_ATTRIBUTE_KEYWORD(severity, "Severity", LogLevel)
+using text_sink = sinks::synchronous_sink<sinks::text_ostream_backend>;
 
-BOOST_LOG_GLOBAL_LOGGER(g_logger, src::logger_mt)
-
-#define TRACE_LOGGER(message) (Logger::get_logger().WriteLog(TRACE, __FUNCTION_SIGNATURE__, __FILE__, __LINE__, message))
-
-// TODO: set auto functions logging (by scope?)
-#define DEBUG_LOGGER(message) (Logger::get_logger().WriteLog(DEBUG, __func__, __FILE__, __LINE__, message))
-
-
-using sink_ostream = sinks::asynchronous_sink<sinks::text_ostream_backend>;
-//using sink_fstream = sinks::asynchronous_sink<sinks::text_file_backend>;
-
-class Logger
+namespace ISXLogger
 {
-	Logger() = default;
-	~Logger() = default;
+	inline int log_level;
+	inline std::mutex log_mutex;
+	inline std::string log_file;
+	inline bool flush;
 
-	std::string m_log_file;
-	LogLevel m_log_level;
-	bool m_flush;
-	src::severity_logger_mt<LogLevel> m_logger;
-	boost::shared_ptr<sink_ostream> m_file_sink;
+	//// functions to work with parser
+	std::string set_log_file(const std::string& parser_filename);
+	[[nodiscard]] std::string get_log_file();
 
-public:
-	Logger(const Logger&) = delete;
-	Logger& operator=(const Logger&) = delete;
+	bool set_flush(const int& parser_flush);
+	[[nodiscard]] bool get_flush();
 
-	static std::mutex s_log_mutex;
+	int set_log_level(const int& parsing_log_level);
 
-	// functions to work with parser
-	std::string set_log_file(const std::string& filename);
-	[[nodiscard]] std::string get_log_file() const;
-	LogLevel set_log_level(const int& log_level);
-	[[nodiscard]] LogLevel get_log_level() const;
-	bool set_flush(const int& flush);
-	[[nodiscard]] bool get_flush() const;
-	src::severity_logger_mt<LogLevel> get_m_logger() const;
-	boost::shared_ptr<sink_ostream> set_file_sink(const boost::shared_ptr<sink_ostream>& file_sink);
-	[[nodiscard]] boost::shared_ptr<sink_ostream> get_file_sink() const;
+	[[nodiscard]] std::string get_log_level();
 
-	static Logger& get_logger();
+	src::severity_logger<LogLevel> InitLogging(src::severity_logger<LogLevel>& slg);
 
-	static boost::shared_ptr<sink_ostream> InitLogging();
-	static void WriteLog(LogLevel, const std::string& function_name, const std::string& file, const int& line,
-						const std::string& message);
-	static void StopLogging();
+	void WarningLog(src::severity_logger<LogLevel>& slg, const std::string& message);
+	void ErrorLog(src::severity_logger<LogLevel>& slg, const std::string& message);
+	void DebugLog(src::severity_logger<LogLevel>& slg, const std::string& message);
+	void TraceLog(src::severity_logger<LogLevel>& slg, const std::string& message);
 };
 
 
