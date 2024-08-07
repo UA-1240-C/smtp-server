@@ -1,0 +1,19 @@
+--Insert dummy data
+INSERT INTO "mailBodies" (body_content) VALUES
+('This is the body of the first email.'),
+('This is the body of the second email.'),
+('This is the body of the third email.');
+
+INSERT INTO hosts (host_name) VALUES ('host1'), ('host2');
+
+INSERT INTO users (host_id, user_name, password_hash) VALUES 
+(1, 'user1', 'password_hash1'),
+(1, 'user2', 'password_hash2'),
+(1, 'user3', 'password_hash3'),
+(2, 'user3', 'password_hash3'),
+(2, 'user4', 'password_hash4');
+
+INSERT INTO "emailMessages" (sender_id, recipient_id, subject, mail_body_id, is_received) VALUES
+(1, 2, 'Subject 1', 1, TRUE),
+(2, 1, 'Subject 2', 2, FALSE),
+(3, 1, 'Subject 3', 3, FALSE);

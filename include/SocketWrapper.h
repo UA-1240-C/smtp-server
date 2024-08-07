@@ -13,10 +13,10 @@ using SslSocket = boost::asio::ssl::stream<boost::asio::ip::tcp::socket>;
 class SocketWrapper {
 public:
 	explicit SocketWrapper(std::shared_ptr<TcpSocket> tcp_socket)
-		: socket_(tcp_socket) {}
+			: socket_(tcp_socket) {}
 
 	explicit SocketWrapper(std::shared_ptr<SslSocket> ssl_socket)
-		: socket_(ssl_socket) {}
+			: socket_(ssl_socket) {}
 
 	[[nodiscard]] bool is_tls() const {
 		return std::holds_alternative<std::shared_ptr<SslSocket>>(socket_);
@@ -24,8 +24,7 @@ public:
 
 	template <typename SocketType>
 	SocketType* get() {
-		//std::cout << "Attempting to get " << typeid(SocketType).name()
-		//		  << std::endl;
+
 		if (std::holds_alternative<std::shared_ptr<SocketType>>(socket_)) {
 			return std::get<std::shared_ptr<SocketType>>(socket_).get();
 		} else {
@@ -34,9 +33,30 @@ public:
 		}
 	}
 
+
+	void upgradeToTls(boost::asio::ssl::context& ssl_context) {
+		if (is_tls()) {
+			std::cerr << "Socket is already using TLS." << std::endl;
+			return;
+		}
+
+		auto tcp_socket = get<TcpSocket>();
+		auto ssl_socket = std::make_shared<SslSocket>(std::move(*tcp_socket), ssl_context);
+		socket_ = ssl_socket;
+
+		auto ssl_stream = get<SslSocket>();
+		ssl_stream->async_handshake(boost::asio::ssl::stream_base::server,
+				[ssl_stream](const boost::system::error_code& error) {
+						if (!error) {
+								std::cout << "TLS handshake completed." << std::endl;
+						} else {
+								std::cerr << "TLS handshake error: " << error.message() << std::endl;
+						}
+				});
+	}
+
 private:
-	std::variant<std::shared_ptr<TcpSocket>, std::shared_ptr<SslSocket>>
-		socket_;
+	std::variant<std::shared_ptr<TcpSocket>, std::shared_ptr<SslSocket>> socket_;
 };
 
-#endif	// SOCKETWRAPPER_H
+#endif  // SOCKETWRAPPER_H
