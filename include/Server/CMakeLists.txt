@@ -20,6 +20,7 @@ target_include_directories(Server PRIVATE
         ${CMAKE_SOURCE_DIR}/include/MailMessageFormatter/include
         ${CMAKE_SOURCE_DIR}/include/DataBase-main/libs/MailDB/include
         ${CMAKE_SOURCE_DIR}/include/Encoding/include
+        ${CMAKE_SOURCE_DIR}/include/Parser/include
 
 )
 

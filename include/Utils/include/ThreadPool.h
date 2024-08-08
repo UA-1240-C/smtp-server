@@ -107,7 +107,7 @@ class ThreadPool {
 
     /// thread pool is non-copyable
     ThreadPool(const ThreadPool &) = delete;
-    ThreadPool &operator=(const ThreadPool &) = delete;
+    //ThreadPool &operator=(const ThreadPool &) = delete;
 
     // Enqueue a task to be executed in the thread pool. Any return value of the function will be ignored
 
