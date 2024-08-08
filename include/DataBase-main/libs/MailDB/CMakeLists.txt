@@ -13,7 +13,7 @@ set(LIBRARY_HEADERS
 )
 
 set(LIBRARY_SOURCE_DIR src)
-set(LIBRARY_SOURCE ${LIBRARY_SOURCE_DIR}/PgMailDB.cpp)
+set(LIBRARY_SOURCE ${LIBRARY_SOURCE_DIR}/PgMailDB.cpp ${LIBRARY_SOURCE_DIR}/IMailDB.cpp)
 
 FetchContent_Declare(
         libpqxx

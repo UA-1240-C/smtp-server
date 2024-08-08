@@ -2,6 +2,7 @@
 
 #include <vector>
 #include <string>
+#include <cstdint>
 
 #include "MailException.h"
 
@@ -22,16 +23,22 @@ struct User
 
 struct Mail
 {
+    std::string recipient;
     std::string sender;
     std::string subject;
     std::string body;
 
-    Mail(std::string sender, std::string subject, std::string body)
-        : sender(sender), subject(subject), body(body)
+    Mail(const std::string_view recipient, const std::string_view sender,
+         const std::string_view subject, const std::string_view body)
+        : recipient(recipient), sender(sender), 
+          subject(subject), body(body)
     {
     }
     
 };
+
+std::ostream& operator<<(std::ostream& os, const Mail& mail);
+
 
 class IMailDB
 {

@@ -3,22 +3,57 @@
 #ifndef SERVER_H
 #define SERVER_H
 
-#include <boost/asio.hpp>
 #include <string>
+#include <array>
+#include <ctime>
+#include <fstream>
+#include <iostream>
+
+#include <boost/asio.hpp>
+#include <sodium.h>
 
 #include "CommandHandler.h"
 #include "MailDB/PgMailDB.h"
 #include "MailMessageBuilder.h"
 #include "SocketWrapper.h"
 #include "ThreadPool.h"
+#include "../../ErrorHandler/include/ErrorHandler.h"
+#include "../../SignalHandler/include/SignalHandler.h"
 
 using boost::asio::ip::tcp;
+using namespace ISXSC;
+using namespace ISXCommandHandler;
+using namespace ISXErrorHandler;
+using namespace ISXSignalHandler;
+using namespace ISXSocketWrapper;
+using namespace ISXThreadPool;
 
-namespace ISXSC {
-
-class SmtpServer {
+namespace ISXSS
+{
+/**
+ * @class SmtpServer
+ * @brief A class that represents an SMTP server.
+ *
+ * This class handles the initialization, configuration, and operation
+ * of the SMTP server. It manages incoming client connections, processes
+ * email messages, and handles various SMTP commands.
+ */
+class SmtpServer
+{
 public:
+  /**
+   * @brief Constructs an SmtpServer object.
+   * @param io_context The Boost Asio I/O context for handling asynchronous operations.
+   * @param ssl_context The Boost Asio SSL context for secure connections.
+   */
     SmtpServer(boost::asio::io_context& io_context, boost::asio::ssl::context& ssl_context);
+  
+  /**
+   * @brief Starts the SMTP server.
+   *
+   * This method begins accepting incoming client connections and processing
+   * their requests. It should be called to initiate server operations.
+   */
     void Start();
 
 private:
@@ -33,9 +68,6 @@ private:
 
 private:
     void Accept();
-    void saveData(const std::string& line, MailMessageBuilder& mail_builder, SocketWrapper& socket_wrapper,
-                  bool& in_data);
-
 private:
     MailMessageBuilder mail_builder_;
     ThreadPool<> thread_pool_;
@@ -44,35 +76,31 @@ private:
     boost::asio::ssl::context& ssl_context_;
     CommandHandler command_handler_;
     std::unique_ptr<tcp::acceptor> acceptor_;
-
-    // std::string buffer_;
-
-    // std::atomic_bool in_data_ = false;
-    //  std::atomic_bool is_tls_ = false;
-
-    // std::string current_sender_;
-    // std::vector<std::string> current_recipients_;
 private:
-    void handleClient(SocketWrapper socket_wrapper);
+ /**
+  * @brief Accepts incoming client connections.
+  *
+  * This method sets up an asynchronous operation to accept new client
+  * connections and handle them appropriately.
+  */
+ void Accept();
 
-    void tempHandleDataMode(const std::string& line, MailMessageBuilder& mail_builder, SocketWrapper& socket_wrapper,
-                            bool& in_data);
-
-    void resetTimeoutTimer(SocketWrapper& socket_wrapper);
-
+ /**
+  * @brief Handles communication with a connected client.
+  * @param socket_wrapper The wrapper for the client's socket.
+  *
+  * This method processes requests from the client and manages the
+  * communication with the client.
+  */
+ void HandleClient(SocketWrapper socket_wrapper);
 private:
-    void tempSaveMail(const MailMessage& message);
-    void tempWriteEmailContent(std::ofstream& output_file, const MailMessage& message) const;
-    void tempWriteAttachments(std::ofstream& output_file, const MailMessage& message) const;
+ MailMessageBuilder m_mail_builder; ///< The mail message builder for constructing email messages.
+ ThreadPool<>& m_thread_pool; ///< The thread pool for managing concurrent tasks.
 
-    std::string tempCreateFileName() const;
-    std::ofstream tempOpenFile(const std::string& fileName) const;
-
-    bool tempIsOutputFileValid(const std::ofstream& output_file) const;
-
-private:
-    std::string hashPassword(const std::string& password);
-    bool checkPassword(const std::string& stored_hash, const std::string& password);
+ boost::asio::io_context& m_io_context; ///< The Boost Asio I/O context for asynchronous operations.
+ boost::asio::ssl::context& m_ssl_context; ///< The Boost Asio SSL context for secure connections.
+ CommandHandler m_command_handler; ///< The command handler for processing SMTP commands.
+ std::unique_ptr<tcp::acceptor> m_acceptor; ///< The TCP acceptor for accepting incoming client connections.
 };
 }  // namespace ISXSC
 

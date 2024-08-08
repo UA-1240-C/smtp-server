@@ -5,9 +5,10 @@
 #include "SignalHandler.h"
 
 using boost::asio::ip::tcp;
+using namespace ISXSS;
 
 int main() {
-    SignalHandler::setupSignalHandlers();
+    SignalHandler::SetupSignalHandlers();
 
     try {
         boost::asio::io_context io_context;
