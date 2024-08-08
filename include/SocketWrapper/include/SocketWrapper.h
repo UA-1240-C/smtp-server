@@ -33,22 +33,16 @@ public:
 	std::future<std::string> ReadFromSocketAsync(size_t max_length);
 	std::future<void> StartTlsAsync(boost::asio::ssl::context& context);
 
-	void SetTimeoutTimer(std::shared_ptr<boost::asio::steady_timer> timeout_timer);
-	void StartTimeoutTimer(std::chrono::seconds timeout_duration);
-	void CancelTimeoutTimer();
+    void close();
 
-	void Close();
-
-	bool IsOpen() const;
+	bool is_open() const;
 	
 private:
-	std::variant<std::shared_ptr<TcpSocket>, std::shared_ptr<SslSocket>> m_socket;
-	bool m_is_tls;
+	std::variant<std::shared_ptr<TcpSocket>, std::shared_ptr<SslSocket>> socket_;
+	bool is_tls_;
 
-	std::shared_ptr<boost::asio::steady_timer> m_timeout_timer;
-
-	void CloseTcp();
-	void CloseSsl();
+	void closeTcp();
+	void closeSsl();
 };
 
 #endif  // SOCKETWRAPPER_H
