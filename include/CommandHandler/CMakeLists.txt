@@ -12,6 +12,8 @@ set(SOURCE_FILES
 
 add_library(CommandHandler ${SOURCE_FILES})
 
+target_link_libraries(CommandHandler PRIVATE MailDB)
+
 target_include_directories(CommandHandler PRIVATE
         ${CMAKE_SOURCE_DIR}/include/CommandHandler/include
         ${CMAKE_SOURCE_DIR}/include/Encoding/include
