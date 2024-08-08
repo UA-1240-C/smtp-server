@@ -109,7 +109,7 @@ public:
 
     /// thread pool is non-copyable
     ThreadPool(const ThreadPool &) = delete;
-    ThreadPool &operator=(const ThreadPool &) = delete;
+    //ThreadPool &operator=(const ThreadPool &) = delete;
 
     /**
      * @brief Enqueue a task into the thread pool that returns a result.

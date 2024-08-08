@@ -12,11 +12,11 @@
 #include <boost/asio.hpp>
 #include <sodium.h>
 
+#include "CommandHandler.h"
+#include "MailDB/PgMailDB.h"
 #include "MailMessageBuilder.h"
 #include "SocketWrapper.h"
 #include "ThreadPool.h"
-#include "MailDB/PgMailDB.h"
-#include "CommandHandler.h"
 #include "../../ErrorHandler/include/ErrorHandler.h"
 #include "../../SignalHandler/include/SignalHandler.h"
 
@@ -41,26 +41,41 @@ namespace ISXSS
 class SmtpServer
 {
 public:
- /**
-  * @brief Constructs an SmtpServer object.
-  * @param io_context The Boost Asio I/O context for handling asynchronous operations.
-  * @param ssl_context The Boost Asio SSL context for secure connections.
-  * @param port The port number on which the server will listen for incoming connections.
-  * @param thread_pool The thread pool used for managing concurrent tasks.
-  */
- SmtpServer(boost::asio::io_context& io_context,
-            boost::asio::ssl::context& ssl_context,
-            unsigned short port,
-            ThreadPool<>& thread_pool);
+  /**
+   * @brief Constructs an SmtpServer object.
+   * @param io_context The Boost Asio I/O context for handling asynchronous operations.
+   * @param ssl_context The Boost Asio SSL context for secure connections.
+   */
+    SmtpServer(boost::asio::io_context& io_context, boost::asio::ssl::context& ssl_context);
+  
+  /**
+   * @brief Starts the SMTP server.
+   *
+   * This method begins accepting incoming client connections and processing
+   * their requests. It should be called to initiate server operations.
+   */
+    void Start();
 
- /**
-  * @brief Starts the SMTP server.
-  *
-  * This method begins accepting incoming client connections and processing
-  * their requests. It should be called to initiate server operations.
-  */
- void Start();
+private:
+    std::string server_name;
+    std::string server_display_name;
+    unsigned int port;
 
+    size_t max_threads;
+
+    boost::asio::steady_timer timeout_timer_;
+    std::chrono::seconds timeout_seconds_;
+
+private:
+    void Accept();
+private:
+    MailMessageBuilder mail_builder_;
+    ThreadPool<> thread_pool_;
+
+    boost::asio::io_context& io_context_;
+    boost::asio::ssl::context& ssl_context_;
+    CommandHandler command_handler_;
+    std::unique_ptr<tcp::acceptor> acceptor_;
 private:
  /**
   * @brief Accepts incoming client connections.
@@ -78,7 +93,6 @@ private:
   * communication with the client.
   */
  void HandleClient(SocketWrapper socket_wrapper);
-
 private:
  MailMessageBuilder m_mail_builder; ///< The mail message builder for constructing email messages.
  ThreadPool<>& m_thread_pool; ///< The thread pool for managing concurrent tasks.
@@ -88,6 +102,6 @@ private:
  CommandHandler m_command_handler; ///< The command handler for processing SMTP commands.
  std::unique_ptr<tcp::acceptor> m_acceptor; ///< The TCP acceptor for accepting incoming client connections.
 };
-}  // namespace ISXSCІ
+}  // namespace ISXSC
 
 #endif  // SERVER_H

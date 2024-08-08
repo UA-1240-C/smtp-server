@@ -129,4 +129,55 @@ std::future<void> SocketWrapper::StartTlsAsync(boost::asio::ssl::context& contex
 
     return future;
 }
+
+void SocketWrapper::close() {
+    if (std::holds_alternative<std::shared_ptr<TcpSocket>>(socket_)) {
+        closeTcp();
+    } else if (std::holds_alternative<std::shared_ptr<SslSocket>>(socket_)) {
+        closeSsl();
+    }
+}
+
+bool SocketWrapper::is_open() const {
+    if (is_tls_) {
+        auto ssl_socket = std::get<std::shared_ptr<SslSocket>>(socket_);
+        return ssl_socket && ssl_socket->lowest_layer().is_open();
+    } else {
+        auto tcp_socket = std::get<std::shared_ptr<TcpSocket>>(socket_);
+        return tcp_socket && tcp_socket->is_open();
+    }
+}
+
+void SocketWrapper::closeTcp() {
+    auto tcp_socket = std::get<std::shared_ptr<TcpSocket>>(socket_);
+    boost::system::error_code ec;
+
+    if (tcp_socket->is_open()) {
+        tcp_socket->shutdown(boost::asio::ip::tcp::socket::shutdown_both, ec);
+        if (ec && ec != boost::asio::error::not_connected) {
+            std::cerr << "Error shutting down TCP socket: " << ec.message() << std::endl;
+        }
+
+        tcp_socket->close(ec);
+        if (ec && ec != boost::asio::error::not_connected) {
+            std::cerr << "Error closing TCP socket: " << ec.message() << std::endl;
+        }
+    }
+}
+
+void SocketWrapper::closeSsl() {
+    auto ssl_socket = std::get<std::shared_ptr<SslSocket>>(socket_);
+    boost::system::error_code ec;
+
+    if (ssl_socket->lowest_layer().is_open()) {
+        ssl_socket->shutdown(ec);
+        if (ec && ec != boost::asio::error::not_connected) {
+            std::cerr << "Error shutting down SSL socket: " << ec.message() << std::endl;
+        }
+
+        ssl_socket->lowest_layer().close(ec);
+        if (ec && ec != boost::asio::error::not_connected) {
+            std::cerr << "Error closing SSL socket: " << ec.message() << std::endl;
+        }
+    }
 }

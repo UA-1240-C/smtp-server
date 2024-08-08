@@ -81,10 +81,17 @@ public:
   * @return A future that will be set when the handshake is complete.
   */
  std::future<void> StartTlsAsync(boost::asio::ssl::context& context);
+  
+  void close();
+
+  bool is_open() const;
 
 private:
  std::variant<std::shared_ptr<TcpSocket>, std::shared_ptr<SslSocket>> m_socket; ///< The variant holding either a TCP or SSL/TLS socket.
  bool m_is_tls; ///< Flag indicating whether the socket is an SSL/TLS socket.
+
+	void closeTcp();
+	void closeSsl();
 };
 }
 
