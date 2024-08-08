@@ -3,7 +3,7 @@
     "Server": {
       "servername": "ServTest",
       "serverdisplayname": "ServTestserver",
-      "listenerport": 25000,
+      "listenerport": 2525,
       "ipaddress": "127.0.0.1"
     },
     "communicationsettings": {

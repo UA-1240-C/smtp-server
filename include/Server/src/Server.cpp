@@ -17,21 +17,21 @@ SmtpServer::SmtpServer(boost::asio::io_context& io_context, boost::asio::ssl::co
     : io_context_(io_context),
       ssl_context_(ssl_context),
       command_handler_(ssl_context),
-      acceptor_(std::make_unique<tcp::acceptor>(io_context, tcp::endpoint(tcp::v4(), port))),
       timeout_timer_(io_context),
       thread_pool_([&] {
-          Config config("config.txt");
+          Config config("../config.txt");
           Config::ThreadPool thread_pool_config = config.get_thread_pool();
           size_t max_threads = thread_pool_config.max_working_threads > std::thread::hardware_concurrency()
                                    ? std::thread::hardware_concurrency()
                                    : thread_pool_config.max_working_threads;
           return ThreadPool<>(max_threads);
       }()) {
-    Config config("config.txt");
+    Config config("../config.txt");
     Config::Server server = config.get_server();
     port = server.listener_port;
     server_display_name = server.server_display_name;
     server_name = server.server_name;
+    acceptor_ = std::make_unique<tcp::acceptor>(io_context, tcp::endpoint(tcp::v4(), port));
 
     Config::CommunicationSettings communication_settings = config.get_communication_settings();
     timeout_timer_.expires_after(std::chrono::seconds(communication_settings.socket_timeout));
