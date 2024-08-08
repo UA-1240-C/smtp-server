@@ -32,9 +32,17 @@ public:
 	std::future<void> sendResponseAsync(const std::string& message);
 	std::future<std::string> readFromSocketAsync(size_t max_length);
 	std::future<void> startTlsAsync(boost::asio::ssl::context& context);
+
+    void close();
+
+	bool is_open() const;
+	
 private:
 	std::variant<std::shared_ptr<TcpSocket>, std::shared_ptr<SslSocket>> socket_;
 	bool is_tls_;
+
+	void closeTcp();
+	void closeSsl();
 };
 
 #endif  // SOCKETWRAPPER_H
