@@ -20,7 +20,7 @@ int main() {
 
         std::cout << "SSL context set up with certificates." << std::endl;
 
-        ISXSC::SmtpServer server(io_context, ssl_context);
+        SmtpServer server(io_context, ssl_context);
         server.Start();
 
         std::cout << "Server is running. Press Ctrl+C to stop." << std::endl;

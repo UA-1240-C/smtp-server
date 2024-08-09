@@ -81,17 +81,45 @@ public:
   * @return A future that will be set when the handshake is complete.
   */
  std::future<void> StartTlsAsync(boost::asio::ssl::context& context);
-  
-  void close();
 
-  bool is_open() const;
+ /**
+ * @brief Closes the socket.
+ *
+ * This method closes the socket, which could be either a TCP or SSL socket.
+ * It determines the type of socket currently held by the `SocketWrapper`
+ * and calls the appropriate method to close it.
+ */
+  void Close();
+
+ /**
+ * @brief Checks if the socket is open.
+ *
+ * This method returns whether the socket is open. It checks the type of socket
+ * (TCP or SSL) and verifies the state of the socket accordingly.
+ *
+ * @return True if the socket is open, false otherwise.
+ */
+  bool IsOpen() const;
 
 private:
  std::variant<std::shared_ptr<TcpSocket>, std::shared_ptr<SslSocket>> m_socket; ///< The variant holding either a TCP or SSL/TLS socket.
  bool m_is_tls; ///< Flag indicating whether the socket is an SSL/TLS socket.
 
-	void closeTcp();
-	void closeSsl();
+ /**
+ * @brief Closes a TCP socket.
+ *
+ * This method shuts down and then closes a TCP socket. It handles any errors
+ * that occur during the shutdown and closing process.
+ */
+	void CloseTcp();
+
+ /**
+ * @brief Closes an SSL socket.
+ *
+ * This method shuts down and then closes an SSL socket. It handles any errors
+ * that occur during the shutdown and closing process.
+ */
+	void CloseSsl();
 };
 }
 
