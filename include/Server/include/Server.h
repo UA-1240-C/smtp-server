@@ -19,25 +19,17 @@ namespace ISXSC {
 class SmtpServer {
 public:
     SmtpServer(boost::asio::io_context& io_context,
-               boost::asio::ssl::context& ssl_context);
+               boost::asio::ssl::context& ssl_context, unsigned short port,
+               ThreadPool<>& thread_pool);
     void Start();
 
 private:
-    std::string server_name;
-    std::string server_display_name;
-    unsigned int port;
-
-    size_t max_threads;
-
-    boost::asio::steady_timer timeout_timer_;
-
-  private:
     void Accept();
     void saveData(const std::string& line, MailMessageBuilder& mail_builder,
                   SocketWrapper& socket_wrapper, bool& in_data);
 private:
     MailMessageBuilder mail_builder_;
-    ThreadPool<> thread_pool_;
+    ThreadPool<>& thread_pool_;
 
     boost::asio::io_context& io_context_;
     boost::asio::ssl::context& ssl_context_;
