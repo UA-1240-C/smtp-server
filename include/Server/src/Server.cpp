@@ -34,7 +34,7 @@ SmtpServer::SmtpServer(boost::asio::io_context& io_context, boost::asio::ssl::co
     acceptor_ = std::make_unique<tcp::acceptor>(io_context, tcp::endpoint(tcp::v4(), port));
 
     Config::CommunicationSettings communication_settings = config.get_communication_settings();
-    timeout_timer_.expires_after(std::chrono::seconds(communication_settings.socket_timeout));
+    timeout_seconds_ = std::chrono::seconds(communication_settings.socket_timeout);
 
     std::cout << "SmtpServer initialized and listening on port " << port << std::endl;
 }
@@ -56,6 +56,26 @@ void SmtpServer::Accept() {
     });
 }
 
+void SmtpServer::resetTimeoutTimer(SocketWrapper& socket_wrapper) {
+    timeout_timer_.cancel();
+
+    timeout_timer_.expires_after(std::chrono::seconds(timeout_seconds_));
+
+    timeout_timer_.async_wait([this, &socket_wrapper](const boost::system::error_code& error) {
+        if (error) {
+            return;
+        }
+
+        try {
+            std::cout << "Client timed out." << std::endl;
+            socket_wrapper.close(); 
+        } catch (const std::exception& e) {
+            std::cerr << "Exception in timeout handler: " << e.what() << std::endl;
+            ErrorHandler::handleException("Timeout handler", e);
+        }
+    });
+}
+
 void SmtpServer::handleClient(SocketWrapper socket_wrapper) {
     try {
         bool in_data = false;
@@ -63,6 +83,8 @@ void SmtpServer::handleClient(SocketWrapper socket_wrapper) {
         std::string current_line;
 
         while (true) {
+            if (!socket_wrapper.is_open()) break;
+            std::cout << socket_wrapper.is_open() << std::endl;
             size_t length = 1024;
             auto future_data = socket_wrapper.readFromSocketAsync(length);
 
@@ -76,12 +98,18 @@ void SmtpServer::handleClient(SocketWrapper socket_wrapper) {
                     current_line.erase(0, pos + 2);
                     command_handler_.processLine(line, socket_wrapper, in_data, mail_builder);
                 }
-            } catch (const std::exception& e) {
-                ErrorHandler::handleException("Read from socket", e);
-                if (dynamic_cast<const boost::system::system_error*>(&e)) {
+
+                resetTimeoutTimer(socket_wrapper);
+
+            } catch (const boost::system::system_error& e) {
+                if (e.code() == boost::asio::error::operation_aborted) {
                     std::cout << "Client disconnected." << std::endl;
                     break;
                 }
+                ErrorHandler::handleException("Read from socket", e);
+                throw;
+            } catch (const std::exception& e) {
+                std::cerr << "Read from socket error: " << e.what() << std::endl;
                 throw;
             }
         }
