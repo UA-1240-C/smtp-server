@@ -1,0 +1,13 @@
+.idea/
+**/.idea/
+.idea/
+
+cmake-build-debug/
+
+server.crt
+server.key
+server.csr
+
+.vscode
+build
+.clang-format
