@@ -5,9 +5,10 @@
 #include "SignalHandler.h"
 
 using boost::asio::ip::tcp;
+using namespace ISXSS;
 
 int main() {
-    SignalHandler::setupSignalHandlers();
+    SignalHandler::SetupSignalHandlers();
 
     try {
         boost::asio::io_context io_context;
@@ -20,7 +21,7 @@ int main() {
 
         std::cout << "SSL context set up with certificates." << std::endl;
 
-        ISXSC::SmtpServer server(io_context, ssl_context, 2525, thread_pool);
+        SmtpServer server(io_context, ssl_context, 2525, thread_pool);
         server.Start();
 
         std::cout << "Server is running. Press Ctrl+C to stop." << std::endl;
