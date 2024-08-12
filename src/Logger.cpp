@@ -2,10 +2,10 @@
 
 void ISXLogger::SetAttributes()
 {
-	attrs::local_clock TimeStamp;
-	logging::core::get()->add_global_attribute("TimeStamp", TimeStamp);
-	attrs::named_scope Scope;
-	logging::core::get()->add_thread_attribute("Scope", Scope);
+	const attrs::local_clock time_stamp;
+	logging::core::get()->add_global_attribute("TimeStamp", time_stamp);
+	const attrs::named_scope scope;
+	logging::core::get()->add_thread_attribute("Scope", scope);
 }
 
 void ISXLogger::SetSinkFilter()
@@ -37,14 +37,10 @@ boost::shared_ptr<sinks::synchronous_sink<sinks::text_ostream_backend>> ISXLogge
 	boost::shared_ptr<sinks::synchronous_sink<sinks::text_ostream_backend>> sink_point(
 		new sinks::synchronous_sink<sinks::text_ostream_backend>);
 	{
-		sinks::synchronous_sink<sinks::text_ostream_backend>::locked_backend_ptr pBackend = sink_point->
+		const sinks::synchronous_sink<sinks::text_ostream_backend>::locked_backend_ptr backend_point = sink_point->
 			locked_backend();
-		boost::shared_ptr<std::ostream> pStream(&std::clog, boost::null_deleter());
-		pBackend->add_stream(pStream);
-
-		boost::shared_ptr<std::ofstream> pStream2(new std::ofstream("sample.log"));
-		assert(pStream2->is_open());
-		pBackend->add_stream(pStream2);
+		const boost::shared_ptr<std::ostream> stream_point(&std::clog, boost::null_deleter());
+		backend_point->add_stream(stream_point);
 	}
 
 	logging::core::get()->add_sink(sink_point);
