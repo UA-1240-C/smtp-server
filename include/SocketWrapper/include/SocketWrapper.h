@@ -33,16 +33,16 @@ public:
 	std::future<std::string> readFromSocketAsync(size_t max_length);
 	std::future<void> startTlsAsync(boost::asio::ssl::context& context);
 
-    void close();
+    void Close();
 
-	bool is_open() const;
+	bool IsOpen() const;
 	
 private:
 	std::variant<std::shared_ptr<TcpSocket>, std::shared_ptr<SslSocket>> socket_;
 	bool is_tls_;
 
-	void closeTcp();
-	void closeSsl();
+	void CloseTcp();
+	void CloseSsl();
 };
 
 #endif  // SOCKETWRAPPER_H

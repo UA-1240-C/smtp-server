@@ -108,15 +108,15 @@ std::future<void> SocketWrapper::startTlsAsync(boost::asio::ssl::context& contex
     return future;
 }
 
-void SocketWrapper::close() {
+void SocketWrapper::Close() {
     if (std::holds_alternative<std::shared_ptr<TcpSocket>>(socket_)) {
-        closeTcp();
+        CloseTcp();
     } else if (std::holds_alternative<std::shared_ptr<SslSocket>>(socket_)) {
-        closeSsl();
+        CloseSsl();
     }
 }
 
-bool SocketWrapper::is_open() const {
+bool SocketWrapper::IsOpen() const {
     if (is_tls_) {
         auto ssl_socket = std::get<std::shared_ptr<SslSocket>>(socket_);
         return ssl_socket && ssl_socket->lowest_layer().is_open();
@@ -126,7 +126,7 @@ bool SocketWrapper::is_open() const {
     }
 }
 
-void SocketWrapper::closeTcp() {
+void SocketWrapper::CloseTcp() {
     auto tcp_socket = std::get<std::shared_ptr<TcpSocket>>(socket_);
     boost::system::error_code ec;
 
@@ -143,7 +143,7 @@ void SocketWrapper::closeTcp() {
     }
 }
 
-void SocketWrapper::closeSsl() {
+void SocketWrapper::CloseSsl() {
     auto ssl_socket = std::get<std::shared_ptr<SslSocket>>(socket_);
     boost::system::error_code ec;
 

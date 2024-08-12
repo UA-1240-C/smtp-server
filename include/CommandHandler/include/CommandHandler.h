@@ -19,45 +19,44 @@ namespace ISXSC {
     CommandHandler(boost::asio::ssl::context& ssl_context);
     ~CommandHandler();
 
-    void processLine(const std::string& line, SocketWrapper& socket_wrapper,
-                     bool in_data, MailMessageBuilder& mail_builder);
+    void ProcessLine(const std::string& line, SocketWrapper& socket_wrapper);
   private:
-    void handleEhlo(SocketWrapper& socket_wrapper) ;
-    void handleMailFrom(SocketWrapper& socket_wrapper, const std::string& line);
-    void handleRcptTo(SocketWrapper& socket_wrapper, const std::string& line);
+    void HandleEhlo(SocketWrapper& socket_wrapper) ;
+    void HandleMailFrom(SocketWrapper& socket_wrapper, const std::string& line);
+    void HandleRcptTo(SocketWrapper& socket_wrapper, const std::string& line);
 
-    void handleData(SocketWrapper& socket_wrapper);
-    void readData(SocketWrapper& socket_wrapper, std::string& data_message);
-    void processDataMessage(SocketWrapper& socket_wrapper, std::string& data_message);
-    void handleEndOfData(SocketWrapper& socket_wrapper);
+    void HandleData(SocketWrapper& socket_wrapper);
+    void ReadData(SocketWrapper& socket_wrapper, std::string& data_message);
+    void ProcessDataMessage(SocketWrapper& socket_wrapper, std::string& data_message);
+    void HandleEndOfData(SocketWrapper& socket_wrapper);
 
-    void handleNoop(SocketWrapper& socket_wrapper);
-    void handleRset(SocketWrapper& socket_wrapper);
-    void handleHelp(SocketWrapper& socket_wrapper);
-    void handleVrfy(SocketWrapper& socket_wrapper, const std::string& line);
-    void handleExpn(SocketWrapper& socket_wrapper, const std::string& line);
+    void HandleNoop(SocketWrapper& socket_wrapper);
+    void HandleRset(SocketWrapper& socket_wrapper);
+    void HandleHelp(SocketWrapper& socket_wrapper);
+    void HandleVrfy(SocketWrapper& socket_wrapper, const std::string& line);
+    void HandleExpn(SocketWrapper& socket_wrapper, const std::string& line);
 
-    void handleQuit(SocketWrapper& socket_wrapper);
-    void handleQuitSsl(SocketWrapper& socket_wrapper);
-    void handleQuitTcp(SocketWrapper& socket_wrapper);
+    void HandleQuit(SocketWrapper& socket_wrapper);
+    void HandleQuitSsl(SocketWrapper& socket_wrapper);
+    void HandleQuitTcp(SocketWrapper& socket_wrapper);
 
-    void handleStartTLS(SocketWrapper& socket_wrapper);
-    void handleAuth(SocketWrapper& socket_wrapper, const std::string& line);
-    void handleRegister(SocketWrapper& socket_wrapper, const std::string& line);
-    std::pair<std::string, std::string> decodeAndSplitPlain(const std::string& encoded_data);
+    void HandleStartTLS(SocketWrapper& socket_wrapper);
+    void HandleAuth(SocketWrapper& socket_wrapper, const std::string& line);
+    void HandleRegister(SocketWrapper& socket_wrapper, const std::string& line);
+    std::pair<std::string, std::string> DecodeAndSplitPlain(const std::string& encoded_data);
 
-    bool verifyPassword(const std::string& password,
+    bool VerifyPassword(const std::string& password,
                                     const std::string& hashed_password);
-    std::string hashPassword(const std::string& password);
-    void saveMailToDatabase(const MailMessage& message);
+    std::string HashPassword(const std::string& password);
+    void SaveMailToDatabase(const MailMessage& message);
 
     void ConnectToDatabase() const;
     void DisconnectFromDatabase() const;
 
     boost::asio::ssl::context& ssl_context_;
-    std::unique_ptr<ISXMailDB::PgMailDB> data_base_;
-    MailMessageBuilder mail_builder_;
-    bool in_data_ = false;
+    std::unique_ptr<ISXMailDB::PgMailDB> m_data_base_;
+    MailMessageBuilder m_mail_builder_;
+    bool m_in_data_ = false;
     std::string connection_string_ = "postgresql://postgres.qotrdwfvknwbfrompcji:"
                                      "yUf73LWenSqd9Lt4@aws-0-eu-central-1.pooler."
                                      "supabase.com:6543/postgres?sslmode=require";

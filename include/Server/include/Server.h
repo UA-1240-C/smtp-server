@@ -22,28 +22,28 @@ public:
     void Start();
 
 private:
-    std::string server_name;
-    std::string server_display_name;
-    unsigned int port;
+    std::string m_server_name;
+    std::string m_server_display_name;
+    unsigned int m_port;
 
-    size_t max_threads;
+    size_t m_max_threads;
 
-    boost::asio::steady_timer timeout_timer_;
-    std::chrono::seconds timeout_seconds_;
+    boost::asio::steady_timer m_timeout_timer_;
+    std::chrono::seconds m_timeout_seconds_;
 
 private:
     void Accept();
-    void saveData(const std::string& line, MailMessageBuilder& mail_builder, SocketWrapper& socket_wrapper,
+    void SaveData(const std::string& line, MailMessageBuilder& mail_builder, SocketWrapper& socket_wrapper,
                   bool& in_data);
 
 private:
-    MailMessageBuilder mail_builder_;
-    ThreadPool<> thread_pool_;
+    MailMessageBuilder m_mail_builder_;
+    ThreadPool<> m_thread_pool_;
 
-    boost::asio::io_context& io_context_;
-    boost::asio::ssl::context& ssl_context_;
-    CommandHandler command_handler_;
-    std::unique_ptr<tcp::acceptor> acceptor_;
+    boost::asio::io_context &m_io_context_;
+    boost::asio::ssl::context &m_ssl_context_;
+    CommandHandler m_command_handler_;
+    std::unique_ptr<tcp::acceptor> m_acceptor_;
 
     // std::string buffer_;
 
