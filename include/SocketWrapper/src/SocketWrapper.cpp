@@ -22,7 +22,7 @@ void SocketWrapper::sendResponse(const std::string& message) {
     }
 }*/
 
-std::future<void> SocketWrapper::SendResponseAsync(const std::string& message) {
+std::future<void> SocketWrapper::sendResponseAsync(const std::string& message) {
     auto promise = std::make_shared<std::promise<void>>();
     auto future = promise->get_future();
 
@@ -51,7 +51,7 @@ std::future<void> SocketWrapper::SendResponseAsync(const std::string& message) {
     return future;
 }
 
-std::future<std::string> SocketWrapper::ReadFromSocketAsync(size_t max_length) {
+std::future<std::string> SocketWrapper::readFromSocketAsync(size_t max_length) {
     auto promise = std::make_shared<std::promise<std::string>>();
     auto future = promise->get_future();
     auto buffer = std::make_shared<std::string>(max_length, '\0');
@@ -83,7 +83,7 @@ std::future<std::string> SocketWrapper::ReadFromSocketAsync(size_t max_length) {
     return future;
 }
 
-std::future<void> SocketWrapper::StartTlsAsync(boost::asio::ssl::context& context) {
+std::future<void> SocketWrapper::startTlsAsync(boost::asio::ssl::context& context) {
     auto promise = std::make_shared<std::promise<void>>();
     auto future = promise->get_future();
 
@@ -108,26 +108,26 @@ std::future<void> SocketWrapper::StartTlsAsync(boost::asio::ssl::context& contex
     return future;
 }
 
-void SocketWrapper::close() {
-    if (std::holds_alternative<std::shared_ptr<TcpSocket>>(socket_)) {
-        closeTcp();
-    } else if (std::holds_alternative<std::shared_ptr<SslSocket>>(socket_)) {
-        closeSsl();
+void SocketWrapper::Close() {
+    if (std::holds_alternative<std::shared_ptr<TcpSocket>>(m_socket)) {
+        CloseTcp();
+    } else if (std::holds_alternative<std::shared_ptr<SslSocket>>(m_socket)) {
+        CloseSsl();
     }
 }
 
-bool SocketWrapper::is_open() const {
-    if (is_tls_) {
-        auto ssl_socket = std::get<std::shared_ptr<SslSocket>>(socket_);
+bool SocketWrapper::IsOpen() const {
+    if (m_is_tls) {
+        auto ssl_socket = std::get<std::shared_ptr<SslSocket>>(m_socket);
         return ssl_socket && ssl_socket->lowest_layer().is_open();
     } else {
-        auto tcp_socket = std::get<std::shared_ptr<TcpSocket>>(socket_);
+        auto tcp_socket = std::get<std::shared_ptr<TcpSocket>>(m_socket);
         return tcp_socket && tcp_socket->is_open();
     }
 }
 
-void SocketWrapper::closeTcp() {
-    auto tcp_socket = std::get<std::shared_ptr<TcpSocket>>(socket_);
+void SocketWrapper::CloseTcp() {
+    auto tcp_socket = std::get<std::shared_ptr<TcpSocket>>(m_socket);
     boost::system::error_code ec;
 
     if (tcp_socket->is_open()) {
@@ -143,8 +143,8 @@ void SocketWrapper::closeTcp() {
     }
 }
 
-void SocketWrapper::closeSsl() {
-    auto ssl_socket = std::get<std::shared_ptr<SslSocket>>(socket_);
+void SocketWrapper::CloseSsl() {
+    auto ssl_socket = std::get<std::shared_ptr<SslSocket>>(m_socket);
     boost::system::error_code ec;
 
     if (ssl_socket->lowest_layer().is_open()) {

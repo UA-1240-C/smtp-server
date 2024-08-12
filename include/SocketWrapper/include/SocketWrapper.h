@@ -29,20 +29,20 @@ public:
 		return std::get<std::shared_ptr<SocketType>>(m_socket).get();
 	}
 
-	std::future<void> SendResponseAsync(const std::string& message);
-	std::future<std::string> ReadFromSocketAsync(size_t max_length);
-	std::future<void> StartTlsAsync(boost::asio::ssl::context& context);
+	std::future<void> sendResponseAsync(const std::string& message);
+	std::future<std::string> readFromSocketAsync(size_t max_length);
+	std::future<void> startTlsAsync(boost::asio::ssl::context& context);
 
-    void close();
+    void Close();
 
-	bool is_open() const;
+	bool IsOpen() const;
 	
 private:
-	std::variant<std::shared_ptr<TcpSocket>, std::shared_ptr<SslSocket>> socket_;
-	bool is_tls_;
+	std::variant<std::shared_ptr<TcpSocket>, std::shared_ptr<SslSocket>> m_socket;
+	bool m_is_tls;
 
-	void closeTcp();
-	void closeSsl();
+	void CloseTcp();
+	void CloseSsl();
 };
 
 #endif  // SOCKETWRAPPER_H
