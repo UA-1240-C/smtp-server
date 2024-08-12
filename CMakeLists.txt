@@ -16,4 +16,4 @@ link_directories(${Boost_LIBRARYDIR})
 add_executable(Logger main.cpp src/Logger.cpp)
 target_include_directories(Logger PRIVATE ${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/src ${Boost_INCLUDE_DIRS})
 
-target_link_libraries(Logger Boost::log Boost::thread Threads::Threads)
+target_link_libraries(Logger Boost::log Boost::thread Boost::dynamic_linking Threads::Threads)

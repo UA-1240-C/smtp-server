@@ -1,25 +1,19 @@
 #include "Logger.h"
 
 // minimal example
-int foo(src::severity_logger<LogLevel>& lg)
+int foo(src::logger_mt& lg)
 {
-	BOOST_LOG_FUNCTION()
-	BOOST_LOG(lg) << "foo is being called";
-	ISXLogger::TraceLog(lg, "tracing...");
-	ISXLogger::DebugLog(lg, "debug log");
+	BOOST_LOG_FUNC()
+	ISXLogger::Trace("Tracing callable function...");
 	return 10;
 }
 
-int main(int argc, char* argv[])
+int main()
 {
-	BOOST_LOG_FUNCTION()
-	src::severity_logger<LogLevel> slg;
-	ISXLogger::set_log_level(3);
-	slg = ISXLogger::InitLogging(slg);
-	ISXLogger::set_log_file("serverlog.txt");
-	ISXLogger::ErrorLog(slg, "error message");
-	foo(slg);
-	BOOST_LOG(slg) << foo(slg);
-
+	ISXLogger::Setup(TRACE_LOGS);
+	ISXLogger::Trace("Tracing main function...");
+	ISXLogger::Debug("Debugging message; will not pass");
+	ISXLogger::Trace("Tracing main function... again");
+	ISXLogger::Reset();
 	return 0;
 }
