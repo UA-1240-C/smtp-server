@@ -14,11 +14,11 @@ using namespace ISXSC;
 
 // Constructor for the SmtpServer class
 SmtpServer::SmtpServer(boost::asio::io_context& io_context, boost::asio::ssl::context& ssl_context)
-    : io_context_(io_context),
-      ssl_context_(ssl_context),
-      command_handler_(ssl_context),
-      timeout_timer_(io_context),
-      thread_pool_([&] {
+    : m_io_context_(io_context),
+      m_ssl_context_(ssl_context),
+      m_command_handler_(ssl_context),
+      m_timeout_timer_(io_context),
+      m_thread_pool_([&] {
           Config config("../config.txt");
           Config::ThreadPool thread_pool_config = config.get_thread_pool();
           size_t max_threads = thread_pool_config.max_working_threads > std::thread::hardware_concurrency()
@@ -28,27 +28,27 @@ SmtpServer::SmtpServer(boost::asio::io_context& io_context, boost::asio::ssl::co
       }()) {
     Config config("../config.txt");
     Config::Server server = config.get_server();
-    port = server.listener_port;
-    server_display_name = server.server_display_name;
-    server_name = server.server_name;
-    acceptor_ = std::make_unique<tcp::acceptor>(io_context, tcp::endpoint(tcp::v4(), port));
+    m_port = server.listener_port;
+    m_server_display_name = server.server_display_name;
+    m_server_name = server.server_name;
+    m_acceptor_ = std::make_unique<tcp::acceptor>(io_context, tcp::endpoint(tcp::v4(), m_port));
 
     Config::CommunicationSettings communication_settings = config.get_communication_settings();
-    timeout_timer_.expires_after(std::chrono::seconds(communication_settings.socket_timeout));
+    m_timeout_timer_.expires_after(std::chrono::seconds(communication_settings.socket_timeout));
 
-    std::cout << "SmtpServer initialized and listening on port " << port << std::endl;
+    std::cout << "SmtpServer initialized and listening on port " << m_port << std::endl;
 }
 
 void SmtpServer::Start() { Accept(); }
 
 void SmtpServer::Accept() {
-    auto new_socket = std::make_shared<TcpSocket>(io_context_);
+    auto new_socket = std::make_shared<TcpSocket>(m_io_context_);
 
-    acceptor_->async_accept(*new_socket, [this, new_socket](const boost::system::error_code& error) {
+    m_acceptor_->async_accept(*new_socket, [this, new_socket](const boost::system::error_code& error) {
         if (!error) {
             std::cout << "Accepted new connection." << std::endl;
             // Dispatch the client handling to the thread pool
-            thread_pool_.enqueue_detach([this, new_socket]() { handleClient(SocketWrapper(new_socket)); });
+            m_thread_pool_.enqueue_detach([this, new_socket]() { HandleClient(SocketWrapper(new_socket)); });
         } else {
             ErrorHandler::handleBoostError("Accept", error);
         }
@@ -56,7 +56,7 @@ void SmtpServer::Accept() {
     });
 }
 
-void SmtpServer::handleClient(SocketWrapper socket_wrapper) {
+void SmtpServer::HandleClient(SocketWrapper socket_wrapper) {
     try {
         bool in_data = false;
         MailMessageBuilder mail_builder;
@@ -74,7 +74,7 @@ void SmtpServer::handleClient(SocketWrapper socket_wrapper) {
                 while ((pos = current_line.find("\r\n")) != std::string::npos) {
                     std::string line = current_line.substr(0, pos);
                     current_line.erase(0, pos + 2);
-                    command_handler_.processLine(line, socket_wrapper, in_data, mail_builder);
+                    m_command_handler_.ProcessLine(line, socket_wrapper);
                 }
             } catch (const std::exception& e) {
                 ErrorHandler::handleException("Read from socket", e);
