@@ -3,11 +3,16 @@ project(SMTP_server VERSION 1.0.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 
-# Find Boost and OpenSSL
+# Function to print error message and exit
+function(require_package package_name)
+    message(FATAL_ERROR "Required package ${package_name} is not found. Please install it.")
+endfunction()
+
 find_package(Boost REQUIRED COMPONENTS system thread)
 find_package(OpenSSL REQUIRED)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(LIBSODIUM REQUIRED libsodium)
+
 
 # Add subdirectories
 add_subdirectory(include/CommandHandler)
@@ -47,12 +52,18 @@ target_include_directories(SMTP_server PRIVATE
     ${Boost_INCLUDE_DIRS}
     ${OPENSSL_INCLUDE_DIR}
     ${LIBSODIUM_INCLUDE_DIRS}
-    ${CMAKE_SOURCE_DIR}/include/ErrorHandler
-    ${CMAKE_SOURCE_DIR}/include/CommandHandler/include
-    ${CMAKE_SOURCE_DIR}/include/Encoding/include
-    ${CMAKE_SOURCE_DIR}/include/Server/include
-    ${CMAKE_SOURCE_DIR}/include/SignalHandler/include
-    ${CMAKE_SOURCE_DIR}/include/SocketWrapper/include
-    ${CMAKE_SOURCE_DIR}/include/Utils/include
-    ${CMAKE_SOURCE_DIR}/include/DataBase-main
 )
+
+
+# Linux-specific install paths
+install(TARGETS SMTP_server DESTINATION bin)
+install(FILES config.txt DESTINATION etc)
+install(DIRECTORY include/ DESTINATION include)
+install(FILES README.md DESTINATION share/doc/smtp-server)
+
+# Linux-specific settings
+set(CPACK_GENERATOR "DEB;RPM")
+set(CPACK_PACKAGE_NAME "smtp-server")
+set(CPACK_PACKAGE_VERSION "1.0.0")
+set(CPACK_INSTALL_PREFIX "/usr/local")
+include(CPack)

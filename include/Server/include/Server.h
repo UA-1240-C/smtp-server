@@ -17,8 +17,9 @@
 #include "MailMessageBuilder.h"
 #include "SocketWrapper.h"
 #include "ThreadPool.h"
-#include "../../ErrorHandler/include/ErrorHandler.h"
-#include "../../SignalHandler/include/SignalHandler.h"
+#include "ErrorHandler.h"
+#include "SignalHandler.h"
+#include "config.h"
 
 using boost::asio::ip::tcp;
 using namespace ISXSC;

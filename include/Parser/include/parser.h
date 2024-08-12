@@ -40,14 +40,14 @@ private:
 };
 
 // Helper method to skip whitespace characters in the stream
-void JSON::SkipWhitespace(std::stringstream &ss) {
+inline void JSON::SkipWhitespace(std::stringstream &ss) {
     while (ss.peek() == ' ' || ss.peek() == '\n' || ss.peek() == '\t' || ss.peek() == '\r') {
         ss.get();
     }
 }
 
 // Static method to parse JSON from a string
-JSON JSON::Parse(const std::string &content) {
+inline JSON JSON::Parse(const std::string &content) {
     std::stringstream ss(content);
     SkipWhitespace(ss);
     char c = ss.peek();
@@ -67,7 +67,7 @@ JSON JSON::Parse(const std::string &content) {
 }
 
 // Method to parse a JSON object from the stream
-JSON JSON::ParseObject(std::stringstream &ss) {
+inline JSON JSON::ParseObject(std::stringstream &ss) {
     JSON obj(OBJECT);
     bool firstItem = true;
     ss.get(); // Consume '{'
@@ -102,7 +102,7 @@ JSON JSON::ParseObject(std::stringstream &ss) {
 }
 
 // Method to parse a JSON string from the stream
-JSON JSON::ParseString(std::stringstream &ss) {
+inline JSON JSON::ParseString(std::stringstream &ss) {
     ss.get(); // Consume '"'
     std::string value;
     while (ss.peek() != '"') {
@@ -113,7 +113,7 @@ JSON JSON::ParseString(std::stringstream &ss) {
 }
 
 // Method to parse a JSON number from the stream
-JSON JSON::ParseNumber(std::stringstream &ss) {
+inline JSON JSON::ParseNumber(std::stringstream &ss) {
     std::string value;
     while (isdigit(ss.peek()) || ss.peek() == '.' || ss.peek() == '-') {
         value += ss.get();
@@ -123,7 +123,7 @@ JSON JSON::ParseNumber(std::stringstream &ss) {
 }
 
 // Method to parse a JSON boolean from the stream
-JSON JSON::ParseBool(std::stringstream &ss) {
+inline JSON JSON::ParseBool(std::stringstream &ss) {
     std::string value;
     while (isalpha(ss.peek())) {
         value += ss.get();
@@ -138,7 +138,7 @@ JSON JSON::ParseBool(std::stringstream &ss) {
 }
 
 // Method to parse a JSON null value from the stream
-JSON JSON::ParseNull(std::stringstream &ss) {
+inline JSON JSON::ParseNull(std::stringstream &ss) {
     std::string value;
     while (isalpha(ss.peek())) {
         value += ss.get();
