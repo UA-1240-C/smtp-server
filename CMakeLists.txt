@@ -3,16 +3,10 @@ project(SMTP_server VERSION 1.0.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 
-# Function to print error message and exit
-function(require_package package_name)
-    message(FATAL_ERROR "Required package ${package_name} is not found. Please install it.")
-endfunction()
-
 find_package(Boost REQUIRED COMPONENTS system thread)
 find_package(OpenSSL REQUIRED)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(LIBSODIUM REQUIRED libsodium)
-
 
 # Add subdirectories
 add_subdirectory(include/CommandHandler)
