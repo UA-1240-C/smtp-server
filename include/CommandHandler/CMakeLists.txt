@@ -1,6 +1,7 @@
 add_library(CommandHandler src/CommandHandler.cpp)
 
 target_link_libraries(CommandHandler PRIVATE MailDB Boost::log Boost::log_setup)
+target_compile_features(CommandHandler PRIVATE cxx_std_20)
 
 target_include_directories(CommandHandler PUBLIC
         ${CMAKE_SOURCE_DIR}/include/CommandHandler/include
