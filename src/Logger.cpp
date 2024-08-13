@@ -1,6 +1,9 @@
 #include "Logger.h"
 
-void ISXLogger::SetAttributes()
+boost::shared_ptr<sinks::synchronous_sink<sinks::text_ostream_backend>> Logger::sink_pointer;
+int Logger::severity_filter;
+
+void Logger::set_attributes()
 {
 	const attrs::local_clock time_stamp;
 	logging::core::get()->add_global_attribute("TimeStamp", time_stamp);
@@ -8,23 +11,23 @@ void ISXLogger::SetAttributes()
 	logging::core::get()->add_thread_attribute("Scope", scope);
 }
 
-void ISXLogger::SetSinkFilter()
+void Logger::set_sink_filter()
 {
 	switch (severity_filter)
 	{
 	case PROD_WARN_ERR_LOGS:
 		sink_pointer->set_filter(
-			expr::attr<LogLevel>("Severity").or_default(WARNING) <= ERROR
+			expr::attr<LogLevel>("Severity") <= ERROR
 		);
 		break;
 	case DEBUG_LOGS:
 		sink_pointer->set_filter(
-			expr::attr<LogLevel>("Severity").or_default(DEBUG) == DEBUG
+			expr::attr<LogLevel>("Severity") == DEBUG
 		);
 		break;
 	case TRACE_LOGS:
 		sink_pointer->set_filter(
-			expr::attr<LogLevel>("Severity").or_default(TRACE) == TRACE
+			expr::attr<LogLevel>("Severity") == TRACE
 		);
 		break;
 	default:
@@ -32,7 +35,7 @@ void ISXLogger::SetSinkFilter()
 	}
 }
 
-boost::shared_ptr<sinks::synchronous_sink<sinks::text_ostream_backend>> ISXLogger::SetSink()
+boost::shared_ptr<sinks::synchronous_sink<sinks::text_ostream_backend>> Logger::set_sink()
 {
 	boost::shared_ptr<sinks::synchronous_sink<sinks::text_ostream_backend>> sink_point(
 		new sinks::synchronous_sink<sinks::text_ostream_backend>);
@@ -47,7 +50,7 @@ boost::shared_ptr<sinks::synchronous_sink<sinks::text_ostream_backend>> ISXLogge
 	return sink_point;
 }
 
-void ISXLogger::SetSinkFormatter(
+void Logger::set_sink_formatter(
 	const boost::shared_ptr<sinks::synchronous_sink<sinks::text_ostream_backend>>& sink_point)
 {
 	sink_point->set_formatter(expr::stream
@@ -60,48 +63,52 @@ void ISXLogger::SetSinkFormatter(
 	);
 }
 
-void ISXLogger::Setup(const int& severity = NO_LOGS)
+void Logger::Setup(const int& severity = NO_LOGS)
 {
-	SetAttributes();
-	sink_pointer = SetSink();
-	SetSinkFormatter(sink_pointer);
+	set_attributes();
+	sink_pointer = set_sink();
+	set_sink_formatter(sink_pointer);
 	severity_filter = severity;
-	SetSinkFilter();
+	set_sink_filter();
 }
 
-void ISXLogger::Reset()
+void Logger::Reset()
 {
 	logging::core::get()->remove_all_sinks();
 	sink_pointer.reset();
 }
 
-void ISXLogger::Debug(const std::string& message)
+void Logger::LogDebug(const std::string& message)
 {
 	BOOST_LOG_SCOPED_THREAD_ATTR("ThreadID", attrs::current_thread_id())
-	BOOST_LOG_SEV(slg, LogLevel::DEBUG) << "\033[1;34m" << message << "\033[0m";
+	BOOST_LOG_SEV(g_slg, LogLevel::DEBUG) << "\033[1;34m" << message << "\033[0m";
 }
 
-void ISXLogger::Trace(const std::string& message)
+void Logger::LogTrace(const std::string& message)
 {
-	BOOST_LOG_FUNC()
 	BOOST_LOG_SCOPED_THREAD_ATTR("ThreadID", attrs::current_thread_id())
-	BOOST_LOG_SEV(slg, LogLevel::TRACE) << "\033[1;36m" << message << "\033[0m";
+	BOOST_LOG_SEV(g_slg, LogLevel::TRACE) << "\033[1;36m" << message << "\033[0m";
 }
 
-void ISXLogger::Prod(const std::string& message)
+void Logger::LogProd(const std::string& message)
 {
 	BOOST_LOG_SCOPED_THREAD_ATTR("ThreadID", attrs::current_thread_id())
-	BOOST_LOG_SEV(slg, LogLevel::PROD) << "\033[1;31m" << message << "\033[0m";
+	BOOST_LOG_SEV(g_slg, LogLevel::PROD) << "\033[1;31m" << message << "\033[0m";
 }
 
-void ISXLogger::Warning(const std::string& message)
+void Logger::LogWarning(const std::string& message)
 {
 	BOOST_LOG_SCOPED_THREAD_ATTR("ThreadID", attrs::current_thread_id())
-	BOOST_LOG_SEV(slg, LogLevel::WARNING) << "\033[1;31m" << message << "\033[0m";
+	BOOST_LOG_SEV(g_slg, LogLevel::WARNING) << "\033[1;31m" << message << "\033[0m";
 }
 
-void ISXLogger::Error(const std::string& message)
+void Logger::LogError(const std::string& message)
 {
 	BOOST_LOG_SCOPED_THREAD_ATTR("ThreadID", attrs::current_thread_id())
-	BOOST_LOG_SEV(slg, LogLevel::ERROR) << "\033[1;31m" << message << "\033[0m";
+	BOOST_LOG_SEV(g_slg, LogLevel::ERROR) << "\033[1;31m" << message << "\033[0m";
+}
+
+Logger::~Logger()
+{
+	Reset();
 }

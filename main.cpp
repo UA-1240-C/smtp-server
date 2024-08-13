@@ -1,19 +1,27 @@
 #include "Logger.h"
 
 // minimal example
-int foo(src::logger_mt& lg)
+int foo()
 {
-	BOOST_LOG_FUNC()
-	ISXLogger::Trace("Tracing callable function...");
+	ENABLE_FUNCTION_TRACING
+	Logger::LogTrace("Tracing callable function...");
+	Logger::LogDebug("Debugging!");
 	return 10;
 }
 
 int main()
 {
-	ISXLogger::Setup(TRACE_LOGS);
-	ISXLogger::Trace("Tracing main function...");
-	ISXLogger::Debug("Debugging message; will not pass");
-	ISXLogger::Trace("Tracing main function... again");
-	ISXLogger::Reset();
+	ENABLE_FUNCTION_TRACING
+	Logger::Setup(TRACE_LOGS);
+	Logger::LogTrace("Tracing main function...");
+	Logger::LogDebug("Debugging message; will not pass");
+	foo();
+	Logger::Reset();
+
+	Logger::Setup(DEBUG_LOGS);
+	Logger::LogTrace("Trying to trace... without success");
+	foo();
+	Logger::LogDebug("Debugging message from main!");
+	Logger::Reset();
 	return 0;
 }

@@ -1,6 +1,4 @@
 #pragma once
-#ifndef LOGGER_H
-#define LOGGER_H
 
 #include <fstream>
 #include <ostream>
@@ -29,6 +27,8 @@ namespace attrs = boost::log::attributes;
 namespace src = boost::log::sources;
 namespace keywords = boost::log::keywords;
 
+#define ENABLE_FUNCTION_TRACING BOOST_LOG_FUNC()
+
 enum LogLevel
 {
 	PROD,
@@ -46,29 +46,37 @@ enum SeverityFilter
 	TRACE_LOGS
 };
 
-inline src::severity_logger_mt<LogLevel> slg;
-inline src::logger_mt lg;
+inline src::severity_logger_mt<LogLevel> g_slg;
+inline src::logger_mt g_lg;
 
-namespace ISXLogger
+
+class Logger
 {
-	inline boost::shared_ptr<sinks::synchronous_sink<sinks::text_ostream_backend>> sink_pointer;
-	inline int severity_filter;
+	Logger() = default;
+	~Logger();
 
-	void SetAttributes();
-	void SetSinkFilter();
+public:
+	Logger(const Logger&) = delete;
+	Logger& operator=(const Logger&) = delete;
 
-	boost::shared_ptr<sinks::synchronous_sink<sinks::text_ostream_backend>> SetSink();
+	static boost::shared_ptr<sinks::synchronous_sink<sinks::text_ostream_backend>> sink_pointer;
+	static int severity_filter;
 
-	void SetSinkFormatter(const boost::shared_ptr<sinks::synchronous_sink<sinks::text_ostream_backend>>& sink_point);
+	static void set_attributes();
+	static void set_sink_filter();
 
-	void Setup(const int& severity);
-	void Reset();
+	static boost::shared_ptr<sinks::synchronous_sink<sinks::text_ostream_backend>> set_sink();
 
-	void Debug(const std::string& message);
-	void Trace(const std::string& message);
-	void Prod(const std::string& message);
-	void Warning(const std::string& message);
-	void Error(const std::string& message);
-}
+	static void set_sink_formatter(
+		const boost::shared_ptr<sinks::synchronous_sink<sinks::text_ostream_backend>>& sink_point
+	);
 
-#endif
+	static void Setup(const int& severity);
+	static void Reset();
+
+	static void LogDebug(const std::string& message);
+	static void LogTrace(const std::string& message);
+	static void LogProd(const std::string& message);
+	static void LogWarning(const std::string& message);
+	static void LogError(const std::string& message);
+};
