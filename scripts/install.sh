@@ -20,6 +20,7 @@ cd "$WORKING_DIR"
 
 # Create and navigate to build directory
 echo "Creating build directory..."
+cd ..
 mkdir -p build
 cd build
 
