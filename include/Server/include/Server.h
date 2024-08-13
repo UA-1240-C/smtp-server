@@ -53,12 +53,12 @@ private:
     // std::string current_sender_;
     // std::vector<std::string> current_recipients_;
 private:
-    void handleClient(SocketWrapper socket_wrapper);
+    void HandleClient(SocketWrapper socket_wrapper);
 
     void tempHandleDataMode(const std::string& line, MailMessageBuilder& mail_builder, SocketWrapper& socket_wrapper,
                             bool& in_data);
 
-    void resetTimeoutTimer(SocketWrapper& socket_wrapper);
+    void ResetTimeoutTimer(SocketWrapper& socket_wrapper);
 
 private:
     void tempSaveMail(const MailMessage& message);
