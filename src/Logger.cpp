@@ -1,7 +1,7 @@
 #include "Logger.h"
 
-boost::shared_ptr<sinks::synchronous_sink<sinks::text_ostream_backend>> Logger::sink_pointer;
-int Logger::severity_filter;
+boost::shared_ptr<sinks::synchronous_sink<sinks::text_ostream_backend>> Logger::s_sink_pointer;
+int Logger::s_severity_filter;
 
 void Logger::set_attributes()
 {
@@ -13,20 +13,20 @@ void Logger::set_attributes()
 
 void Logger::set_sink_filter()
 {
-	switch (severity_filter)
+	switch (s_severity_filter)
 	{
 	case PROD_WARN_ERR_LOGS:
-		sink_pointer->set_filter(
+		s_sink_pointer->set_filter(
 			expr::attr<LogLevel>("Severity") <= ERROR
 		);
 		break;
 	case DEBUG_LOGS:
-		sink_pointer->set_filter(
+		s_sink_pointer->set_filter(
 			expr::attr<LogLevel>("Severity") == DEBUG
 		);
 		break;
 	case TRACE_LOGS:
-		sink_pointer->set_filter(
+		s_sink_pointer->set_filter(
 			expr::attr<LogLevel>("Severity") == TRACE
 		);
 		break;
@@ -45,7 +45,6 @@ boost::shared_ptr<sinks::synchronous_sink<sinks::text_ostream_backend>> Logger::
 		const boost::shared_ptr<std::ostream> stream_point(&std::clog, boost::null_deleter());
 		backend_point->add_stream(stream_point);
 	}
-
 	logging::core::get()->add_sink(sink_point);
 	return sink_point;
 }
@@ -66,16 +65,16 @@ void Logger::set_sink_formatter(
 void Logger::Setup(const int& severity = NO_LOGS)
 {
 	set_attributes();
-	sink_pointer = set_sink();
-	set_sink_formatter(sink_pointer);
-	severity_filter = severity;
+	s_sink_pointer = set_sink();
+	set_sink_formatter(s_sink_pointer);
+	s_severity_filter = severity;
 	set_sink_filter();
 }
 
 void Logger::Reset()
 {
 	logging::core::get()->remove_all_sinks();
-	sink_pointer.reset();
+	s_sink_pointer.reset();
 }
 
 void Logger::LogDebug(const std::string& message)

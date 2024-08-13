@@ -52,15 +52,15 @@ inline src::logger_mt g_lg;
 
 class Logger
 {
+	static boost::shared_ptr<sinks::synchronous_sink<sinks::text_ostream_backend>> s_sink_pointer;
+	static int s_severity_filter;
+
 	Logger() = default;
 	~Logger();
 
 public:
 	Logger(const Logger&) = delete;
 	Logger& operator=(const Logger&) = delete;
-
-	static boost::shared_ptr<sinks::synchronous_sink<sinks::text_ostream_backend>> sink_pointer;
-	static int severity_filter;
 
 	static void set_attributes();
 	static void set_sink_filter();
