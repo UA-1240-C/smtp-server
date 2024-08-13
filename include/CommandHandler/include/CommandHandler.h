@@ -14,7 +14,7 @@
 #include "MailDB/PgMailDB.h"
 #include "MailMessageBuilder.h"
 #include "SocketWrapper.h"
-#include "../../ErrorHandler/include/ErrorHandler.h"
+#include "  ErrorHandler.h"
 
 using namespace ISXErrorHandler;
 using namespace ISXSC;

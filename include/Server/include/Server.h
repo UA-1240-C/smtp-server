@@ -17,8 +17,8 @@
 #include "ThreadPool.h"
 #include "MailDB/PgMailDB.h"
 #include "CommandHandler.h"
-#include "../../ErrorHandler/include/ErrorHandler.h"
-#include "../../SignalHandler/include/SignalHandler.h"
+#include "ErrorHandler.h"
+#include "SignalHandler.h"
 
 using boost::asio::ip::tcp;
 using namespace ISXSC;

@@ -1,7 +1,5 @@
 #include "Server.h"
 
-constexpr std::size_t MAX_LENGTH = 1024;
-
 namespace ISXSS
 {
 SmtpServer::SmtpServer(boost::asio::io_context& io_context,
@@ -44,9 +42,10 @@ void SmtpServer::HandleClient(SocketWrapper socket_wrapper) {
     try {
         MailMessageBuilder mail_builder;
         std::string current_line;
+        std::size_t length = 1024;
 
         while (true) {
-            auto future_data = socket_wrapper.ReadFromSocketAsync(MAX_LENGTH);
+            auto future_data = socket_wrapper.ReadFromSocketAsync(length);
 
             try {
                 std::string buffer = future_data.get();
