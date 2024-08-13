@@ -1,13 +1,13 @@
 #include "SocketWrapper.h"
 
 SocketWrapper::SocketWrapper(std::shared_ptr<TcpSocket> tcp_socket)
-    : socket_(tcp_socket), is_tls_(false) {}
+    : m_socket_(tcp_socket), is_tls_(false) {}
 
 SocketWrapper::SocketWrapper(std::shared_ptr<SslSocket> ssl_socket)
-    : socket_(ssl_socket), is_tls_(true) {}
+    : m_socket_(ssl_socket), is_tls_(true) {}
 
 [[nodiscard]] bool SocketWrapper::is_tls() const {
-    return std::holds_alternative<std::shared_ptr<SslSocket>>(socket_);
+    return std::holds_alternative<std::shared_ptr<SslSocket>>(m_socket_);
 }
 /*
 void SocketWrapper::sendResponse(const std::string& message) {
@@ -96,7 +96,7 @@ std::future<void> SocketWrapper::startTlsAsync(boost::asio::ssl::context& contex
         [this, ssl_socket, promise](const boost::system::error_code& error) {
             if (!error) {
                 // Successfully established TLS connection
-                socket_ = ssl_socket;
+                m_socket_ = ssl_socket;
                 std::cout << "STARTTLS handshake successful" << std::endl;
                 promise->set_value();
             } else {
@@ -108,26 +108,52 @@ std::future<void> SocketWrapper::startTlsAsync(boost::asio::ssl::context& contex
     return future;
 }
 
+void SocketWrapper::SetTimeoutTimer(std::shared_ptr<boost::asio::steady_timer> timeout_timer) {
+	m_timeout_timer_ = timeout_timer;
+}
+
+void SocketWrapper::StartTimeoutTimer(std::chrono::seconds timeout_duration) {
+	if (m_timeout_timer_) {
+		m_timeout_timer_->expires_after(timeout_duration);
+		m_timeout_timer_->async_wait([this](const boost::system::error_code& error) {
+			if (!error) {
+				std::cout << "Client timed out." << std::endl;
+				this->Close();
+			}
+		});
+	}
+}
+
+void SocketWrapper::CancelTimeoutTimer() {
+	if (m_timeout_timer_) {
+		boost::system::error_code ec;
+		m_timeout_timer_->cancel(ec);
+		if (ec) {
+			std::cerr << "Failed to cancel timeout timer: " << ec.message() << std::endl;
+		}
+	}
+}
+
 void SocketWrapper::Close() {
-    if (std::holds_alternative<std::shared_ptr<TcpSocket>>(socket_)) {
+    if (std::holds_alternative<std::shared_ptr<TcpSocket>>(m_socket_)) {
         CloseTcp();
-    } else if (std::holds_alternative<std::shared_ptr<SslSocket>>(socket_)) {
+    } else if (std::holds_alternative<std::shared_ptr<SslSocket>>(m_socket_)) {
         CloseSsl();
     }
 }
 
 bool SocketWrapper::IsOpen() const {
     if (is_tls_) {
-        auto ssl_socket = std::get<std::shared_ptr<SslSocket>>(socket_);
+        auto ssl_socket = std::get<std::shared_ptr<SslSocket>>(m_socket_);
         return ssl_socket && ssl_socket->lowest_layer().is_open();
     } else {
-        auto tcp_socket = std::get<std::shared_ptr<TcpSocket>>(socket_);
+        auto tcp_socket = std::get<std::shared_ptr<TcpSocket>>(m_socket_);
         return tcp_socket && tcp_socket->is_open();
     }
 }
 
 void SocketWrapper::CloseTcp() {
-    auto tcp_socket = std::get<std::shared_ptr<TcpSocket>>(socket_);
+    auto tcp_socket = std::get<std::shared_ptr<TcpSocket>>(m_socket_);
     boost::system::error_code ec;
 
     if (tcp_socket->is_open()) {
@@ -144,7 +170,7 @@ void SocketWrapper::CloseTcp() {
 }
 
 void SocketWrapper::CloseSsl() {
-    auto ssl_socket = std::get<std::shared_ptr<SslSocket>>(socket_);
+    auto ssl_socket = std::get<std::shared_ptr<SslSocket>>(m_socket_);
     boost::system::error_code ec;
 
     if (ssl_socket->lowest_layer().is_open()) {

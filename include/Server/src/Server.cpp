@@ -57,65 +57,52 @@ void SmtpServer::Accept() {
 }
 
 void SmtpServer::resetTimeoutTimer(SocketWrapper& socket_wrapper) {
-    m_timeout_timer_.cancel();
-
-    m_timeout_timer_.expires_after(std::chrono::seconds(m_timeout_seconds_));
-
-    m_timeout_timer_.async_wait([this, &socket_wrapper](const boost::system::error_code& error) {
-        if (error) {
-            return;
-        }
-
-        try {
-            std::cout << "Client timed out." << std::endl;
-            socket_wrapper.Close(); 
-        } catch (const std::exception& e) {
-            std::cerr << "Exception in timeout handler: " << e.what() << std::endl;
-            ErrorHandler::handleException("Timeout handler", e);
-        }
-    });
+	auto timeout_timer = std::make_shared<boost::asio::steady_timer>(m_io_context_);
+	socket_wrapper.SetTimeoutTimer(timeout_timer);
+	socket_wrapper.StartTimeoutTimer(m_timeout_seconds_);
 }
 
 void SmtpServer::handleClient(SocketWrapper socket_wrapper) {
-    try {
-        bool in_data = false;
-        MailMessageBuilder mail_builder;
-        std::string current_line;
+	try {
+		bool in_data = false;
+		MailMessageBuilder mail_builder;
+		std::string current_line;
 
-        while (true) {
-            if (!socket_wrapper.IsOpen()) break;
-            std::cout << socket_wrapper.IsOpen() << std::endl;
-            size_t length = 1024;
-            auto future_data = socket_wrapper.readFromSocketAsync(length);
+		while (true) {
+			if (!socket_wrapper.IsOpen()) break;
+			std::cout << socket_wrapper.IsOpen() << std::endl;
+			size_t length = 1024;
+			auto future_data = socket_wrapper.readFromSocketAsync(length);
 
-            try {
-                std::string buffer = future_data.get();
-                current_line.append(buffer);
-                std::size_t pos;
+			try {
+				std::string buffer = future_data.get();
+				current_line.append(buffer);
+				std::size_t pos;
 
-                while ((pos = current_line.find("\r\n")) != std::string::npos) {
-                    std::string line = current_line.substr(0, pos);
-                    current_line.erase(0, pos + 2);
-                    m_command_handler_.ProcessLine(line, socket_wrapper);
-                }
+				while ((pos = current_line.find("\r\n")) != std::string::npos) {
+					std::string line = current_line.substr(0, pos);
+					current_line.erase(0, pos + 2);
+					m_command_handler_.ProcessLine(line, socket_wrapper);
+				}
 
-                resetTimeoutTimer(socket_wrapper);
+				socket_wrapper.CancelTimeoutTimer();
+				resetTimeoutTimer(socket_wrapper);
 
-            } catch (const boost::system::system_error& e) {
-                if (e.code() == boost::asio::error::operation_aborted) {
-                    std::cout << "Client disconnected." << std::endl;
-                    break;
-                }
-                ErrorHandler::handleException("Read from socket", e);
-                throw;
-            } catch (const std::exception& e) {
-                std::cerr << "Read from socket error: " << e.what() << std::endl;
-                throw;
-            }
-        }
-    } catch (std::exception& e) {
-        std::cerr << "Exception: " << e.what() << "\n";
-    }
+			} catch (const boost::system::system_error& e) {
+				if (e.code() == boost::asio::error::operation_aborted) {
+					std::cout << "Client disconnected." << std::endl;
+					break;
+				}
+				ErrorHandler::handleException("Read from socket", e);
+				throw;
+			} catch (const std::exception& e) {
+				std::cerr << "Read from socket error: " << e.what() << std::endl;
+				throw;
+			}
+		}
+	} catch (std::exception& e) {
+		std::cerr << "Exception: " << e.what() << "\n";
+	}
 }
 
 void SmtpServer::tempHandleDataMode(const std::string& line, MailMessageBuilder& mail_builder,
