@@ -2,17 +2,21 @@
 
 set -e
 
+# Save the current directory
+CURRENT_DIR=$(pwd)
+WORKING_DIR=$(dirname "$CURRENT_DIR")
+
+echo "Current directory: $WORKING_DIR"
+
 # Define paths for certificates and keys
 CERT_DIR=/etc/ssl/certs/smtp-server
 KEY_DIR=/etc/ssl/private
 CERT_FILE=$CERT_DIR/server.crt
 KEY_FILE=$KEY_DIR/server.key
 
-echo "Installing dependencies..."
-sudo apt-get install -y cmake build-essential libssl-dev pkg-config libboost-all-dev libsodium-dev
-
 # Create and navigate to build directory
 echo "Creating build directory..."
+cd ..
 mkdir -p build
 cd build
 
@@ -62,6 +66,7 @@ After=network.target
 
 [Service]
 ExecStart=/usr/local/bin/SMTP_server
+WorkingDirectory=$WORKING_DIR/build
 Restart=on-failure
 User=root
 Group=root
