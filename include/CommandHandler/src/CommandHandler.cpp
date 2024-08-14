@@ -452,10 +452,8 @@ void CommandHandler::HandleAuth(SocketWrapper& socket_wrapper, const std::string
             return;
         }
 
-        const std::string stored_hashed_password = m_data_base->GetPasswordHash(username);
-        if (!VerifyPassword(password, stored_hashed_password)) {
-            throw std::runtime_error("Authentication failed");
-        }
+        const std::string hashed_password = HashPassword(password);
+        m_data_base->Login(username, hashed_password);
 
         socket_wrapper.SendResponseAsync("235 Authentication successful\r\n").get();
         auto emails = m_data_base->RetrieveEmails(username, true);

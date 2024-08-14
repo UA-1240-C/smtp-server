@@ -2,14 +2,21 @@
 
 set -e
 
+# Save the current directory
+CURRENT_DIR=$(pwd)
+WORKING_DIR=$(dirname "$CURRENT_DIR")
+
+echo "Current directory: $WORKING_DIR"
+
 # Define paths for certificates and keys
 CERT_DIR=/etc/ssl/certs/smtp-server
 KEY_DIR=/etc/ssl/private
 CERT_FILE=$CERT_DIR/server.crt
 KEY_FILE=$KEY_DIR/server.key
 
-echo "Installing dependencies..."
-sudo apt-get install -y cmake build-essential libssl-dev pkg-config libboost-all-dev libsodium-dev
+# Move to the project root directory
+echo "Moving to the project root directory..."
+cd "$WORKING_DIR"
 
 # Create and navigate to build directory
 echo "Creating build directory..."
@@ -18,15 +25,11 @@ cd build
 
 # Configure the project with CMake
 echo "Configuring the project with CMake..."
-cmake ..
+cmake "$WORKING_DIR"
 
 # Build the project
 echo "Building the project..."
 make
-
-# Install the project
-echo "Installing the project..."
-sudo make install
 
 # Create certificates and keys if they don't exist
 if [ ! -f "$CERT_FILE" ] || [ ! -f "$KEY_FILE" ]; then
@@ -62,6 +65,7 @@ After=network.target
 
 [Service]
 ExecStart=/usr/local/bin/SMTP_server
+WorkingDirectory=$WORKING_DIR/build
 Restart=on-failure
 User=root
 Group=root

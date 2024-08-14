@@ -8,7 +8,7 @@
     },
     "communicationsettings": {
       "blocking": 0,
-      "socket_timeout": 5
+      "socket_timeout": 30
     },
     "logging": {
       "filename": "serverlog.txt",

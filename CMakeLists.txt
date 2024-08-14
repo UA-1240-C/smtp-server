@@ -8,6 +8,28 @@ find_package(OpenSSL REQUIRED)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(LIBSODIUM REQUIRED libsodium)
 
+include(FetchContent)
+
+# Fetch and build Boost if not found
+if (NOT Boost_FOUND)
+    FetchContent_Declare(
+            boost
+            GIT_REPOSITORY https://github.com/boostorg/boost.git
+            GIT_TAG boost-1.79.0
+    )
+    FetchContent_MakeAvailable(boost)
+endif()
+
+# Fetch and build OpenSSL if not found
+if (NOT OpenSSL_FOUND)
+    FetchContent_Declare(
+            openssl
+            GIT_REPOSITORY https://github.com/openssl/openssl.git
+            GIT_TAG OpenSSL_1_1_1k
+    )
+    FetchContent_MakeAvailable(openssl)
+endif()
+
 # Add subdirectories
 add_subdirectory(include/CommandHandler)
 add_subdirectory(include/DataBase-main)
@@ -47,17 +69,3 @@ target_include_directories(SMTP_server PRIVATE
     ${OPENSSL_INCLUDE_DIR}
     ${LIBSODIUM_INCLUDE_DIRS}
 )
-
-
-# Linux-specific install paths
-install(TARGETS SMTP_server DESTINATION bin)
-install(FILES config.txt DESTINATION etc)
-install(DIRECTORY include/ DESTINATION include)
-install(FILES README.md DESTINATION share/doc/smtp-server)
-
-# Linux-specific settings
-set(CPACK_GENERATOR "DEB;RPM")
-set(CPACK_PACKAGE_NAME "smtp-server")
-set(CPACK_PACKAGE_VERSION "1.0.0")
-set(CPACK_INSTALL_PREFIX "/usr/local")
-include(CPack)
