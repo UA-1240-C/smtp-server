@@ -4,7 +4,7 @@
 #include <iostream>
 #include <string>
 #include <fstream>
-#include "parser.h"
+#include "JSONParser.h"
 
 class Config {
 public:
