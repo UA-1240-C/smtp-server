@@ -28,6 +28,12 @@ project(${PROJECT_NAME})
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(LIBSODIUM REQUIRED libsodium)
 
+# Check if libpqxx is available
+if (NOT TARGET pqxx)
+    message(FATAL_ERROR "libpqxx is not available")
+endif()
+
+
 add_library(${LIBRARY_NAME} STATIC
     ${LIBRARY_HEADERS}  
     ${LIBRARY_SOURCE}
