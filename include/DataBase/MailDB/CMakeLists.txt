@@ -25,13 +25,6 @@ set(LIBRARY_SOURCE
 
 project(${PROJECT_NAME})
 
-FetchContent_Declare(
-  libpqxx
-  GIT_REPOSITORY https://github.com/jtv/libpqxx.git
-  GIT_TAG master
-)
-FetchContent_MakeAvailable(libpqxx)
-
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(LIBSODIUM REQUIRED libsodium)
 
