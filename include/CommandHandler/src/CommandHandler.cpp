@@ -4,7 +4,7 @@ namespace ISXCommandHandler
 {
 CommandHandler::CommandHandler(boost::asio::ssl::context& ssl_context)
     : m_ssl_context(ssl_context)
-    , m_data_base(std::make_unique<ISXMailDB::PgMailDB>("localhost"))
+    , m_data_base(std::make_unique<PgMailDB>("localhost"))
 {
     m_ssl_context.set_options(boost::asio::ssl::context::default_workarounds |
         boost::asio::ssl::context::no_sslv2 |
@@ -16,7 +16,7 @@ CommandHandler::CommandHandler(boost::asio::ssl::context& ssl_context)
     {
         ConnectToDatabase();
     }
-    catch (const ISXMailDB::MailException& e)
+    catch (const MailException& e)
     {
         std::cerr << "MailException: " << e.what() << std::endl;
         throw; // Re-throw to ensure proper exception handling at creation time
@@ -452,10 +452,7 @@ void CommandHandler::HandleAuth(SocketWrapper& socket_wrapper, const std::string
             return;
         }
 
-        const std::string stored_hashed_password = m_data_base->GetPasswordHash(username);
-        if (!VerifyPassword(password, stored_hashed_password)) {
-            throw std::runtime_error("Authentication failed");
-        }
+        m_data_base->Login(username, password);
 
         socket_wrapper.SendResponseAsync("235 Authentication successful\r\n").get();
         auto emails = m_data_base->RetrieveEmails(username, true);
@@ -486,8 +483,8 @@ void CommandHandler::HandleRegister(SocketWrapper& socket_wrapper, const std::st
             return;
         }
 
-        const std::string hashed_password = HashPassword(password);
-        m_data_base->SignUp(username, hashed_password);
+        m_data_base->SignUp(username, password);
+
         socket_wrapper.SendResponseAsync("250 User registered successfully\r\n").get();
     } catch (const std::runtime_error& e) {
         ErrorHandler::HandleError("Handle REGISTER", e, socket_wrapper, "501 Syntax error in parameters or arguments\r\n");
@@ -521,28 +518,5 @@ std::pair<std::string, std::string> CommandHandler::DecodeAndSplitPlain(const st
     std::cout << "Extracted password: " << password << std::endl;
 
     return {username, password};
-}
-
-
-bool CommandHandler::VerifyPassword(const std::string& password,
-                                    const std::string& hashed_password) {
-    return crypto_pwhash_str_verify(hashed_password.c_str(), password.c_str(),
-                                    password.size()) == 0;
-}
-
-std::string CommandHandler::HashPassword(const std::string& password)
-{
-    std::string hashed_password(crypto_pwhash_STRBYTES, '\0');
-
-    if (crypto_pwhash_str(hashed_password.data(),
-        password.c_str(),
-        password.size(),
-        crypto_pwhash_OPSLIMIT_INTERACTIVE,
-        crypto_pwhash_MEMLIMIT_INTERACTIVE) != 0)
-    {
-        throw std::runtime_error("Password hashing failed");
-    }
-
-    return hashed_password;
 }
 }

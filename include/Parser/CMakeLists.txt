@@ -1,7 +1,8 @@
-add_library(Parser INTERFACE)
+add_library(Parser STATIC
+        src/JSONParser.cpp
+        src/ServerConfig.cpp
+)
 
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
-
-target_include_directories(Parser INTERFACE
-        ${CMAKE_SOURCE_DIR}/include
+target_include_directories(Parser PUBLIC
+        ${CMAKE_SOURCE_DIR}/include/Parser/include
 )

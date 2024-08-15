@@ -19,7 +19,7 @@
 #include "ThreadPool.h"
 #include "ErrorHandler.h"
 #include "SignalHandler.h"
-#include "config.h"
+#include "ServerConfig.h"
 
 using boost::asio::ip::tcp;
 using namespace ISXSC;
