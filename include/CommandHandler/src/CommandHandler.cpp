@@ -100,6 +100,7 @@ void CommandHandler::ProcessLine(const std::string& line, SocketWrapper& socket_
 
 void CommandHandler::HandleEhlo(SocketWrapper& socket_wrapper) {
     auto future = socket_wrapper.SendResponseAsync("250 Hello\r\n");
+
     try {
         future.get();
     } catch (const std::exception& e) {
@@ -119,6 +120,7 @@ void CommandHandler::HandleNoop(SocketWrapper& socket_wrapper) {
 void CommandHandler::HandleRset(SocketWrapper& socket_wrapper) {
     m_mail_builder_ = MailMessageBuilder();
     auto future = socket_wrapper.SendResponseAsync("250 OK\r\n");
+
     try {
         future.get();
     } catch (const std::exception& e) {
@@ -128,6 +130,7 @@ void CommandHandler::HandleRset(SocketWrapper& socket_wrapper) {
 
 void CommandHandler::HandleHelp(SocketWrapper& socket_wrapper) {
     auto future = socket_wrapper.SendResponseAsync(
+
         "214 The following commands are recognized: "
         "HELO, MAIL FROM, RCPT TO, DATA, "
         "QUIT, NOOP, RSET, VRFY, HELP\r\n"
@@ -428,6 +431,7 @@ void CommandHandler::HandleAuth(SocketWrapper& socket_wrapper, const std::string
         }
 
         std::string stored_hashed_password = m_data_base->GetPasswordHash(username);
+      
         if (!VerifyPassword(password, stored_hashed_password)) {
             throw std::runtime_error("Authentication failed");
         }
@@ -454,6 +458,7 @@ void CommandHandler::HandleRegister(SocketWrapper& socket_wrapper, const std::st
         std::string hashed_password = HashPassword(password);
         m_data_base->SignUp(username, hashed_password);
         socket_wrapper.SendResponseAsync("250 User registered successfully\r\n").get();
+
     } catch (const std::runtime_error& e) {
         ErrorHandler::handleError("Handle REGISTER", e, socket_wrapper, "501 Syntax error in parameters or arguments\r\n");
     } catch (const ISXMailDB::MailException& e) {

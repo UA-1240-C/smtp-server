@@ -36,6 +36,7 @@ SmtpServer::SmtpServer(boost::asio::io_context& io_context, boost::asio::ssl::co
     Config::CommunicationSettings communication_settings = config.get_communication_settings();
     m_timeout_seconds_ = std::chrono::seconds(communication_settings.socket_timeout);
 
+
     std::cout << "SmtpServer initialized and listening on port " << m_port << std::endl;
 }
 

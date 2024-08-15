@@ -31,6 +31,7 @@ private:
     boost::asio::steady_timer m_timeout_timer_;
     std::chrono::seconds m_timeout_seconds_;
 
+
 private:
     void Accept();
     void SaveData(const std::string& line, MailMessageBuilder& mail_builder, SocketWrapper& socket_wrapper,
@@ -42,6 +43,7 @@ private:
 
     boost::asio::io_context &m_io_context_;
     boost::asio::ssl::context &m_ssl_context_;
+
     CommandHandler m_command_handler_;
     std::unique_ptr<tcp::acceptor> m_acceptor_;
 
@@ -53,7 +55,7 @@ private:
     // std::string current_sender_;
     // std::vector<std::string> current_recipients_;
 private:
-    void handleClient(SocketWrapper socket_wrapper);
+    void HandleClient(SocketWrapper socket_wrapper);
 
     void tempHandleDataMode(const std::string& line, MailMessageBuilder& mail_builder, SocketWrapper& socket_wrapper,
                             bool& in_data);
@@ -71,8 +73,8 @@ private:
     bool tempIsOutputFileValid(const std::ofstream& output_file) const;
 
 private:
-    std::string hashPassword(const std::string& password);
-    bool checkPassword(const std::string& stored_hash, const std::string& password);
+    std::string HashPassword(const std::string& password);
+    bool CheckPassword(const std::string& stored_hash, const std::string& password);
 };
 }  // namespace ISXSC
 

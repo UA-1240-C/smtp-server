@@ -58,8 +58,7 @@ namespace ISXSC {
     MailMessageBuilder m_mail_builder_;
     bool m_in_data_ = false;
     std::string m_connection_string = "postgresql://postgres.qotrdwfvknwbfrompcji:"
-                                     "yUf73LWenSqd9Lt4@aws-0-eu-central-1.pooler."
-                                     "supabase.com:6543/postgres?sslmode=require";
+
   };
 }
 
