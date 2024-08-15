@@ -51,4 +51,6 @@ target_include_directories(${LIBRARY_NAME} PUBLIC
     $<INSTALL_INTERFACE:include>
 )
 
+add_subdirectory(test)
+
 
