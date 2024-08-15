@@ -30,6 +30,16 @@ if (NOT OpenSSL_FOUND)
     FetchContent_MakeAvailable(openssl)
 endif()
 
+# Fetch and build libpqxx if not found
+if (NOT TARGET pqxx::pqxx)
+    FetchContent_Declare(
+        libpqxx
+        GIT_REPOSITORY https://github.com/jtv/libpqxx.git
+        GIT_TAG master
+    )
+    FetchContent_MakeAvailable(libpqxx)
+endif()
+
 # Add subdirectories
 add_subdirectory(include/CommandHandler)
 add_subdirectory(include/DataBase/MailDB)
