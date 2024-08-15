@@ -19,22 +19,30 @@ namespace ISXSC {
 class SmtpServer {
 public:
     SmtpServer(boost::asio::io_context& io_context,
-               boost::asio::ssl::context& ssl_context, unsigned short port,
-               ThreadPool<>& thread_pool);
+               boost::asio::ssl::context& ssl_context);
     void Start();
 
 private:
+    std::string m_server_name;
+    std::string m_server_display_name;
+    unsigned int m_port;
+
+    size_t m_max_threads;
+
+    boost::asio::steady_timer m_timeout_timer_;
+
+  private:
     void Accept();
     void saveData(const std::string& line, MailMessageBuilder& mail_builder,
                   SocketWrapper& socket_wrapper, bool& in_data);
 private:
-    MailMessageBuilder mail_builder_;
-    ThreadPool<>& thread_pool_;
+    MailMessageBuilder m_mail_builder_;
+    ThreadPool<> m_thread_pool_;
 
-    boost::asio::io_context& io_context_;
-    boost::asio::ssl::context& ssl_context_;
-    CommandHandler command_handler_;
-    std::unique_ptr<tcp::acceptor> acceptor_;
+    boost::asio::io_context& m_io_context_;
+    boost::asio::ssl::context& m_ssl_context_;
+    CommandHandler m_command_handler_;
+    std::unique_ptr<tcp::acceptor> m_acceptor_;
 
     //std::string buffer_;
 
@@ -44,7 +52,7 @@ private:
     //std::string current_sender_;
     //std::vector<std::string> current_recipients_;
 private:
-    void handleClient(SocketWrapper socket_wrapper);
+    void HandleClient(SocketWrapper socket_wrapper);
 
     void tempHandleDataMode(const std::string& line,
                             MailMessageBuilder& mail_builder,
@@ -61,8 +69,8 @@ private:
 
     bool tempIsOutputFileValid(const std::ofstream& output_file) const;
 private:
-    std::string hashPassword(const std::string& password);
-    bool checkPassword(const std::string& stored_hash, const std::string& password);
+    std::string HashPassword(const std::string& password);
+    bool CheckPassword(const std::string& stored_hash, const std::string& password);
 };
 }  // namespace ISXSCІ
 
