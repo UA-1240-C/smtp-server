@@ -3,7 +3,7 @@ project(SMTP_server VERSION 1.0.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 
-find_package(Boost REQUIRED COMPONENTS system thread)
+find_package(Boost REQUIRED COMPONENTS system thread log log_setup)
 find_package(OpenSSL REQUIRED)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(LIBSODIUM REQUIRED libsodium)
@@ -41,32 +41,35 @@ add_subdirectory(include/MailMessageFormatter)
 add_subdirectory(include/Utils)
 add_subdirectory(include/ErrorHandler)
 add_subdirectory(include/Parser)
+add_subdirectory(include/Logger)
 
 # Add executable
 add_executable(SMTP_server src/main.cpp)
 
 # Link libraries
 target_link_libraries(SMTP_server PRIVATE
-        ErrorHandler
-        CommandHandler
-        MailMessage
-        MailDB
-        Encoding
-        Server
-        SignalHandler
-        SocketWrapper
-        Utils
-        Parser
-        Boost::system
-        Boost::thread
-        ${OPENSSL_LIBRARIES}
-        pqxx
-        ${LIBSODIUM_LIBRARIES}
+    ErrorHandler
+    CommandHandler
+    MailMessage
+    MailDB
+    Encoding
+    Server
+    SignalHandler
+    SocketWrapper
+    Utils
+    Parser
+    Logger
+    Boost::system
+    Boost::thread
+    Boost::log
+    Boost::log_setup
+    ${OPENSSL_LIBRARIES}
+    pqxx
+    ${LIBSODIUM_LIBRARIES}
 )
 
 # Include directories
 target_include_directories(SMTP_server PRIVATE
-    ${CMAKE_SOURCE_DIR}/include/Logger/include
     ${CMAKE_SOURCE_DIR}/include/CommandHandler/include
     ${CMAKE_SOURCE_DIR}/include/DataBase/include
     ${CMAKE_SOURCE_DIR}/include/Encoding/include
@@ -77,6 +80,7 @@ target_include_directories(SMTP_server PRIVATE
     ${CMAKE_SOURCE_DIR}/include/SignalHandler/include
     ${CMAKE_SOURCE_DIR}/include/SocketWrapper/include
     ${CMAKE_SOURCE_DIR}/include/Utils/include
+    ${CMAKE_SOURCE_DIR}/include/Logger
     ${Boost_INCLUDE_DIRS}
     ${OPENSSL_INCLUDE_DIR}
     ${LIBSODIUM_INCLUDE_DIRS}
