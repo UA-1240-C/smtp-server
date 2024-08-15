@@ -6,10 +6,10 @@
 using namespace ISXSC;
 
 CommandHandler::CommandHandler(boost::asio::ssl::context& ssl_context)
-    : ssl_context_(ssl_context)
-    , m_data_base_(std::make_unique<ISXMailDB::PgMailDB>("localhost"))
+    : m_ssl_context(ssl_context)
+    , m_data_base(std::make_unique<ISXMailDB::PgMailDB>("localhost"))
 {
-    ssl_context_.set_options(boost::asio::ssl::context::default_workarounds |
+    m_ssl_context.set_options(boost::asio::ssl::context::default_workarounds |
         boost::asio::ssl::context::no_sslv2 |
         boost::asio::ssl::context::no_sslv3 |
         boost::asio::ssl::context::no_tlsv1 |
@@ -43,16 +43,16 @@ CommandHandler::~CommandHandler()
 
 void CommandHandler::ConnectToDatabase() const
 {
-    m_data_base_->Connect(connection_string_);
-    if (!m_data_base_->IsConnected()) {
+    m_data_base->Connect(m_connection_string);
+    if (!m_data_base->IsConnected()) {
         throw std::runtime_error("Database connection is not established.");
     }
 }
 
 void CommandHandler::DisconnectFromDatabase() const
 {
-    if (m_data_base_->IsConnected()) {
-        m_data_base_->Disconnect();
+    if (m_data_base->IsConnected()) {
+        m_data_base->Disconnect();
     }
 }
 
@@ -84,7 +84,7 @@ void CommandHandler::ProcessLine(const std::string& line, SocketWrapper& socket_
   } else if (line.find("REGISTER") == 0) {
     HandleRegister(socket_wrapper, line);
   } else {
-      auto future = socket_wrapper.sendResponseAsync("500 Syntax error, command unrecognized\r\n");
+      auto future = socket_wrapper.SendResponseAsync("500 Syntax error, command unrecognized\r\n");
       try {
           future.get(); // Ожидание завершения асинхронной операции
           std::cout << "Response sent successfully." << std::endl;
@@ -99,7 +99,7 @@ void CommandHandler::ProcessLine(const std::string& line, SocketWrapper& socket_
 }
 
 void CommandHandler::HandleEhlo(SocketWrapper& socket_wrapper) {
-    auto future = socket_wrapper.sendResponseAsync("250 Hello\r\n");
+    auto future = socket_wrapper.SendResponseAsync("250 Hello\r\n");
     try {
         future.get();
     } catch (const std::exception& e) {
@@ -108,7 +108,7 @@ void CommandHandler::HandleEhlo(SocketWrapper& socket_wrapper) {
 }
 
 void CommandHandler::HandleNoop(SocketWrapper& socket_wrapper) {
-    auto future = socket_wrapper.sendResponseAsync("250 OK\r\n");
+    auto future = socket_wrapper.SendResponseAsync("250 OK\r\n");
     try {
         future.get();
     } catch (const std::exception& e) {
@@ -118,7 +118,7 @@ void CommandHandler::HandleNoop(SocketWrapper& socket_wrapper) {
 
 void CommandHandler::HandleRset(SocketWrapper& socket_wrapper) {
     m_mail_builder_ = MailMessageBuilder();
-    auto future = socket_wrapper.sendResponseAsync("250 OK\r\n");
+    auto future = socket_wrapper.SendResponseAsync("250 OK\r\n");
     try {
         future.get();
     } catch (const std::exception& e) {
@@ -127,7 +127,7 @@ void CommandHandler::HandleRset(SocketWrapper& socket_wrapper) {
 }
 
 void CommandHandler::HandleHelp(SocketWrapper& socket_wrapper) {
-    auto future = socket_wrapper.sendResponseAsync(
+    auto future = socket_wrapper.SendResponseAsync(
         "214 The following commands are recognized: "
         "HELO, MAIL FROM, RCPT TO, DATA, "
         "QUIT, NOOP, RSET, VRFY, HELP\r\n"
@@ -144,17 +144,17 @@ void CommandHandler::HandleVrfy(SocketWrapper& socket_wrapper, const std::string
     std::string user_name = line.substr(5); // Remove "VRFY " (5 characters)
 
     try {
-        if (m_data_base_->UserExists(user_name)) {
-            auto user_info_list = m_data_base_->RetrieveUserInfo(user_name);
+        if (m_data_base->UserExists(user_name)) {
+            auto user_info_list = m_data_base->RetrieveUserInfo(user_name);
 
             std::string response = "250 User exists: " + user_name + "\r\n";
             for (const auto& user : user_info_list) {
                 response += "Full name: " + user.user_name + user.host_name + "\r\n";
             }
-            auto future = socket_wrapper.sendResponseAsync(response);
+            auto future = socket_wrapper.SendResponseAsync(response);
             future.get();
         } else {
-            auto future = socket_wrapper.sendResponseAsync("550 User does not exist\r\n");
+            auto future = socket_wrapper.SendResponseAsync("550 User does not exist\r\n");
             future.get();
         }
     } catch (const ISXMailDB::MailException& e) {
@@ -167,17 +167,17 @@ void CommandHandler::HandleExpn(SocketWrapper& socket_wrapper, const std::string
     std::string mailing_list = line.substr(5); // Remove "EXPN " (5 characters)
 
     try {
-        auto members_list = m_data_base_->RetrieveUserInfo(mailing_list);
+        auto members_list = m_data_base->RetrieveUserInfo(mailing_list);
 
         if (!members_list.empty()) {
             std::string response = "250 Mailing list members:\r\n";
             for (const auto& member : members_list) {
                 response += member.user_name + "\r\n";
             }
-            auto future = socket_wrapper.sendResponseAsync(response);
+            auto future = socket_wrapper.SendResponseAsync(response);
             future.get();
         } else {
-            auto future = socket_wrapper.sendResponseAsync("550 Mailing list does not exist\r\n");
+            auto future = socket_wrapper.SendResponseAsync("550 Mailing list does not exist\r\n");
             future.get();
         }
     } catch (const ISXMailDB::MailException& e) {
@@ -186,7 +186,7 @@ void CommandHandler::HandleExpn(SocketWrapper& socket_wrapper, const std::string
 }
 
 void CommandHandler::HandleQuit(SocketWrapper& socket_wrapper) {
-    auto future = socket_wrapper.sendResponseAsync("221 Bye\r\n");
+    auto future = socket_wrapper.SendResponseAsync("221 Bye\r\n");
     try {
         future.get();
     } catch (const std::exception& e) {
@@ -239,7 +239,7 @@ void CommandHandler::HandleMailFrom(SocketWrapper& socket_wrapper, const std::st
     std::cout << "Handling MAIL FROM command with line: " << line << std::endl;
     if (line.size() <= 10) {
         std::cerr << "Invalid MAIL FROM command format" << std::endl;
-        auto future = socket_wrapper.sendResponseAsync("501 Syntax error in parameters or arguments\r\n");
+        auto future = socket_wrapper.SendResponseAsync("501 Syntax error in parameters or arguments\r\n");
         try {
             future.get();
         } catch (const std::exception& e) {
@@ -252,20 +252,20 @@ void CommandHandler::HandleMailFrom(SocketWrapper& socket_wrapper, const std::st
     std::cout << "Parsed sender: " << sender << std::endl;
 
     try {
-        if (!m_data_base_->UserExists(sender)) {
+        if (!m_data_base->UserExists(sender)) {
             std::cout << "Sender does not exist" << std::endl;
-            auto future = socket_wrapper.sendResponseAsync("550 Sender address does not exist\r\n");
+            auto future = socket_wrapper.SendResponseAsync("550 Sender address does not exist\r\n");
             future.get();
         } else {
             m_mail_builder_.SetFrom(sender);
             std::cout << "Sender address set" << std::endl;
-            auto future = socket_wrapper.sendResponseAsync("250 OK\r\n");
+            auto future = socket_wrapper.SendResponseAsync("250 OK\r\n");
             future.get();
         }
     } catch (const std::exception& e) {
         std::cerr << "Exception in handleMailFrom: " << e.what() << std::endl;
         ErrorHandler::handleException("Handle MAIL FROM", e);
-        auto future = socket_wrapper.sendResponseAsync("550 Internal Server Error\r\n");
+        auto future = socket_wrapper.SendResponseAsync("550 Internal Server Error\r\n");
         try {
             future.get();
         } catch (const std::exception& e) {
@@ -278,18 +278,18 @@ void CommandHandler::HandleRcptTo(SocketWrapper& socket_wrapper,
                                   const std::string& line) {
     const std::string recipient = line.substr(8);
     try {
-        if (!m_data_base_->UserExists(recipient)) {
-            auto future = socket_wrapper.sendResponseAsync("550 Recipient address does not exist\r\n");
+        if (!m_data_base->UserExists(recipient)) {
+            auto future = socket_wrapper.SendResponseAsync("550 Recipient address does not exist\r\n");
             future.get();
             return;
         }
         m_mail_builder_.AddTo(recipient);
-        auto future = socket_wrapper.sendResponseAsync("250 OK\r\n");
+        auto future = socket_wrapper.SendResponseAsync("250 OK\r\n");
         future.get();
     } catch (const std::exception& e) {
         ErrorHandler::handleException("Handle RCPT TO", e);
         try {
-            auto future = socket_wrapper.sendResponseAsync("550 Internal Server Error\r\n");
+            auto future = socket_wrapper.SendResponseAsync("550 Internal Server Error\r\n");
             future.get();
         } catch (const std::exception& e) {
             ErrorHandler::handleException("Send Internal Server Error response", e);
@@ -298,7 +298,7 @@ void CommandHandler::HandleRcptTo(SocketWrapper& socket_wrapper,
 }
 
 void CommandHandler::HandleData(SocketWrapper& socket_wrapper) {
-    auto future = socket_wrapper.sendResponseAsync("354 End data with <CR><LF>.<CR><LF>\r\n");
+    auto future = socket_wrapper.SendResponseAsync("354 End data with <CR><LF>.<CR><LF>\r\n");
     try {
         future.get();
         m_in_data_ = true;
@@ -315,7 +315,7 @@ void CommandHandler::HandleData(SocketWrapper& socket_wrapper) {
 }
 
 void CommandHandler::ReadData(SocketWrapper& socket_wrapper, std::string& data_message) {
-    auto future_data = socket_wrapper.readFromSocketAsync(1024);
+    auto future_data = socket_wrapper.ReadFromSocketAsync(1024);
 
     try {
         std::string buffer = future_data.get();
@@ -351,21 +351,21 @@ void CommandHandler::ProcessDataMessage(SocketWrapper& socket_wrapper,
 void CommandHandler::HandleEndOfData(SocketWrapper& socket_wrapper) {
     m_in_data_ = false;
     try {
-        auto future_response = socket_wrapper.sendResponseAsync("250 OK\r\n");
+        auto future_response = socket_wrapper.SendResponseAsync("250 OK\r\n");
         future_response.get();
 
         try {
             MailMessage message = m_mail_builder_.Build();
             if (message.from.get_address().empty() || message.to.empty()) {
-                future_response = socket_wrapper.sendResponseAsync("550 Required fields missing\r\n");
+                future_response = socket_wrapper.SendResponseAsync("550 Required fields missing\r\n");
             } else {
                 SaveMailToDatabase(message);
-                future_response = socket_wrapper.sendResponseAsync("250 OK\r\n");
+                future_response = socket_wrapper.SendResponseAsync("250 OK\r\n");
             }
             future_response.get();
         } catch (const std::exception& e) {
             ErrorHandler::handleException("Build and Save Mail", e);
-            future_response = socket_wrapper.sendResponseAsync("550 Internal Server Error\r\n");
+            future_response = socket_wrapper.SendResponseAsync("550 Internal Server Error\r\n");
             future_response.get();
         }
 
@@ -380,7 +380,7 @@ void CommandHandler::SaveMailToDatabase(const MailMessage& message)
   try {
     for (const auto& recipient : message.to) {
       try {
-        m_data_base_->InsertEmail(
+        m_data_base->InsertEmail(
             message.from.get_address(),
             recipient.get_address(),
             message.subject,
@@ -397,42 +397,42 @@ void CommandHandler::SaveMailToDatabase(const MailMessage& message)
 
 void CommandHandler::HandleStartTLS(SocketWrapper& socket_wrapper) {
     if (socket_wrapper.is_tls()) {
-        socket_wrapper.sendResponseAsync("503 Already in TLS mode.\r\n").get();
+        socket_wrapper.SendResponseAsync("503 Already in TLS mode.\r\n").get();
         return;
     }
 
-    auto future_response = socket_wrapper.sendResponseAsync("220 Ready to start TLS\r\n");
+    auto future_response = socket_wrapper.SendResponseAsync("220 Ready to start TLS\r\n");
 
     try {
         future_response.get();
 
-        auto future_tls = socket_wrapper.startTlsAsync(ssl_context_);
+        auto future_tls = socket_wrapper.StartTlsAsync(m_ssl_context);
         future_tls.get();
 
         std::cout << "STARTTLS handshake completed successfully." << std::endl;
     } catch (const std::exception& e) {
         std::cerr << "Exception during STARTTLS handshake: " << e.what() << std::endl;
-        socket_wrapper.sendResponseAsync("530 STARTTLS handshake failed\r\n").get();
+        socket_wrapper.SendResponseAsync("530 STARTTLS handshake failed\r\n").get();
     }
 }
 
 void CommandHandler::HandleAuth(SocketWrapper& socket_wrapper, const std::string& line) {
     try {
         auto [username, password] = DecodeAndSplitPlain(line.substr(11));
-        std::cout << "Username exists: " << m_data_base_->UserExists(username) << std::endl;
+        std::cout << "Username exists: " << m_data_base->UserExists(username) << std::endl;
 
-        if (!m_data_base_->UserExists(username)) {
+        if (!m_data_base->UserExists(username)) {
             std::cout << "User " << username << " with password " << password << " does not exist\n";
-            socket_wrapper.sendResponseAsync("535 Authentication failed\r\n").get();
+            socket_wrapper.SendResponseAsync("535 Authentication failed\r\n").get();
             return;
         }
 
-        std::string stored_hashed_password = m_data_base_->GetPasswordHash(username);
+        std::string stored_hashed_password = m_data_base->GetPasswordHash(username);
         if (!VerifyPassword(password, stored_hashed_password)) {
             throw std::runtime_error("Authentication failed");
         }
 
-        socket_wrapper.sendResponseAsync("235 Authentication successful\r\n").get();
+        socket_wrapper.SendResponseAsync("235 Authentication successful\r\n").get();
     } catch (const std::runtime_error& e) {
         ErrorHandler::handleError("Handle AUTH", e, socket_wrapper, "535 Authentication failed\r\n");
     } catch (const ISXMailDB::MailException& e) {
@@ -446,14 +446,14 @@ void CommandHandler::HandleRegister(SocketWrapper& socket_wrapper, const std::st
     try {
         auto [username, password] = DecodeAndSplitPlain(line.substr(9));
 
-        if (m_data_base_->UserExists(username)) {
-            socket_wrapper.sendResponseAsync("550 User already exists\r\n").get();
+        if (m_data_base->UserExists(username)) {
+            socket_wrapper.SendResponseAsync("550 User already exists\r\n").get();
             return;
         }
 
         std::string hashed_password = HashPassword(password);
-        m_data_base_->SignUp(username, hashed_password);
-        socket_wrapper.sendResponseAsync("250 User registered successfully\r\n").get();
+        m_data_base->SignUp(username, hashed_password);
+        socket_wrapper.SendResponseAsync("250 User registered successfully\r\n").get();
     } catch (const std::runtime_error& e) {
         ErrorHandler::handleError("Handle REGISTER", e, socket_wrapper, "501 Syntax error in parameters or arguments\r\n");
     } catch (const ISXMailDB::MailException& e) {

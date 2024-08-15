@@ -22,16 +22,16 @@ public:
 
 	template <typename SocketType>
 	SocketType* get() {
-		if (!std::holds_alternative<std::shared_ptr<SocketType>>(m_socket_)) {
+		if (!std::holds_alternative<std::shared_ptr<SocketType>>(m_socket)) {
 			std::cerr << "Error: Incorrect socket type requested." << std::endl;
 			return nullptr;
 		}
-		return std::get<std::shared_ptr<SocketType>>(m_socket_).get();
+		return std::get<std::shared_ptr<SocketType>>(m_socket).get();
 	}
 
-	std::future<void> sendResponseAsync(const std::string& message);
-	std::future<std::string> readFromSocketAsync(size_t max_length);
-	std::future<void> startTlsAsync(boost::asio::ssl::context& context);
+	std::future<void> SendResponseAsync(const std::string& message);
+	std::future<std::string> ReadFromSocketAsync(size_t max_length);
+	std::future<void> StartTlsAsync(boost::asio::ssl::context& context);
 
 	void SetTimeoutTimer(std::shared_ptr<boost::asio::steady_timer> timeout_timer);
 	void StartTimeoutTimer(std::chrono::seconds timeout_duration);
@@ -42,10 +42,10 @@ public:
 	bool IsOpen() const;
 	
 private:
-	std::variant<std::shared_ptr<TcpSocket>, std::shared_ptr<SslSocket>> m_socket_;
-	bool is_tls_;
+	std::variant<std::shared_ptr<TcpSocket>, std::shared_ptr<SslSocket>> m_socket;
+	bool m_is_tls;
 
-	std::shared_ptr<boost::asio::steady_timer> m_timeout_timer_;
+	std::shared_ptr<boost::asio::steady_timer> m_timeout_timer;
 
 	void CloseTcp();
 	void CloseSsl();

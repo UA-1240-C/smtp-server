@@ -72,7 +72,7 @@ void SmtpServer::handleClient(SocketWrapper socket_wrapper) {
 			if (!socket_wrapper.IsOpen()) break;
 			std::cout << socket_wrapper.IsOpen() << std::endl;
 			size_t length = 1024;
-			auto future_data = socket_wrapper.readFromSocketAsync(length);
+			auto future_data = socket_wrapper.ReadFromSocketAsync(length);
 
 			try {
 				std::string buffer = future_data.get();
@@ -111,7 +111,7 @@ void SmtpServer::tempHandleDataMode(const std::string& line, MailMessageBuilder&
         SaveData(line, mail_builder, socket_wrapper, in_data);
     } else {
         try {
-            socket_wrapper.sendResponseAsync("500 Command not recognized\r\n").get();
+            socket_wrapper.SendResponseAsync("500 Command not recognized\r\n").get();
         } catch (const std::exception& e) {
             ErrorHandler::handleException("Handle Data Mode", e);
         }
@@ -125,7 +125,7 @@ void SmtpServer::SaveData(const std::string& line, MailMessageBuilder& mail_buil
         try {
             tempSaveMail(mail_builder.Build());
 
-            socket_wrapper.sendResponseAsync("250 OK\r\n").get();
+            socket_wrapper.SendResponseAsync("250 OK\r\n").get();
         } catch (const std::exception& e) {
             // Обработка ошибок
             std::cerr << "Error while saving data or sending response: " << e.what() << std::endl;
