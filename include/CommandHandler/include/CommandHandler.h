@@ -14,11 +14,12 @@
 #include "MailDB/PgMailDB.h"
 #include "MailMessageBuilder.h"
 #include "SocketWrapper.h"
-#include "../../ErrorHandler/include/ErrorHandler.h"
+#include "ErrorHandler.h"
 
 using namespace ISXErrorHandler;
 using namespace ISXSC;
 using namespace ISXSocketWrapper;
+using namespace ISXMailDB;
 
 namespace ISXCommandHandler
 {
@@ -168,28 +169,13 @@ private:
      * @param encoded_data The encoded data to decode and split.
      * @return A pair containing the decoded username and password.
      */
-    static std::pair<std::string, std::string> DecodeAndSplitPlain(const std::string& encoded_data);
-
-    /**
-     * @brief Verifies the provided password against the hashed password.
-     * @param password The plain text password.
-     * @param hashed_password The hashed password to compare against.
-     * @return True if the password matches the hashed password, false otherwise.
-     */
-    static bool VerifyPassword(const std::string& password, const std::string& hashed_password);
-
-    /**
-     * @brief Hashes the provided password using a secure hashing algorithm.
-     * @param password The plain text password to hash.
-     * @return The hashed password.
-     */
-    static std::string HashPassword(const std::string& password);
+    static auto DecodeAndSplitPlain(const std::string& encoded_data) -> std::pair<std::string, std::string>;
 
     /**
      * @brief Saves a mail message to the database.
      * @param message The mail message to save.
      */
-    void SaveMailToDatabase(const ISXSC::MailMessage& message);
+    void SaveMailToDatabase(const MailMessage& message);
 
     /**
      * @brief Connects to the mail database.
@@ -204,7 +190,7 @@ private:
 private:
     boost::asio::ssl::context& m_ssl_context; ///< Reference to the SSL context.
     std::unique_ptr<ISXMailDB::PgMailDB> m_data_base; ///< Pointer to the mail database.
-    ISXSC::MailMessageBuilder m_mail_builder; ///< Mail message builder instance.
+    MailMessageBuilder m_mail_builder; ///< Mail message builder instance.
     bool m_in_data = false; ///< Flag indicating if in DATA context.
     std::string m_connection_string = "postgresql://postgres.qotrdwfvknwbfrompcji:"
                                      "yUf73LWenSqd9Lt4@aws-0-eu-central-1.pooler."

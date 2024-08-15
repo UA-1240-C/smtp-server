@@ -15,7 +15,11 @@ if (NOT Boost_FOUND)
     FetchContent_Declare(
             boost
             GIT_REPOSITORY https://github.com/boostorg/boost.git
+<<<<<<< HEAD
             GIT_TAG boost-1.79.0
+=======
+            GIT_TAG boost-1.85.0
+>>>>>>> 0568652 (Initial commit of actual project stage for logger integration)
     )
     FetchContent_MakeAvailable(boost)
 endif()
@@ -32,7 +36,7 @@ endif()
 
 # Add subdirectories
 add_subdirectory(include/CommandHandler)
-add_subdirectory(include/DataBase-main)
+add_subdirectory(include/DataBase/MailDB)
 add_subdirectory(include/Encoding)
 add_subdirectory(include/Server)
 add_subdirectory(include/SignalHandler)
@@ -40,6 +44,7 @@ add_subdirectory(include/SocketWrapper)
 add_subdirectory(include/MailMessageFormatter)
 add_subdirectory(include/Utils)
 add_subdirectory(include/ErrorHandler)
+add_subdirectory(include/Parser)
 
 # Add executable
 add_executable(SMTP_server src/main.cpp)
@@ -55,16 +60,27 @@ target_link_libraries(SMTP_server PRIVATE
         SignalHandler
         SocketWrapper
         Utils
+        Parser
         Boost::system
         Boost::thread
         ${OPENSSL_LIBRARIES}
-        libpqxx::pqxx
+        pqxx
         ${LIBSODIUM_LIBRARIES}
 )
 
 # Include directories
 target_include_directories(SMTP_server PRIVATE
-    ${CMAKE_SOURCE_DIR}/include
+    ${CMAKE_SOURCE_DIR}/include/Logger/include
+    ${CMAKE_SOURCE_DIR}/include/CommandHandler/include
+    ${CMAKE_SOURCE_DIR}/include/DataBase/include
+    ${CMAKE_SOURCE_DIR}/include/Encoding/include
+    ${CMAKE_SOURCE_DIR}/include/ErrorHandler/include
+    ${CMAKE_SOURCE_DIR}/include/MailMessageFormatter/include
+    ${CMAKE_SOURCE_DIR}/include/Parser/include
+    ${CMAKE_SOURCE_DIR}/include/Server/include
+    ${CMAKE_SOURCE_DIR}/include/SignalHandler/include
+    ${CMAKE_SOURCE_DIR}/include/SocketWrapper/include
+    ${CMAKE_SOURCE_DIR}/include/Utils/include
     ${Boost_INCLUDE_DIRS}
     ${OPENSSL_INCLUDE_DIR}
     ${LIBSODIUM_INCLUDE_DIRS}
