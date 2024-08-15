@@ -31,7 +31,7 @@ if (NOT OpenSSL_FOUND)
 endif()
 
 # Fetch and build libpqxx if not found
-if (NOT TARGET pqxx::pqxx)
+if (NOT TARGET pqxx)
     FetchContent_Declare(
         libpqxx
         GIT_REPOSITORY https://github.com/jtv/libpqxx.git
@@ -74,8 +74,6 @@ target_link_libraries(SMTP_server PRIVATE
     Boost::log
     Boost::log_setup
     ${OPENSSL_LIBRARIES}
-    pqxx
-    ${LIBSODIUM_LIBRARIES}
 )
 
 # Include directories
