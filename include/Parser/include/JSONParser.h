@@ -8,6 +8,19 @@
 #include <vector>
 #include <stdexcept>
 
+class JSONParseException : public std::exception {
+public:
+    explicit JSONParseException(const std::string &message)
+        : m_message("JSON Parse Error: " + message) {}
+
+    const char *what() const noexcept override {
+        return m_message.c_str();
+    }
+
+private:
+    std::string m_message;
+};
+
 class JSON {
 public:
     enum Type { OBJECT, STRING, NUMBER, BOOL, NIL };

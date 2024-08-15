@@ -31,6 +31,7 @@ JSON JSON::Parse(const std::string &content) {
     std::stringstream ss(content);
     SkipWhitespace(ss);
     char c = ss.peek();
+
     if (c == '{') {
         return ParseObject(ss);
     } else if (c == '"') {
@@ -42,7 +43,7 @@ JSON JSON::Parse(const std::string &content) {
     } else if (c == 'n') {
         return ParseNull(ss);
     } else {
-        throw std::runtime_error("Invalid JSON input");
+        throw JSONParseException("Unexpected character");
     }
 }
 
@@ -51,6 +52,7 @@ JSON JSON::ParseObject(std::stringstream &ss) {
     bool firstItem = true;
     ss.get(); 
     SkipWhitespace(ss);
+
     while (ss.peek() != '}') {
         if (firstItem) {
             firstItem = false;
@@ -66,7 +68,9 @@ JSON JSON::ParseObject(std::stringstream &ss) {
         SkipWhitespace(ss);
         JSON key = ParseString(ss); 
         SkipWhitespace(ss);
-        ss.get(); 
+        if (ss.get() != ':') {
+            throw JSONParseException("Expected ':' after key");
+        }
         SkipWhitespace(ss);
         obj.m_object_value[key.get_string_value()] = Parse(ss.str().substr(ss.tellg())); 
         SkipWhitespace(ss);
@@ -83,6 +87,9 @@ JSON JSON::ParseString(std::stringstream &ss) {
     ss.get(); 
     std::string value;
     while (ss.peek() != '"') {
+        if (ss.peek() == -1) {
+            throw JSONParseException("Unterminated string");
+        }
         value += ss.get();
     }
     ss.get(); 
@@ -108,7 +115,7 @@ JSON JSON::ParseBool(std::stringstream &ss) {
     } else if (value == "false") {
         return JSON(false);
     } else {
-        throw std::runtime_error("Invalid JSON input");
+        throw JSONParseException("Invalid boolean value");
     }
 }
 
@@ -120,6 +127,6 @@ JSON JSON::ParseNull(std::stringstream &ss) {
     if (value == "null") {
         return JSON();
     } else {
-        throw std::runtime_error("Invalid JSON input");
+        throw JSONParseException("Invalid null value");
     }
 }

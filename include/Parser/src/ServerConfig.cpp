@@ -1,17 +1,27 @@
 #include "ServerConfig.h"
 
-Config::Config(const std::string &filename) {
-    std::ifstream file(filename);
-    if (!file.is_open()) {
-        std::cerr << "Warning: Could not open filename. Settings are set to default values" << std::endl;
-    } else {
-        std::stringstream buffer;
-        buffer << file.rdbuf();
-        JSON json = JSON::Parse(buffer.str());
+// Constructor that initializes the configuration from a file
+    Config::Config(const std::string &filename) {
+        std::ifstream file(filename);
+        if (!file.is_open()) {
+            // If file cannot be opened, use default values
+            std::cerr << "Warning: Could not open file. Settings are set to default values" << std::endl;
+        } else {
+            try {
+                std::stringstream buffer;
+                buffer << file.rdbuf(); // Read the file content into a stringstream
+                JSON json = JSON::Parse(buffer.str()); // Parse the JSON content
 
-        ParseJSON(json);
+                ParseJSON(json); // Parse and set the configuration values
+            } catch (const JSONParseException &e) {
+                std::cerr << "Error: Failed to parse JSON file - " << e.what() << std::endl;
+                std::cerr << "Using default configuration values instead." << std::endl;
+            } catch (const std::exception &e) {
+                std::cerr << "Error: An unexpected error occurred - " << e.what() << std::endl;
+                std::cerr << "Using default configuration values instead." << std::endl;
+            }
+        }
     }
-}
 
 Config::Server Config::get_server() const { return server; }
 Config::CommunicationSettings Config::get_communication_settings() const { return communication_settings; }
