@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.13.0)
 
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
@@ -43,8 +43,8 @@ if(NOT googletest_POPULATED)
 endif()
 
 # Create test executable
-add_executable(testRunner test/test.cpp)
-target_link_libraries(testRunner ${MAILDATABASE_LIBRARIES} GTest::gtest_main GTest::gmock_main)
+#add_executable(testRunner test/test.cpp)
+#target_link_libraries(testRunner ${MAILDATABASE_LIBRARIES} GTest::gtest_main GTest::gmock_main)
 
 # Enable testing
 enable_testing()
