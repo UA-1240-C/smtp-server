@@ -3,8 +3,8 @@
 #ifndef BASE64_H
 #define BASE64_H
 
-#include <string>
 #include <boost/beast/core/detail/base64.hpp>
+#include <string>
 
 #include "Logger.h"
 
@@ -31,6 +31,6 @@ string Base64Encode(const string& decoded);
  * The result is a string that represents the decoded content.
  */
 string Base64Decode(const string& encoded);
-}; // namespace ISXBase64
+};  // namespace ISXBase64
 
-#endif //BASE64_H
+#endif  // BASE64_H

@@ -21,21 +21,21 @@ namespace ISXSignalHandler
 class SignalHandler
 {
 public:
-	/**
-		* @brief Sets up signal handlers for the program.
-		*
-		* This method configures the signal handlers for different signals.
-		*/
-	static void SetupSignalHandlers();
+    /**
+     * @brief Sets up signal handlers for the program.
+     *
+     * This method configures the signal handlers for different signals.
+     */
+    static void SetupSignalHandlers();
 
-	/**
-	 * @brief Handles incoming signals.
-	 * @param[in] signal The signal number received.
-	 *
-	 * This method handles the specified signal.
-	 */
-	static void HandleSignal(int signal);
+    /**
+     * @brief Handles incoming signals.
+     * @param[in] signal The signal number received.
+     *
+     * This method handles the specified signal.
+     */
+    static void HandleSignal(int signal);
 };
-}
+}  // namespace ISXSignalHandler
 
 #endif  // SIGNAL_HANDLER_H

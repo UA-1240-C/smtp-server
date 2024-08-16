@@ -3,12 +3,12 @@
 #ifndef COMMANDHANDLER_H
 #define COMMANDHANDLER_H
 
+#include <boost/asio/ssl.hpp>
 #include <string>
 #include <utility>
 
-#include <boost/asio/ssl.hpp>
-
 #include "Base64.h"
+#include "Logger.h"
 #include "MailDB/PgMailDB.h"
 #include "MailMessageBuilder.h"
 #include "SocketWrapper.h"
@@ -49,6 +49,7 @@ public:
      * @param socket_wrapper Reference to the SocketWrapper for communication.
      */
     void ProcessLine(const std::string& line, SocketWrapper& socket_wrapper);
+
 private:
     /**
      * @brief Handles the MAIL FROM command.
@@ -308,14 +309,15 @@ private:
     void DisconnectFromDatabase() const;
 
 private:
-    boost::asio::ssl::context& m_ssl_context; ///< Reference to the SSL context.
-    std::unique_ptr<PgMailDB> m_data_base; ///< Pointer to the mail database.
-    MailMessageBuilder m_mail_builder; ///< Mail message builder instance.
-    bool m_in_data = false; ///< Flag indicating if in DATA context.
-    std::string m_connection_string = "postgresql://postgres.qotrdwfvknwbfrompcji:"
-                                     "yUf73LWenSqd9Lt4@aws-0-eu-central-1.pooler."
-                                     "supabase.com:6543/postgres?sslmode=require"; ///< Database connection string.
+    boost::asio::ssl::context& m_ssl_context;  ///< Reference to the SSL context.
+    std::unique_ptr<PgMailDB> m_data_base;     ///< Pointer to the mail database.
+    MailMessageBuilder m_mail_builder;         ///< Mail message builder instance.
+    bool m_in_data = false;                    ///< Flag indicating if in DATA context.
+    std::string m_connection_string =
+        "postgresql://postgres.qotrdwfvknwbfrompcji:"
+        "yUf73LWenSqd9Lt4@aws-0-eu-central-1.pooler."
+        "supabase.com:6543/postgres?sslmode=require";  ///< Database connection string.
 };
-}
+}  // namespace ISXCommandHandler
 
-#endif // COMMANDHANDLER_H
+#endif  // COMMANDHANDLER_H

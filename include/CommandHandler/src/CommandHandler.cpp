@@ -1,5 +1,13 @@
 #include "CommandHandler.h"
 
+const std::size_t MAILING_LIST_PREFIX_LENGTH = 5;
+
+constexpr std::size_t USERNAME_START_INDEX = 5;
+constexpr std::size_t SENDER_START_INDEX = 10;
+constexpr std::size_t RECIPIENT_START_INDEX = 8;
+
+constexpr std::size_t DELIMITER_OFFSET = 2;
+
 namespace ISXCommandHandler
 {
 CommandHandler::CommandHandler(boost::asio::ssl::context& ssl_context)
@@ -318,7 +326,7 @@ void CommandHandler::HandleRcptTo(SocketWrapper& socket_wrapper, const std::stri
     Logger::LogDebug("Entering CommandHandler::HandleRcptTo");
     Logger::LogTrace("CommandHandler::HandleMailFrom parameters: SocketWrapper reference, line: " + line);
 
-    std::string recipient = line.substr(8);
+    std::string recipient = line.substr(RECIPIENT_START_INDEX);
     Logger::LogTrace("Parsed recipient: " + recipient);
     
     recipient.erase(std::remove(recipient.begin(), recipient.end(), ' '), recipient.end());
@@ -422,7 +430,7 @@ void CommandHandler::ProcessDataMessage(SocketWrapper& socket_wrapper, std::stri
     while ((pos = data_message.find("\r\n")) != std::string::npos)
     {
         std::string line = data_message.substr(0, pos);
-        data_message.erase(0, pos + 2);
+        data_message.erase(0, pos + DELIMITER_OFFSET);
 
         if (is_header)
         {
