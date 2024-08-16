@@ -65,7 +65,7 @@ Description=SMTP Server
 After=network.target
 
 [Service]
-ExecStart=/usr/local/bin/SMTP_server
+ExecStart=/$WORKING_DIR/build/SMTP_server
 WorkingDirectory=$WORKING_DIR/build
 Restart=on-failure
 User=root
@@ -78,6 +78,9 @@ EOF"
 # Reload systemd to recognize the new service
 echo "Reloading systemd..."
 sudo systemctl daemon-reload
+
+# Stop the service if it is running
+sudo systemctl stop smtp-server
 
 # Start the service
 echo "Starting the SMTP server service..."

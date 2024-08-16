@@ -10,6 +10,8 @@
 #include <memory>
 #include <variant>
 
+#include "Logger.h"
+
 using TcpSocket = boost::asio::ip::tcp::socket;
 using SslSocket = boost::asio::ssl::stream<boost::asio::ip::tcp::socket>;
 

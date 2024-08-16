@@ -7,6 +7,8 @@
 #include <cstdlib>
 #include <iostream>
 
+#include "Logger.h"
+
 namespace ISXSignalHandler
 {
 /**
@@ -23,7 +25,6 @@ public:
 		* @brief Sets up signal handlers for the program.
 		*
 		* This method configures the signal handlers for different signals.
-		* Currently, it sets up handling for SIGINT (interrupt signal).
 		*/
 	static void SetupSignalHandlers();
 
@@ -31,9 +32,7 @@ public:
 	 * @brief Handles incoming signals.
 	 * @param[in] signal The signal number received.
 	 *
-	 * This method handles the specified signal. For SIGINT, it prints
-	 * a message to standard error and exits the program with a success
-	 * status code.
+	 * This method handles the specified signal.
 	 */
 	static void HandleSignal(int signal);
 };

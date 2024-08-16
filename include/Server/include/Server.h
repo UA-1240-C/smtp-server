@@ -19,7 +19,8 @@
 #include "SignalHandler.h"
 #include "SocketWrapper.h"
 #include "ThreadPool.h"
-#include "config.h"
+#include "ServerConfig.h"
+#include "Logger.h"
 
 using boost::asio::ip::tcp;
 using namespace ISXSC;
@@ -28,6 +29,8 @@ using namespace ISXErrorHandler;
 using namespace ISXSignalHandler;
 using namespace ISXSocketWrapper;
 using namespace ISXThreadPool;
+using namespace ISXSignalHandler;
+using namespace ISXBase64;
 
 namespace ISXSS {
 /**
@@ -40,21 +43,31 @@ namespace ISXSS {
  */
 class SmtpServer {
 public:
-	/**
-	 * @brief Constructs an SmtpServer object.
-	 * @param io_context The Boost Asio I/O context for handling asynchronous operations.
-	 * @param ssl_context The Boost Asio SSL context for secure connections.
-	 */
-	SmtpServer(boost::asio::io_context& io_context, boost::asio::ssl::context& ssl_context);
 
-	/**
-	 * @brief Starts the SMTP server.
-	 *
-	 * This method begins accepting incoming client connections and processing
-	 * their requests. It should be called to initiate server operations.
-	 */
-	void Start();
+  /**
+   * @brief Constructs an SmtpServer object.
+   * @param io_context The Boost Asio I/O context for handling asynchronous operations.
+   * @param ssl_context The Boost Asio SSL context for secure connections.
+   */
+    SmtpServer(boost::asio::io_context& io_context, boost::asio::ssl::context& ssl_context);
+  
+  /**
+   * @brief Starts the SMTP server.
+   *
+   * This method begins accepting incoming client connections and processing
+   * their requests. It should be called to initiate server operations.
+   */
+    void Start();
+private:
+    void InitServer(const Config::Server& server_config);
+    void InitTimeout(const Config::CommunicationSettings& comm_settings);
+    ThreadPool<> InitThreadPool();
+    void InitLogging(const Config::Logging& logging_config);
+    
 
+    // std::filesystem::path m_log_filename;
+    uint8_t m_log_level;
+    // bool m_flush;
 private:
 	std::string m_server_name;
 	std::string m_server_display_name;

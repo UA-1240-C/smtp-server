@@ -2,6 +2,8 @@ add_library(Server src/Server.cpp)
 
 target_link_libraries(Server PRIVATE MailDB)
 
+target_link_libraries(Server PRIVATE Boost::log Boost::log_setup)
+
 target_include_directories(Server PUBLIC
         ${CMAKE_SOURCE_DIR}/include/CommandHandler/include
         ${CMAKE_SOURCE_DIR}/include/SocketWrapper/include

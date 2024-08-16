@@ -224,7 +224,7 @@ private:
      */
     struct TaskItem {
         /**
-         * @var tasks
+         * @var m_tasks
          * @brief A thread-safe queue holding tasks to be processed.
          *
          * This queue contains tasks of type `FunctionType`. It is designed to be accessed safely
@@ -233,7 +233,7 @@ private:
         ThreadSafeQueue<FunctionType> m_tasks{};
 
         /**
-         * @var signal
+         * @var m_signal
          * @brief A semaphore used for signaling task availability.
          *
          * The semaphore is initialized to zero and used to signal when tasks are available
@@ -250,7 +250,7 @@ private:
     std::vector<ThreadType> m_threads;
 
     /**
-     * @var tasks_
+     * @var m_tasks
      * @brief A deque of task items.
      *
      * This deque contains task items, each of which includes a queue of tasks and a semaphore
@@ -259,7 +259,7 @@ private:
     std::deque<TaskItem> m_tasks;
 
     /**
-     * @var priority_queue_
+     * @var m_priority_queue
      * @brief A thread-safe queue for managing task priorities.
      *
      * This queue stores task priorities and is used to prioritize tasks in the processing system.
@@ -267,7 +267,7 @@ private:
     ThreadSafeQueue<std::size_t> m_priority_queue;
 
     /**
-     * @var unassigned_tasks_
+     * @var m_unassigned_tasks
      * @brief An atomic counter for the number of unassigned tasks.
      *
      * This atomic variable keeps track of the number of tasks that have not yet been assigned
@@ -276,7 +276,7 @@ private:
     std::atomic_int_fast64_t m_unassigned_tasks{0};
 
     /**
-     * @var in_flight_tasks_
+     * @var m_in_flight_tasks
      * @brief An atomic counter for the number of in-flight tasks.
      *
      * This atomic variable counts the number of tasks that are currently being processed by threads.
@@ -285,7 +285,7 @@ private:
     std::atomic_int_fast64_t m_in_flight_tasks{0};
 
     /**
-     * @var threads_complete_signal_
+     * @var m_threads_complete_signal
      * @brief An atomic flag indicating if all threads have completed their work.
      *
      * This atomic boolean flag is used to signal when all threads in the pool have finished

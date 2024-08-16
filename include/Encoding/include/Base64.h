@@ -6,6 +6,8 @@
 #include <string>
 #include <boost/beast/core/detail/base64.hpp>
 
+#include "Logger.h"
+
 using std::string;
 
 namespace ISXBase64

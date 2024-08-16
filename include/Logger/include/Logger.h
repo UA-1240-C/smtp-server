@@ -3,6 +3,7 @@
 #include <fstream>
 #include <ostream>
 #include <string>
+#include <filesystem>
 
 #include <boost/core/null_deleter.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
