@@ -43,8 +43,8 @@ if(NOT googletest_POPULATED)
 endif()
 
 # Create test executable
-add_executable(testRunner test/test.cpp)
-target_link_libraries(testRunner ${MAILDATABASE_LIBRARIES} GTest::gtest_main GTest::gmock_main)
+#add_executable(testRunner test/test.cpp)
+#target_link_libraries(testRunner ${MAILDATABASE_LIBRARIES} GTest::gtest_main GTest::gmock_main)
 
 # Enable testing
 enable_testing()

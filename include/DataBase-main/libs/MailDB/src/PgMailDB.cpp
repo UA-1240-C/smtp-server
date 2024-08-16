@@ -19,6 +19,7 @@ PgMailDB::~PgMailDB()
     Disconnect();
 }
 
+
 void PgMailDB::Connect(const std::string& connection_string)
 {
     try {
@@ -119,48 +120,47 @@ std::string PgMailDB::GetPasswordHash(const std::string_view user_name)
     
 }
 
-std::vector<User> PgMailDB::RetrieveUserInfo(const std::string_view user_name)
+std::vector<User> PgMailDB::RetrieveUserInfo(const std::string_view user_name){
+    if (!IsConnected())
     {
-        if (!IsConnected())
-        {
-            throw MailException("Connection with database lost or was manually already closed");
-        }
-
-        pqxx::nontransaction nontransaction(*m_conn);
-        pqxx::result user_query_result;
-    
-        if (user_name.empty())
-        {
-            user_query_result = nontransaction.exec_params(
-                "SELECT u.user_name, u.password_hash, h.host_name FROM users u "
-                "LEFT JOIN hosts h ON u.host_id = h.host_id"
-            );
-        }
-        else
-        {
-            user_query_result = nontransaction.exec_params(
-                "SELECT u.user_name, u.password_hash, h.host_name FROM users u "
-                "LEFT JOIN hosts h ON u.host_id = h.host_id "
-                "WHERE u.user_name = $1"
-                , nontransaction.esc(user_name)
-            );
-        }
-        
-        std::vector<User> info;
-        if (!user_query_result.empty())
-        {
-            for (auto&& row : user_query_result)
-            {
-                info.push_back(User(row.at("user_name").as<std::string>()
-                                  , row.at("password_hash").as<std::string>()
-                                  , row.at("host_name").as<std::string>()));
-            }
-
-            return info;
-        }
-
-        return std::vector<User>();
+        throw MailException("Connection with database lost or was manually already closed");
     }
+
+    pqxx::nontransaction nontransaction(*m_conn);
+    pqxx::result user_query_result;
+
+    if (user_name.empty())
+    {
+        user_query_result = nontransaction.exec_params(
+            "SELECT u.user_name, u.password_hash, h.host_name FROM users u "
+            "LEFT JOIN hosts h ON u.host_id = h.host_id"
+        );
+    }
+    else
+    {
+        user_query_result = nontransaction.exec_params(
+            "SELECT u.user_name, u.password_hash, h.host_name FROM users u "
+            "LEFT JOIN hosts h ON u.host_id = h.host_id "
+            "WHERE u.user_name = $1"
+            , nontransaction.esc(user_name)
+        );
+    }
+
+    std::vector<User> info;
+    if (!user_query_result.empty())
+    {
+        for (auto&& row : user_query_result)
+        {
+            info.emplace_back(row.at("user_name").as<std::string>()
+                              , row.at("password_hash").as<std::string>()
+                              , row.at("host_name").as<std::string>());
+        }
+
+        return info;
+    }
+
+    return {};
+}
 
 std::vector<std::string> PgMailDB::RetrieveEmailContentInfo(const std::string_view content)
 {
@@ -198,7 +198,7 @@ std::vector<std::string> PgMailDB::RetrieveEmailContentInfo(const std::string_vi
         return info;
     }
 
-    return std::vector<std::string>();
+    return {};
 }
 
 void PgMailDB::InsertEmail(const std::string_view sender, const std::string_view receiver,
@@ -253,8 +253,8 @@ void PgMailDB::InsertEmail(const std::string_view sender, const std::vector<std:
                 pqxx::nontransaction nontransaction(*m_conn);
                 sender_id = RetriveUserId(sender, nontransaction);
 
-                for (size_t i = 0; i < receivers.size(); i++) {
-                    receivers_id.push_back(RetriveUserId(receivers[i], nontransaction));
+                for (const auto receiver : receivers) {
+                    receivers_id.push_back(RetriveUserId(receiver, nontransaction));
                 }
                 
                 body_id = InsertEmailContent(body, nontransaction);
@@ -268,8 +268,8 @@ void PgMailDB::InsertEmail(const std::string_view sender, const std::vector<std:
 
     try {
         pqxx::work transaction(*m_conn);
-        for (size_t i = 0; i < receivers_id.size(); i++) {
-            PerformEmailInsertion(sender_id, receivers_id[i], subject, body_id, transaction);
+        for (const unsigned int i : receivers_id) {
+            PerformEmailInsertion(sender_id, i, subject, body_id, transaction);
         }
         transaction.commit();
     }
@@ -304,9 +304,10 @@ std::vector<Mail> PgMailDB::RetrieveEmails(const std::string_view user_name, boo
         "ORDER BY f.sent_at DESC; ";
 
 
+
     std::vector<Mail> resutl_mails;
 
-    for (auto [sender, subject, body] : ntx.query<std::string, std::string, std::string>(query))
+    for (const auto& [sender, subject, body] : ntx.query<std::string, std::string, std::string>(query))
     {
         resutl_mails.emplace_back(user_name,sender, subject, body);
     }

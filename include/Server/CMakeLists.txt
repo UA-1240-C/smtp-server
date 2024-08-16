@@ -9,5 +9,6 @@ target_include_directories(Server PUBLIC
         ${CMAKE_SOURCE_DIR}/include/DataBase-main/libs/MailDB/include
         ${CMAKE_SOURCE_DIR}/include/Encoding/include
         ${CMAKE_SOURCE_DIR}/include/Parser/include
-
+        ${CMAKE_SOURCE_DIR}/include/ErrorHandler/include
+        ${CMAKE_SOURCE_DIR}/include/SignalHandler/include
 )

@@ -3,11 +3,32 @@ project(SMTP_server VERSION 1.0.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 
-# Find Boost and OpenSSL
 find_package(Boost REQUIRED COMPONENTS system thread)
 find_package(OpenSSL REQUIRED)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(LIBSODIUM REQUIRED libsodium)
+
+include(FetchContent)
+
+# Fetch and build Boost if not found
+if (NOT Boost_FOUND)
+    FetchContent_Declare(
+            boost
+            GIT_REPOSITORY https://github.com/boostorg/boost.git
+            GIT_TAG boost-1.79.0
+    )
+    FetchContent_MakeAvailable(boost)
+endif()
+
+# Fetch and build OpenSSL if not found
+if (NOT OpenSSL_FOUND)
+    FetchContent_Declare(
+            openssl
+            GIT_REPOSITORY https://github.com/openssl/openssl.git
+            GIT_TAG OpenSSL_1_1_1k
+    )
+    FetchContent_MakeAvailable(openssl)
+endif()
 
 # Add subdirectories
 add_subdirectory(include/CommandHandler)
@@ -47,12 +68,4 @@ target_include_directories(SMTP_server PRIVATE
     ${Boost_INCLUDE_DIRS}
     ${OPENSSL_INCLUDE_DIR}
     ${LIBSODIUM_INCLUDE_DIRS}
-    ${CMAKE_SOURCE_DIR}/include/ErrorHandler
-    ${CMAKE_SOURCE_DIR}/include/CommandHandler/include
-    ${CMAKE_SOURCE_DIR}/include/Encoding/include
-    ${CMAKE_SOURCE_DIR}/include/Server/include
-    ${CMAKE_SOURCE_DIR}/include/SignalHandler/include
-    ${CMAKE_SOURCE_DIR}/include/SocketWrapper/include
-    ${CMAKE_SOURCE_DIR}/include/Utils/include
-    ${CMAKE_SOURCE_DIR}/include/DataBase-main
 )

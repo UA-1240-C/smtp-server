@@ -3,77 +3,115 @@
 #ifndef SERVER_H
 #define SERVER_H
 
+#include <sodium.h>
+
+#include <array>
 #include <boost/asio.hpp>
+#include <ctime>
+#include <fstream>
+#include <iostream>
 #include <string>
 
 #include "CommandHandler.h"
+#include "ErrorHandler.h"
 #include "MailDB/PgMailDB.h"
 #include "MailMessageBuilder.h"
+#include "SignalHandler.h"
 #include "SocketWrapper.h"
 #include "ThreadPool.h"
+#include "config.h"
 
 using boost::asio::ip::tcp;
+using namespace ISXSC;
+using namespace ISXCommandHandler;
+using namespace ISXErrorHandler;
+using namespace ISXSignalHandler;
+using namespace ISXSocketWrapper;
+using namespace ISXThreadPool;
 
-namespace ISXSC {
-
+namespace ISXSS {
+/**
+ * @class SmtpServer
+ * @brief A class that represents an SMTP server.
+ *
+ * This class handles the initialization, configuration, and operation
+ * of the SMTP server. It manages incoming client connections, processes
+ * email messages, and handles various SMTP commands.
+ */
 class SmtpServer {
 public:
-    SmtpServer(boost::asio::io_context& io_context, boost::asio::ssl::context& ssl_context);
-    void Start();
+	/**
+	 * @brief Constructs an SmtpServer object.
+	 * @param io_context The Boost Asio I/O context for handling asynchronous operations.
+	 * @param ssl_context The Boost Asio SSL context for secure connections.
+	 */
+	SmtpServer(boost::asio::io_context& io_context, boost::asio::ssl::context& ssl_context);
+
+	/**
+	 * @brief Starts the SMTP server.
+	 *
+	 * This method begins accepting incoming client connections and processing
+	 * their requests. It should be called to initiate server operations.
+	 */
+	void Start();
 
 private:
-    std::string m_server_name;
-    std::string m_server_display_name;
-    unsigned int m_port;
+	std::string m_server_name;
+	std::string m_server_display_name;
+	unsigned int m_port;
 
-    size_t m_max_threads;
+	size_t m_max_threads;
 
-    boost::asio::steady_timer m_timeout_timer_;
-    std::chrono::seconds m_timeout_seconds_;
-
-private:
-    void Accept();
-    void SaveData(const std::string& line, MailMessageBuilder& mail_builder, SocketWrapper& socket_wrapper,
-                  bool& in_data);
+	boost::asio::steady_timer m_timeout_timer;
+	std::chrono::seconds m_timeout_seconds;
 
 private:
-    MailMessageBuilder m_mail_builder_;
-    ThreadPool<> m_thread_pool_;
+	/**
+	 * @brief Accepts incoming client connections.
+	 *
+	 * This method sets up an asynchronous operation to accept new client
+	 * connections and handle them appropriately.
+	 */
+	void Accept();
 
-    boost::asio::io_context &m_io_context_;
-    boost::asio::ssl::context &m_ssl_context_;
-    CommandHandler m_command_handler_;
-    std::unique_ptr<tcp::acceptor> m_acceptor_;
+	/**
+	 * @brief Handles communication with a connected client.
+	 * @param socket_wrapper The wrapper for the client's socket.
+	 *
+	 * This method processes requests from the client and manages the
+	 * communication with the client.
+	 */
+	void HandleClient(SocketWrapper socket_wrapper);
 
-    // std::string buffer_;
+	/**
+	 * @brief Resets the timeout timer for a given socket.
+	 *
+	 * This method cancels any previously set timeout timer, sets a new timeout duration,
+	 * and starts an asynchronous wait operation. If the timer expires before the operation
+	 * is completed, it closes the associated socket.
+	 *
+	 * @param socket_wrapper The `SocketWrapper` instance associated with the socket
+	 *        that will be monitored for timeout.
+	 *
+	 * @details
+	 * The timeout duration is specified by the member variable `m_timeout_seconds`.
+	 * The method utilizes Boost Asio's asynchronous timer functionality to handle
+	 * timeout events. If a timeout occurs, the associated socket is closed.
+	 * Any exceptions thrown during the timeout handling are caught and logged.
+	 *
+	 * @throws std::exception If an exception is thrown while handling the timeout.
+	 */
+	void ResetTimeoutTimer(SocketWrapper& socket_wrapper);
 
-    // std::atomic_bool in_data_ = false;
-    //  std::atomic_bool is_tls_ = false;
-
-    // std::string current_sender_;
-    // std::vector<std::string> current_recipients_;
 private:
-    void HandleClient(SocketWrapper socket_wrapper);
+	MailMessageBuilder m_mail_builder;	///< The mail message builder for constructing email messages.
+	ThreadPool<> m_thread_pool;			///< The thread pool for managing concurrent tasks.
 
-    void tempHandleDataMode(const std::string& line, MailMessageBuilder& mail_builder, SocketWrapper& socket_wrapper,
-                            bool& in_data);
-
-    void ResetTimeoutTimer(SocketWrapper& socket_wrapper);
-
-private:
-    void tempSaveMail(const MailMessage& message);
-    void tempWriteEmailContent(std::ofstream& output_file, const MailMessage& message) const;
-    void tempWriteAttachments(std::ofstream& output_file, const MailMessage& message) const;
-
-    std::string tempCreateFileName() const;
-    std::ofstream tempOpenFile(const std::string& fileName) const;
-
-    bool tempIsOutputFileValid(const std::ofstream& output_file) const;
-
-private:
-    std::string HashPassword(const std::string& password);
-    bool CheckPassword(const std::string& stored_hash, const std::string& password);
+	boost::asio::io_context& m_io_context;		///< The Boost Asio I/O context for asynchronous operations.
+	boost::asio::ssl::context& m_ssl_context;	///< The Boost Asio SSL context for secure connections.
+	CommandHandler m_command_handler;			///< The command handler for processing SMTP commands.
+	std::unique_ptr<tcp::acceptor> m_acceptor;	///< The TCP acceptor for accepting incoming client connections.
 };
-}  // namespace ISXSC
+}  // namespace ISXSS
 
-#endif  // SERVER_H
+#endif	// SERVER_H
