@@ -431,16 +431,16 @@ void CommandHandler::HandleAuth(SocketWrapper& socket_wrapper, const std::string
         if (!VerifyPassword(password, stored_hashed_password)) {
             throw std::runtime_error("Authentication failed");
         }
-        socket_wrapper.sendResponseAsync("235 Authentication successful\r\n").get();
-        auto emails = data_base_->RetrieveEmails(username, true);
+        socket_wrapper.SendResponseAsync("235 Authentication successful\r\n").get();
+        auto emails = m_data_base->RetrieveEmails(username, true);
         std::string email_list_response = "250 OK\r\n";
         for (const auto& email : emails) {
             std::ostringstream response_stream;
             response_stream << email;
             std::string email_str = response_stream.str();
-            socket_wrapper.sendResponseAsync(email_str + "\r\n").get();
+            socket_wrapper.SendResponseAsync(email_str + "\r\n").get();
         }
-        socket_wrapper.sendResponseAsync("250 End of message list\r\n").get();
+        socket_wrapper.SendResponseAsync("250 End of message list\r\n").get();
 
     } catch (const std::runtime_error& e) {
         ErrorHandler::handleError("Handle AUTH", e, socket_wrapper, "535 Authentication failed\r\n");
