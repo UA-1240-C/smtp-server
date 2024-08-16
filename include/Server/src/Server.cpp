@@ -118,6 +118,7 @@ void SmtpServer::ResetTimeoutTimer(SocketWrapper& socket_wrapper) {
 	auto timeout_timer = std::make_shared<boost::asio::steady_timer>(m_io_context);
 	socket_wrapper.SetTimeoutTimer(timeout_timer);
 	socket_wrapper.StartTimeoutTimer(m_timeout_seconds);
+
 	Logger::LogDebug("Exiting SmtpServer::ResetTimeoutTimer");
 }
 

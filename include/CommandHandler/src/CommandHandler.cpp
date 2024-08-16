@@ -752,7 +752,6 @@ void CommandHandler::HandleStartTLS(SocketWrapper& socket_wrapper)
     Logger::LogDebug("Exiting CommandHandler::HandleStartTLS");
 }
 
-
 void CommandHandler::HandleAuth(SocketWrapper& socket_wrapper, const std::string& line)
 {
     Logger::LogDebug("Entering CommandHandler::HandleAuth");

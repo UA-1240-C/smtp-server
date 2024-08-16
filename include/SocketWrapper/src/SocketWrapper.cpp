@@ -186,29 +186,56 @@ std::future<std::string> SocketWrapper::ReadFromSocketAsync(size_t max_length)
 }
 
 void SocketWrapper::SetTimeoutTimer(std::shared_ptr<boost::asio::steady_timer> timeout_timer) {
-	m_timeout_timer = timeout_timer;
+    Logger::LogDebug("Entering SocketWrapper::SetTimeoutTimer");
+    Logger::LogTrace("SocketWrapper::SetTimeoutTimer params: shared_ptr to steady_timer");
+
+    m_timeout_timer = timeout_timer;
+
+    Logger::LogProd("Timeout timer successfully set.");
+    Logger::LogDebug("Exiting SocketWrapper::SetTimeoutTimer");
 }
 
 void SocketWrapper::StartTimeoutTimer(std::chrono::seconds timeout_duration) {
-	if (m_timeout_timer) {
-		m_timeout_timer->expires_after(timeout_duration);
-		m_timeout_timer->async_wait([this](const boost::system::error_code& error) {
-			if (!error) {
-				std::cout << "Client timed out." << std::endl;
-				this->Close();
-			}
-		});
-	}
+    Logger::LogDebug("Entering SocketWrapper::StartTimeoutTimer");
+    Logger::LogTrace("SocketWrapper::StartTimeoutTimer params: " + std::to_string(timeout_duration.count()) + " seconds");
+
+    if (m_timeout_timer) {
+        m_timeout_timer->expires_after(timeout_duration);
+
+        Logger::LogProd("Timeout timer started for " + std::to_string(timeout_duration.count()) + " seconds.");
+
+        m_timeout_timer->async_wait([this](const boost::system::error_code& error) {
+            if (!error) {
+                Logger::LogWarning("Client timed out. Closing connection.");
+                this->Close();
+            } else {
+                Logger::LogWarning("Timeout timer handler was cancelled or an error occurred: " + error.message());
+            }
+        });
+    } else {
+        Logger::LogError("Failed to start timeout timer: m_timeout_timer is null.");
+    }
+
+    Logger::LogDebug("Exiting SocketWrapper::StartTimeoutTimer");
 }
 
 void SocketWrapper::CancelTimeoutTimer() {
-	if (m_timeout_timer) {
-		boost::system::error_code ec;
-		m_timeout_timer->cancel(ec);
-		if (ec) {
-			std::cerr << "Failed to cancel timeout timer: " << ec.message() << std::endl;
-		}
-	}
+    Logger::LogDebug("Entering SocketWrapper::CancelTimeoutTimer");
+
+    if (m_timeout_timer) {
+        boost::system::error_code ec;
+        m_timeout_timer->cancel(ec);
+
+        if (ec) {
+            Logger::LogError("Failed to cancel timeout timer: " + ec.message());
+        } else {
+            Logger::LogProd("Timeout timer successfully cancelled.");
+        }
+    } else {
+        Logger::LogError("Failed to cancel timeout timer: m_timeout_timer is null.");
+    }
+
+    Logger::LogDebug("Exiting SocketWrapper::CancelTimeoutTimer");
 }
 
 void SocketWrapper::Close() {

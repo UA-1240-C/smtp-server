@@ -63,11 +63,7 @@ private:
     void InitTimeout(const Config::CommunicationSettings& comm_settings);
     ThreadPool<> InitThreadPool();
     void InitLogging(const Config::Logging& logging_config);
-    
 
-    // std::filesystem::path m_log_filename;
-    uint8_t m_log_level;
-    // bool m_flush;
 private:
 	std::string m_server_name;
 	std::string m_server_display_name;
@@ -78,6 +74,9 @@ private:
 	boost::asio::steady_timer m_timeout_timer;
 	std::chrono::seconds m_timeout_seconds;
 
+  // std::filesystem::path m_log_filename;
+  uint8_t m_log_level;
+  // bool m_flush;
 private:
 	/**
 	 * @brief Accepts incoming client connections.
