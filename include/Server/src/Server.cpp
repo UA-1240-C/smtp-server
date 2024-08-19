@@ -125,7 +125,7 @@ void SmtpServer::ResetTimeoutTimer(SocketWrapper& socket_wrapper) {
 
 void SmtpServer::HandleClient(SocketWrapper socket_wrapper) {
     Logger::LogDebug("Entering SmtpServer::HandleClient");
-    socket_wrapper.SendResponseAsync("220 Yep!\r\n").get();
+    socket_wrapper.SendResponseAsync("220 Client was successfully connected!\r\n").get();
     Logger::LogTrace("SmtpServer::HandleClient parameters: SocketWrapper");
 
     try {

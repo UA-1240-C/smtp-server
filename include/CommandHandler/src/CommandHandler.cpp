@@ -685,6 +685,7 @@ void CommandHandler::HandleAuth(SocketWrapper& socket_wrapper, const std::string
         {
             m_data_base->Login(username, password);
             Logger::LogProd("User authenticated successfully");
+            socket_wrapper.SendResponseAsync("235 Authentication successful\r\n").get();
         }
         catch (const MailException& e)
         {
