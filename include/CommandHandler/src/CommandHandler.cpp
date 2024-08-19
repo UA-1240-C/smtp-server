@@ -122,7 +122,7 @@ void CommandHandler::ProcessLine(const std::string& line, SocketWrapper& socket_
     Logger::LogDebug("Entering CommandHandler::ProcessLine");
     Logger::LogTrace("CommandHandler::HandleEhlo parameters: SocketWrapper&, const std::string&");
 
-    if (line.find("EHLO") == 0)
+    if (line.find("EHLO") == 0 || line.find("HELO") == 0)
     {
         HandleEhlo(socket_wrapper);
     }

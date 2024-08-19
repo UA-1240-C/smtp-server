@@ -4,9 +4,11 @@ set -e
 
 # Save the current directory
 CURRENT_DIR=$(pwd)
-WORKING_DIR=$(dirname "$CURRENT_DIR")
 
-echo "Current directory: $WORKING_DIR"
+# Move to the project root directory
+WORKING_DIR=$(dirname "$CURRENT_DIR")
+echo "Moving to the project root directory: $WORKING_DIR..."
+cd "$WORKING_DIR"
 
 # Define paths for certificates and keys
 CERT_DIR=/etc/ssl/certs/smtp-server
@@ -14,19 +16,14 @@ KEY_DIR=/etc/ssl/private
 CERT_FILE=$CERT_DIR/server.crt
 KEY_FILE=$KEY_DIR/server.key
 
-# Move to the project root directory
-echo "Moving to the project root directory..."
-cd "$WORKING_DIR"
-
-# Create and navigate to build directory
-echo "Creating build directory..."
-cd ..
+# Create and navigate to the build directory in the project root
+echo "Creating build directory in the project root..."
 mkdir -p build
 cd build
 
 # Configure the project with CMake
 echo "Configuring the project with CMake..."
-cmake "$WORKING_DIR"
+cmake ..
 
 # Build the project
 echo "Building the project..."

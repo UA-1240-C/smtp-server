@@ -6,8 +6,7 @@ SmtpServer::SmtpServer(boost::asio::io_context& io_context, boost::asio::ssl::co
     : m_timeout_timer(io_context),
       m_thread_pool(InitThreadPool()),
       m_io_context(io_context),
-      m_ssl_context(ssl_context),
-      m_command_handler(ssl_context)
+      m_ssl_context(ssl_context)
 {
     const Config config("../config.txt");
     InitLogging(config.get_logging());
@@ -129,6 +128,7 @@ void SmtpServer::HandleClient(SocketWrapper socket_wrapper) {
     Logger::LogTrace("SmtpServer::HandleClient parameters: SocketWrapper");
 
     try {
+        CommandHandler command_handler(m_ssl_context);
         MailMessageBuilder mail_builder;
         std::string current_line;
 
@@ -153,7 +153,7 @@ void SmtpServer::HandleClient(SocketWrapper socket_wrapper) {
 
                     Logger::LogProd("Processing line: " + line);
 
-                    m_command_handler.ProcessLine(line, socket_wrapper);
+                    command_handler.ProcessLine(line, socket_wrapper);
                 }
 
 				socket_wrapper.CancelTimeoutTimer();

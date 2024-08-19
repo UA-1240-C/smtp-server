@@ -30,13 +30,17 @@ if (NOT OpenSSL_FOUND)
     FetchContent_MakeAvailable(openssl)
 endif()
 
-# Fetch and build libpqxx if not found
+# Disable building tests for libpqxx
 if (NOT TARGET pqxx::pqxx)
     FetchContent_Declare(
-        libpqxx
-        GIT_REPOSITORY https://github.com/jtv/libpqxx.git
-        GIT_TAG master
+            libpqxx
+            GIT_REPOSITORY https://github.com/jtv/libpqxx.git
+            GIT_TAG master
     )
+
+    # Disable tests for libpqxx
+    set(SKIP_BUILD_TEST ON CACHE BOOL "Skip build tests" FORCE)
+
     FetchContent_MakeAvailable(libpqxx)
 endif()
 
@@ -58,8 +62,8 @@ add_executable(SMTP_server src/main.cpp)
 
 # Link libraries
 target_link_libraries(SMTP_server PRIVATE
-    ErrorHandler
     CommandHandler
+    ErrorHandler
     MailMessage
     MailDB
     Encoding

@@ -121,7 +121,6 @@ private:
 
 	boost::asio::io_context& m_io_context;		///< The Boost Asio I/O context for asynchronous operations.
 	boost::asio::ssl::context& m_ssl_context;	///< The Boost Asio SSL context for secure connections.
-	CommandHandler m_command_handler;			///< The command handler for processing SMTP commands.
 	std::unique_ptr<tcp::acceptor> m_acceptor;	///< The TCP acceptor for accepting incoming client connections.
 };
 }  // namespace ISXSS
