@@ -5,19 +5,19 @@ namespace ISXSocketWrapper
 SocketWrapper::SocketWrapper(std::shared_ptr<TcpSocket> tcp_socket)
     : m_socket(tcp_socket), m_is_tls(false)
 {
-    Logger::LogDebug("Entering SocketWrapper constructor");
+    Logger::LogDebug("Entering SocketWrapper TCP constructor");
     Logger::LogTrace("Constructor params: TcpSocket" );
 
-    Logger::LogDebug("Exiting SocketWrapper constructor");
+    Logger::LogDebug("Exiting SocketWrapper TCP constructor");
 }
 
 SocketWrapper::SocketWrapper(std::shared_ptr<SslSocket> ssl_socket)
     : m_socket(ssl_socket), m_is_tls(true)
 {
-    Logger::LogDebug("Entering SocketWrapper constructor");
+    Logger::LogDebug("Entering SocketWrapper SSL constructor");
     Logger::LogTrace("Constructor params: SslSocket" );
 
-    Logger::LogDebug("Exiting SocketWrapper constructor");
+    Logger::LogDebug("Exiting SocketWrapper SSL constructor");
 }
 
 [[nodiscard]] bool SocketWrapper::IsTls() const
@@ -145,7 +145,7 @@ std::future<std::string> SocketWrapper::ReadFromSocketAsync(size_t max_length)
     return future;
 }
 
-    std::future<void> SocketWrapper::StartTlsAsync(boost::asio::ssl::context& context)
+std::future<void> SocketWrapper::StartTlsAsync(boost::asio::ssl::context& context)
 {
     Logger::LogDebug("Entering SocketWrapper::StartTlsAsync");
     Logger::LogTrace("SocketWrapper::StartTlsAsync parameter: ssl_context reference");
@@ -156,23 +156,25 @@ std::future<std::string> SocketWrapper::ReadFromSocketAsync(size_t max_length)
     auto tcp_socket = get_socket<TcpSocket>();
     Logger::LogProd("SocketWrapper::StartTlsAsync: TcpSocket retrieved");
 
-    auto ssl_socket = std::make_shared<SslSocket>(std::move(*tcp_socket), context);
+    if (!tcp_socket) {
+        Logger::LogError("SocketWrapper::StartTlsAsync: TcpSocket is null.");
+        promise->set_exception(std::make_exception_ptr(std::runtime_error("TcpSocket is null")));
+        return future;
+    }
 
+    auto ssl_socket(std::make_shared<SslSocket>(std::move(*tcp_socket), context));
     Logger::LogProd("SocketWrapper::StartTlsAsync: SslSocket created with context");
 
-    ssl_socket->set_verify_mode(boost::asio::ssl::verify_none);
-    Logger::LogProd("SocketWrapper::StartTlsAsync: SSL verification mode set to verify_none");
+    // ssl_socket->set_verify_mode(boost::asio::ssl::verify_none);
+    // Logger::LogProd("SocketWrapper::StartTlsAsync: SSL verification mode set to verify_none");
 
     ssl_socket->async_handshake(boost::asio::ssl::stream_base::server,
         [this, ssl_socket, promise](const boost::system::error_code& error) {
-            if (!error)
-            {
+            if (!error) {
                 Logger::LogProd("STARTTLS handshake successful");
-                m_socket = ssl_socket;
+                set_socket(ssl_socket);
                 promise->set_value();
-            }
-            else
-            {
+            } else {
                 Logger::LogError("STARTTLS handshake error: " + error.message());
                 promise->set_exception(
                     std::make_exception_ptr(std::runtime_error(error.message())));

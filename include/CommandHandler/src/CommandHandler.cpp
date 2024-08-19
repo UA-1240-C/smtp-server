@@ -122,7 +122,7 @@ void CommandHandler::ProcessLine(const std::string& line, SocketWrapper& socket_
     Logger::LogDebug("Entering CommandHandler::ProcessLine");
     Logger::LogTrace("CommandHandler::HandleEhlo parameters: SocketWrapper&, const std::string&");
 
-    if (line.find("EHLO") == 0 || line.find("HELO"))
+    if (line.find("EHLO") == 0)
     {
         HandleEhlo(socket_wrapper);
     }
@@ -842,12 +842,12 @@ void CommandHandler::HandleRegister(SocketWrapper& socket_wrapper, const std::st
     }
     catch (const std::runtime_error& e)
     {
-        ErrorHandler::HandleError("Handle AUTH", e, socket_wrapper, "535 Authentication failed\r\n");
+        ErrorHandler::HandleError("Handle AUTH", e, socket_wrapper, "535 Registration failed\r\n");
         Logger::LogError("Runtime error during AUTH handling: " + std::string(e.what()));
     }
     catch (const MailException& e)
     {
-        ErrorHandler::HandleError("Handle AUTH", e, socket_wrapper, "535 Authentication failed\r\n");
+        ErrorHandler::HandleError("Handle AUTH", e, socket_wrapper, "535 Registration failed\r\n");
         Logger::LogError("MailException during AUTH handling: " + std::string(e.what()));
     }
     catch (const std::exception& e)
