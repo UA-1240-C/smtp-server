@@ -154,14 +154,6 @@ void CommandHandler::ProcessLine(const std::string& line, SocketWrapper& socket_
     {
         HandleHelp(socket_wrapper);
     }
-    else if (line.find("VRFY") == 0)
-    {
-        HandleVrfy(socket_wrapper, line);
-    }
-    else if (line.find("EXPN") == 0)
-    {
-        HandleExpn(socket_wrapper, line);
-    }
     else if (line.find("STARTTLS") == 0)
     {
         HandleStartTLS(socket_wrapper);
@@ -262,91 +254,6 @@ void CommandHandler::HandleHelp(SocketWrapper& socket_wrapper)
     }
     Logger::LogDebug("Exiting CommandHandler::HandleHelp");
 }
-
-
-void CommandHandler::HandleVrfy(SocketWrapper& socket_wrapper, const std::string& line)
-{
-    Logger::LogDebug("Entering CommandHandler::HandleVrfy");
-    Logger::LogTrace("CommandHandler::HandleVrfy parameter: SocketWrapper reference");
-
-    const std::string user_name = line.substr(5);
-    Logger::LogTrace("VRFY command received for user: " + user_name);
-
-    try
-    {
-        if (m_data_base->UserExists(user_name))
-        {
-            Logger::LogDebug("User exists in database: " + user_name);
-            auto user_info_list = m_data_base->RetrieveUserInfo(user_name);
-
-            if (!user_info_list.empty())
-            {
-                std::string response = "250 User exists: " + user_name + "\r\n";
-                for (const auto& user : user_info_list)
-                {
-                    Logger::LogTrace("User info: " + user.user_name);
-                    response += user.user_name + "\r\n";
-                }
-                socket_wrapper.SendResponseAsync(response).get();
-                Logger::LogDebug("CommandHandler::HandleVrfy: Successfully sent VRFY response to client: " +
-                    response);
-            }
-            else
-            {
-                Logger::LogWarning("No user information found for: " + user_name);
-                socket_wrapper.SendResponseAsync("550 User information not found\r\n").get();
-            }
-        }
-        else
-        {
-            Logger::LogWarning("User does not exist: " + user_name);
-            socket_wrapper.SendResponseAsync("550 User does not exist\r\n").get();
-        }
-    } catch (const MailException& e) {
-        Logger::LogError("MailException caught in HandleVrfy: " + std::string(e.what()));
-        ErrorHandler::HandleError("Handle VRFY", e, socket_wrapper, "550 Internal Server Error\r\n");
-    }
-    Logger::LogDebug("Exiting CommandHandler::HandleVrfy");
-}
-
-
-void CommandHandler::HandleExpn(SocketWrapper& socket_wrapper, const std::string& line)
-{
-    Logger::LogDebug("Entering CommandHandler::HandleExpn");
-    Logger::LogTrace("CommandHandler::HandleExpn parameter: SocketWrapper reference");
-
-    const std::string mailing_list = line.substr(5);
-    Logger::LogTrace("EXPN command received for mailing list: " + mailing_list);
-
-    try
-    {
-        auto members_list = m_data_base->RetrieveUserInfo(mailing_list);
-
-        if (!members_list.empty())
-        {
-            std::string response = "250 Mailing list members:\r\n";
-            for (const auto& member : members_list)
-            {
-                Logger::LogTrace("Mailing list member: " + member.user_name);
-                response += member.user_name + "\r\n";
-            }
-            socket_wrapper.SendResponseAsync(response).get();
-            Logger::LogDebug("Response sent: " + response);
-        }
-        else
-        {
-            Logger::LogWarning("Mailing list does not exist: " + mailing_list);
-            socket_wrapper.SendResponseAsync("550 Mailing list does not exist\r\n").get();
-        }
-    }
-    catch (const MailException& e)
-    {
-        Logger::LogError("MailException caught in HandleExpn: " + std::string(e.what()));
-        ErrorHandler::HandleError("Handle EXPN", e, socket_wrapper, "550 Internal Server Error\r\n");
-    }
-    Logger::LogDebug("Exiting CommandHandler::HandleExpn");
-}
-
 
 void CommandHandler::HandleQuit(SocketWrapper& socket_wrapper)
 {

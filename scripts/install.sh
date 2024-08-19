@@ -65,7 +65,7 @@ Description=SMTP Server
 After=network.target
 
 [Service]
-ExecStart=/$WORKING_DIR/build/SMTP_server
+ExecStart=$WORKING_DIR/build/SMTP_server
 WorkingDirectory=$WORKING_DIR/build
 Restart=on-failure
 User=root
