@@ -99,6 +99,7 @@ void SmtpServer::Accept() {
 
     Logger::LogProd("Ready to accept new connections.");
 
+
     m_acceptor->async_accept(*new_socket, [this, new_socket](const boost::system::error_code& error) {
         if (!error) {
             Logger::LogProd("Accepted new connection.");
@@ -124,6 +125,7 @@ void SmtpServer::ResetTimeoutTimer(SocketWrapper& socket_wrapper) {
 
 void SmtpServer::HandleClient(SocketWrapper socket_wrapper) {
     Logger::LogDebug("Entering SmtpServer::HandleClient");
+    socket_wrapper.SendResponseAsync("220 Yep!\r\n").get();
     Logger::LogTrace("SmtpServer::HandleClient parameters: SocketWrapper");
 
     try {

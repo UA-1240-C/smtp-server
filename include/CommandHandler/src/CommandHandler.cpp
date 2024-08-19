@@ -780,16 +780,16 @@ void CommandHandler::HandleAuth(SocketWrapper& socket_wrapper, const std::string
             Logger::LogProd("User authenticated successfully");
 
             // Retrieve and send the list of emails for the user
-            auto emails = m_data_base->RetrieveEmails(username, true);
-            std::string email_list_response = "250 OK\r\n";
-            for (const auto& email : emails)
-            {
-                std::ostringstream response_stream;
-                response_stream << email;
-                std::string email_str = response_stream.str();
-                socket_wrapper.SendResponseAsync(email_str + "\r\n").get();
-                Logger::LogTrace("Sent email: " + email_str);
-            }
+            // auto emails = m_data_base->RetrieveEmails(username, true);
+            //std::string email_list_response = "250 OK\r\n";
+            //for (const auto& email : emails)
+            //{
+            //    std::ostringstream response_stream;
+            //    response_stream << email;
+            //    std::string email_str = response_stream.str();
+            //    socket_wrapper.SendResponseAsync(email_str + "\r\n").get();
+            //   Logger::LogTrace("Sent email: " + email_str);
+            //}
             socket_wrapper.SendResponseAsync("250 End of message list\r\n").get();
             Logger::LogProd("Sent end of message list response.");
 
