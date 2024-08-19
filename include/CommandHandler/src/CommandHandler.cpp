@@ -240,7 +240,7 @@ void CommandHandler::HandleHelp(SocketWrapper& socket_wrapper)
 
     const std::string supported_commands =
         "HELO, MAIL FROM, RCPT TO, DATA, "
-        "QUIT, NOOP, RSET, VRFY, HELP, "
+        "QUIT, NOOP, RSET, HELP, "
         "STARTTLS, AUTH PLAIN, REGISTER\r\n";
     try {
         socket_wrapper.SendResponseAsync(
