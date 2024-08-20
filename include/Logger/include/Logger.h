@@ -34,7 +34,7 @@ enum LogLevel
 {
 	PROD,
 	WARNING,
-	ERROR,
+	ERR,
 	DEBUG,
 	TRACE
 };

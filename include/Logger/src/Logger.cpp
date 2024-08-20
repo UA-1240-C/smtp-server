@@ -17,7 +17,7 @@ void Logger::set_sink_filter()
 	{
 	case PROD_WARN_ERR_LOGS:
 		s_sink_pointer->set_filter(
-			expr::attr<LogLevel>("Severity") <= ERROR
+			expr::attr<LogLevel>("Severity") <= ERR
 		);
 		break;
 	case DEBUG_LOGS:
@@ -104,7 +104,7 @@ void Logger::LogWarning(const std::string& message)
 void Logger::LogError(const std::string& message)
 {
 	BOOST_LOG_SCOPED_THREAD_ATTR("ThreadID", attrs::current_thread_id())
-	BOOST_LOG_SEV(g_slg, LogLevel::ERROR) << "\033[1;31m" << message << "\033[0m";
+	BOOST_LOG_SEV(g_slg, LogLevel::ERR) << "\033[1;31m" << message << "\033[0m";
 }
 
 Logger::~Logger()
