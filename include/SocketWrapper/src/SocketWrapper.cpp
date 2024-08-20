@@ -240,15 +240,23 @@ void SocketWrapper::CancelTimeoutTimer() {
     Logger::LogDebug("Exiting SocketWrapper::CancelTimeoutTimer");
 }
 
+
 void SocketWrapper::Close() {
     Logger::LogDebug("Entering SocketWrapper::Close");
 
-    if (std::holds_alternative<std::shared_ptr<TcpSocket>>(m_socket)) {
-        Logger::LogProd("SocketWrapper::Close: Closing TCP socket");
-        CloseTcp();
-    } else if (std::holds_alternative<std::shared_ptr<SslSocket>>(m_socket)) {
-        Logger::LogProd("SocketWrapper::Close: Closing SSL socket");
-        CloseSsl();
+    if (std::holds_alternative<std::shared_ptr<boost::asio::ssl::stream<boost::asio::ip::tcp::socket>>>(m_socket))
+    {
+        auto ssl_socket = std::get<std::shared_ptr<boost::asio::ssl::stream<boost::asio::ip::tcp::socket>>>(m_socket);
+        TerminateSslConnection(*ssl_socket);
+    }
+    else if (std::holds_alternative<std::shared_ptr<boost::asio::ip::tcp::socket>>(m_socket))
+    {
+        auto tcp_socket = std::get<std::shared_ptr<boost::asio::ip::tcp::socket>>(m_socket);
+        TerminateTcpConnection(*tcp_socket);
+    }
+    else
+    {
+        std::cerr << "Unsupported socket type" << std::endl;
     }
 
     Logger::LogDebug("Exiting SocketWrapper::Close");
@@ -258,21 +266,22 @@ bool SocketWrapper::IsOpen() const {
     Logger::LogDebug("Entering SocketWrapper::IsOpen");
 
     bool is_open = false;
-    if (m_is_tls) {
+    
+    if (std::holds_alternative<std::shared_ptr<SslSocket>>(m_socket)) {
         auto ssl_socket = std::get<std::shared_ptr<SslSocket>>(m_socket);
         is_open = ssl_socket && ssl_socket->lowest_layer().is_open();
         Logger::LogProd("SocketWrapper::IsOpen: SSL socket status - " +
-                std::string(is_open ? "Open" : "Closed"));
-    } else {
+                        std::string(is_open ? "Open" : "Closed"));
+    } else if (std::holds_alternative<std::shared_ptr<TcpSocket>>(m_socket)) {
         auto tcp_socket = std::get<std::shared_ptr<TcpSocket>>(m_socket);
         is_open = tcp_socket && tcp_socket->is_open();
         Logger::LogProd("SocketWrapper::IsOpen: TCP socket status - " +
-                std::string(is_open ? "Open" : "Closed"));
+                        std::string(is_open ? "Open" : "Closed"));
     }
 
     Logger::LogDebug("Exiting SocketWrapper::IsOpen");
     Logger::LogTrace("Exiting SocketWrapper::IsOpen returning: " +
-            std::string(is_open ? "Open" : "Closed"));
+                     std::string(is_open ? "Open" : "Closed"));
     return is_open;
 }
 
@@ -280,60 +289,109 @@ void SocketWrapper::CloseTcp()
 {
     Logger::LogDebug("Entering SocketWrapper::CloseTcp");
 
-    auto tcp_socket = std::get<std::shared_ptr<TcpSocket>>(m_socket);
+    auto tcp_socket = std::get<std::shared_ptr<boost::asio::ip::tcp::socket>>(m_socket);
 
-    if (tcp_socket->is_open())
-    {
-        boost::system::error_code ec;
-        Logger::LogProd("SocketWrapper::CloseTcp: Shutting down TCP socket");
-
-        tcp_socket->shutdown(boost::asio::ip::tcp::socket::shutdown_both, ec);
-        if (ec && ec != boost::asio::error::not_connected)
-        {
-            Logger::LogError("SocketWrapper::CloseTcp: Error shutting down TCP socket: " + ec.message());
-        }
-        else
-        {
-            Logger::LogProd("SocketWrapper::CloseTcp: TCP socket shutdown successful");
-        }
-
-        tcp_socket->close(ec);
-        if (ec && ec != boost::asio::error::not_connected) {
-            Logger::LogError("SocketWrapper::CloseTcp: Error closing TCP socket: " + ec.message());
-        }
-        else
-        {
-            Logger::LogProd("SocketWrapper::CloseTcp: TCP socket closed successfully");
-        }
-    }
+    TerminateTcpConnection(*tcp_socket);
 
     Logger::LogDebug("Exiting SocketWrapper::CloseTcp");
 }
 
-void SocketWrapper::CloseSsl() {
+void SocketWrapper::CloseSsl()
+{
     Logger::LogDebug("Entering SocketWrapper::CloseSsl");
 
-    auto ssl_socket = std::get<std::shared_ptr<SslSocket>>(m_socket);
+    auto ssl_socket = std::get<std::shared_ptr<boost::asio::ssl::stream<boost::asio::ip::tcp::socket>>>(m_socket);
 
-    if (ssl_socket->lowest_layer().is_open()) {
-        boost::system::error_code ec;
-        Logger::LogProd("SocketWrapper::CloseSsl: Shutting down SSL socket");
+    TerminateSslConnection(*ssl_socket);
 
-        ssl_socket->lowest_layer().shutdown(boost::asio::ip::tcp::socket::shutdown_both, ec);
-        if (ec && ec != boost::asio::error::not_connected) {
-            Logger::LogError("SocketWrapper::CloseSsl: Error shutting down SSL socket: " + ec.message());
-        } else {
-            Logger::LogProd("SocketWrapper::CloseSsl: SSL socket shutdown successful");
+    Logger::LogDebug("Exiting SocketWrapper::CloseSsl");
+}
+
+void SocketWrapper::TerminateSslConnection(boost::asio::ssl::stream<boost::asio::ip::tcp::socket>& ssl_socket)
+{
+    Logger::LogDebug("Entering SocketWrapper::TerminateSslConnection");
+
+    boost::system::error_code ec;
+
+    if (ssl_socket.lowest_layer().is_open())
+    {
+        Logger::LogProd("SocketWrapper::TerminateSslConnection: Shutting down SSL socket");
+
+        ssl_socket.lowest_layer().shutdown(boost::asio::ip::tcp::socket::shutdown_both, ec);
+        if (ec && ec != boost::asio::error::not_connected)
+        {
+            Logger::LogError("SocketWrapper::TerminateSslConnection: Error shutting down SSL socket: " + ec.message());
+        }
+        else
+        {
+            Logger::LogProd("SocketWrapper::TerminateSslConnection: SSL socket shutdown successful");
         }
 
-        ssl_socket->lowest_layer().close(ec);
-        if (ec && ec != boost::asio::error::not_connected) {
-            Logger::LogError("SocketWrapper::CloseSsl: Error closing SSL socket: " + ec.message());
-        } else {
-            Logger::LogProd("SocketWrapper::CloseSsl: SSL socket closed successfully");
+        ssl_socket.lowest_layer().cancel(ec);
+        if (ec && ec != boost::asio::error::operation_aborted)
+        {
+            Logger::LogError("SocketWrapper::TerminateSslConnection: Error canceling SSL socket: " + ec.message());
+        }
+        else
+        {
+            Logger::LogProd("SocketWrapper::TerminateSslConnection: SSL socket cancel successful");
+        }
+
+        ssl_socket.lowest_layer().close(ec);
+        if (ec && ec != boost::asio::error::not_connected)
+        {
+            Logger::LogError("SocketWrapper::TerminateSslConnection: Error closing SSL socket: " + ec.message());
+        }
+        else
+        {
+            Logger::LogProd("SocketWrapper::TerminateSslConnection: SSL socket closed successfully");
         }
     }
 
-    Logger::LogDebug("Exiting SocketWrapper::CloseSsl");
+    Logger::LogDebug("Exiting SocketWrapper::TerminateSslConnection");
+}
+
+void SocketWrapper::TerminateTcpConnection(boost::asio::ip::tcp::socket& tcp_socket)
+{
+    Logger::LogDebug("Entering SocketWrapper::TerminateTcpConnection");
+
+    boost::system::error_code ec;
+
+    if (tcp_socket.is_open())
+    {
+        Logger::LogProd("SocketWrapper::TerminateTcpConnection: Shutting down TCP socket");
+
+        tcp_socket.shutdown(boost::asio::ip::tcp::socket::shutdown_both, ec);
+        if (ec && ec != boost::asio::error::not_connected)
+        {
+            Logger::LogError("SocketWrapper::TerminateTcpConnection: Error shutting down TCP socket: " + ec.message());
+        }
+        else
+        {
+            Logger::LogProd("SocketWrapper::TerminateTcpConnection: TCP socket shutdown successful");
+        }
+
+        tcp_socket.cancel(ec);
+        if (ec && ec != boost::asio::error::operation_aborted)
+        {
+            Logger::LogError("SocketWrapper::TerminateTcpConnection: Error canceling TCP socket: " + ec.message());
+        }
+        else
+        {
+            Logger::LogProd("SocketWrapper::TerminateTcpConnection: TCP socket cancel successful");
+        }
+
+        tcp_socket.close(ec);
+        if (ec && ec != boost::asio::error::not_connected)
+        {
+            Logger::LogError("SocketWrapper::TerminateTcpConnection: Error closing TCP socket: " + ec.message());
+        }
+        else
+        {
+            Logger::LogProd("SocketWrapper::TerminateTcpConnection: TCP socket closed successfully");
+        }
+    }
+
+    Logger::LogDebug("Exiting SocketWrapper::TerminateTcpConnection");
 }
 }
