@@ -262,7 +262,7 @@ void CommandHandler::HandleQuit(SocketWrapper& socket_wrapper)
     try
     {
         socket_wrapper.SendResponseAsync("221 OK\r\n").get();
-        Logger::LogProd("CommandHandler::HandleHelp: Successfully sent QUIT response to client.");
+        Logger::LogProd("CommandHandler::HandleQuit: Successfully sent QUIT response to client.");
     }
     catch (const std::exception& e)
     {
@@ -271,16 +271,7 @@ void CommandHandler::HandleQuit(SocketWrapper& socket_wrapper)
         return;
     }
 
-    if (socket_wrapper.IsTls())
-    {
-        Logger::LogDebug("Handling QUIT for TLS connection.");
-        HandleQuitSsl(socket_wrapper);
-    }
-    else
-    {
-        Logger::LogDebug("Handling QUIT for TCP connection.");
-        HandleQuitTcp(socket_wrapper);
-    }
+    socket_wrapper.Close();
 
     Logger::LogProd("Connection closed by client.");
     Logger::LogDebug("Exiting CommandHandler::HandleQuit");
@@ -288,91 +279,6 @@ void CommandHandler::HandleQuit(SocketWrapper& socket_wrapper)
     throw std::runtime_error("Client disconnected");
 }
 
-void CommandHandler::HandleQuitSsl(SocketWrapper& socket_wrapper)
-{
-    Logger::LogDebug("Entering CommandHandler::HandleQuitSsl");
-    Logger::LogTrace("CommandHandler::HandleQuitSsl parameter: SocketWrapper reference");
-
-    auto ssl_socket = socket_wrapper.get_socket<SslSocket>();
-    if (ssl_socket)
-    {
-        Logger::LogDebug("SSL socket found, proceeding with shutdown.");
-
-        boost::system::error_code error;
-
-        // Attempt to shut down the SSL layer
-        ssl_socket->shutdown(error);
-        if (error)
-        {
-            if (error == boost::asio::error::eof || error == boost::asio::ssl::error::stream_truncated)
-            {
-                Logger::LogWarning("SSL shutdown error: stream truncated.");
-            }
-            else
-            {
-                Logger::LogError("Error during SSL shutdown: " + error.message());
-                ErrorHandler::HandleBoostError("SSL shutdown", error);
-            }
-        }
-        else
-        {
-            Logger::LogProd("SSL shutdown completed successfully.");
-        }
-
-        // Attempt to close the underlying TCP socket
-        ssl_socket->lowest_layer().close(error);
-        if (error)
-        {
-            Logger::LogError("Error during SSL socket close: " + error.message());
-            ErrorHandler::HandleBoostError("SSL closing socket", error);
-        }
-        else
-        {
-            Logger::LogProd("SSL socket closed successfully.");
-        }
-    }
-    else
-    {
-        Logger::LogWarning("No SSL socket found for closure.");
-    }
-
-    Logger::LogDebug("Exiting CommandHandler::HandleQuitSsl");
-}
-
-void CommandHandler::HandleQuitTcp(SocketWrapper& socket_wrapper)
-{
-    Logger::LogDebug("Entering CommandHandler::HandleQuitTcp");
-    Logger::LogTrace("CommandHandler::HandleQuitTcp parameter: SocketWrapper reference");
-
-    auto tcp_socket = socket_wrapper.get_socket<TcpSocket>();
-    if (tcp_socket)
-    {
-        Logger::LogDebug("TCP socket found, proceeding with shutdown.");
-        boost::system::error_code error;
-        tcp_socket->shutdown(TcpSocket::shutdown_both, error);
-        if (error)
-        {
-            Logger::LogError("Error during TCP shutdown: " + error.message());
-            ErrorHandler::HandleBoostError("TCP shutdown", error);
-        }
-        else
-        {
-            Logger::LogProd("SSL socket closed successfully.");
-        }
-
-        tcp_socket->close(error);
-        if (error)
-        {
-            Logger::LogError("Error during TCP closing: " + error.message());
-            ErrorHandler::HandleBoostError("TCP closing socket", error);
-        }
-        else
-        {
-            Logger::LogProd("SSL socket closed successfully.");
-        }
-    }
-    Logger::LogDebug("Exiting CommandHandler::HandleQuitTcp");
-}
 
 void CommandHandler::HandleMailFrom(SocketWrapper& socket_wrapper, const std::string& line)
 {
@@ -380,14 +286,13 @@ void CommandHandler::HandleMailFrom(SocketWrapper& socket_wrapper, const std::st
     Logger::LogTrace("CommandHandler::HandleMailFrom parameters: SocketWrapper reference, line: " + line);
 
     std::string sender = line.substr(10);
+    Logger::LogDebug("Parsed sender: " + sender);
     
     sender.erase(std::remove(sender.begin(), sender.end(), ' '), sender.end());
     if (!sender.empty() && sender.front() == '<' && sender.back() == '>')
     {
         sender = sender.substr(1, sender.size() - 2);
     }
-
-    Logger::LogDebug("Parsed sender: " + sender);
 
     try
     {

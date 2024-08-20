@@ -4,7 +4,7 @@
 
 namespace ISXSocketWrapper
 {
-SocketWrapper::SocketWrapper(std::shared_ptr<TcpSocket> tcp_socket)
+SocketWrapper::SocketWrapper(TcpSocketPtr tcp_socket)
     : m_socket(tcp_socket), m_is_tls(false)
 {
     Logger::LogDebug("Entering SocketWrapper TCP constructor");
@@ -13,7 +13,7 @@ SocketWrapper::SocketWrapper(std::shared_ptr<TcpSocket> tcp_socket)
     Logger::LogDebug("Exiting SocketWrapper TCP constructor");
 }
 
-SocketWrapper::SocketWrapper(std::shared_ptr<SslSocket> ssl_socket)
+SocketWrapper::SocketWrapper(SslSocketPtr ssl_socket)
     : m_socket(ssl_socket), m_is_tls(true)
 {
     Logger::LogDebug("Entering SocketWrapper SSL constructor");
@@ -39,10 +39,10 @@ std::future<void> SocketWrapper::SendResponseAsync(const std::string& message)
     auto promise = std::make_shared<std::promise<void>>();
     auto future = promise->get_future();
 
-    if (auto tcp_socket = get_socket<TcpSocket>())
+    if (auto* tcp_socket = std::get_if<TcpSocketPtr>(&m_socket))
     {
         Logger::LogProd("Using TCP socket for sending message.");
-        async_write(*tcp_socket, boost::asio::buffer(message),
+        async_write(**tcp_socket, boost::asio::buffer(message),
             [promise](const boost::system::error_code& error, std::size_t) {
                 if (error)
                 {
@@ -56,10 +56,10 @@ std::future<void> SocketWrapper::SendResponseAsync(const std::string& message)
                 }
             });
     }
-    else if (auto ssl_socket = get_socket<SslSocket>())
+    else if (auto* ssl_socket = std::get_if<SslSocketPtr>(&m_socket))
     {
         Logger::LogProd("Using SSL socket for sending message.");
-        async_write(*ssl_socket, boost::asio::buffer(message),
+        async_write(**ssl_socket, boost::asio::buffer(message),
             [promise](const boost::system::error_code& error, std::size_t) {
                 if (error) {
                     Logger::LogError("Error in async_write for SSL socket: " + error.message());
@@ -95,10 +95,10 @@ std::future<std::string> SocketWrapper::ReadFromSocketAsync(size_t max_length)
     auto future = promise->get_future();
     auto buffer = std::make_shared<std::string>(max_length, '\0');
 
-    if (auto tcp_socket = get_socket<TcpSocket>())
+    if (auto* tcp_socket = std::get_if<TcpSocketPtr>(&m_socket))
     {
         Logger::LogProd("Using TCP socket for sending message.");
-        tcp_socket->async_read_some(boost::asio::buffer(*buffer),
+        (*tcp_socket)->async_read_some(boost::asio::buffer(*buffer),
             [promise, buffer](const boost::system::error_code& error, const std::size_t length)
             {
                 if (error)
@@ -114,10 +114,10 @@ std::future<std::string> SocketWrapper::ReadFromSocketAsync(size_t max_length)
                 }
             });
     }
-    else if (auto ssl_socket = get_socket<SslSocket>())
+    else if (auto* ssl_socket = std::get_if<SslSocketPtr>(&m_socket))
     {
         Logger::LogProd("Using SSL socket for sending message.");
-        ssl_socket->async_read_some(boost::asio::buffer(*buffer),
+        (*ssl_socket)->async_read_some(boost::asio::buffer(*buffer),
             [promise, buffer](const boost::system::error_code& error, const std::size_t length) {
                 if (error)
                 {
@@ -155,21 +155,22 @@ std::future<void> SocketWrapper::StartTlsAsync(boost::asio::ssl::context& contex
     auto promise = std::make_shared<std::promise<void>>();
     auto future = promise->get_future();
 
-    auto tcp_socket = get_socket<TcpSocket>();
-    Logger::LogProd("SocketWrapper::StartTlsAsync: TcpSocket retrieved");
-
-    if (!tcp_socket) {
+    // Attempt to get TcpSocket from m_socket
+    auto tcp_socket = std::get_if<TcpSocketPtr>(&m_socket);
+    if (!tcp_socket || !*tcp_socket) {
         Logger::LogError("SocketWrapper::StartTlsAsync: TcpSocket is null.");
         promise->set_exception(std::make_exception_ptr(std::runtime_error("TcpSocket is null")));
         return future;
     }
 
-    auto ssl_socket(std::make_shared<SslSocket>(std::move(*tcp_socket), context));
+    Logger::LogProd("SocketWrapper::StartTlsAsync: TcpSocket retrieved");
+
+    // Create SslSocket from TcpSocket
+    // Use the raw pointer from the shared_ptr for the SslSocket construction
+    auto ssl_socket(std::make_shared<SslSocket>(std::move(**tcp_socket), context));
     Logger::LogProd("SocketWrapper::StartTlsAsync: SslSocket created with context");
 
-    // ssl_socket->set_verify_mode(boost::asio::ssl::verify_none);
-    // Logger::LogProd("SocketWrapper::StartTlsAsync: SSL verification mode set to verify_none");
-
+    // Perform async handshake
     ssl_socket->async_handshake(boost::asio::ssl::stream_base::server,
         [this, ssl_socket, promise](const boost::system::error_code& error) {
             if (!error) {
@@ -178,8 +179,7 @@ std::future<void> SocketWrapper::StartTlsAsync(boost::asio::ssl::context& contex
                 promise->set_value();
             } else {
                 Logger::LogError("STARTTLS handshake error: " + error.message());
-                promise->set_exception(
-                    std::make_exception_ptr(std::runtime_error(error.message())));
+                promise->set_exception(std::make_exception_ptr(std::runtime_error(error.message())));
             }
         });
 
@@ -188,6 +188,8 @@ std::future<void> SocketWrapper::StartTlsAsync(boost::asio::ssl::context& contex
 
     return future;
 }
+
+
 
 void SocketWrapper::SetTimeoutTimer(std::shared_ptr<boost::asio::steady_timer> timeout_timer)
 {
@@ -205,20 +207,27 @@ void SocketWrapper::StartTimeoutTimer(std::chrono::seconds timeout_duration)
     Logger::LogDebug("Entering SocketWrapper::StartTimeoutTimer");
     Logger::LogTrace("SocketWrapper::StartTimeoutTimer params: " + std::to_string(timeout_duration.count()) + " seconds");
 
-    if (m_timeout_timer) {
+    if (m_timeout_timer)
+    {
         m_timeout_timer->expires_after(timeout_duration);
 
         Logger::LogProd("Timeout timer started for " + std::to_string(timeout_duration.count()) + " seconds.");
 
-        m_timeout_timer->async_wait([this](const boost::system::error_code& error) {
-            if (!error) {
+        m_timeout_timer->async_wait([this](const boost::system::error_code& error)
+        {
+            if (!error)
+            {
                 Logger::LogWarning("Client timed out. Closing connection.");
                 this->Close();
-            } else {
+            }
+            else
+            {
                 Logger::LogWarning("Timeout timer handler was cancelled or an error occurred: " + error.message());
             }
         });
-    } else {
+    }
+    else
+    {
         Logger::LogError("Failed to start timeout timer: m_timeout_timer is null.");
     }
 
@@ -229,16 +238,22 @@ void SocketWrapper::CancelTimeoutTimer()
 {
     Logger::LogDebug("Entering SocketWrapper::CancelTimeoutTimer");
 
-    if (m_timeout_timer) {
+    if (m_timeout_timer)
+    {
         boost::system::error_code ec;
         m_timeout_timer->cancel(ec);
 
-        if (ec) {
+        if (ec)
+        {
             Logger::LogError("Failed to cancel timeout timer: " + ec.message());
-        } else {
+        }
+        else
+        {
             Logger::LogProd("Timeout timer successfully cancelled.");
         }
-    } else {
+    }
+    else
+    {
         Logger::LogError("Failed to cancel timeout timer: m_timeout_timer is null.");
     }
 
@@ -250,67 +265,45 @@ void SocketWrapper::Close()
 {
     Logger::LogDebug("Entering SocketWrapper::Close");
 
-    if (std::holds_alternative<std::shared_ptr<boost::asio::ssl::stream<boost::asio::ip::tcp::socket>>>(m_socket))
+    if (auto ssl_socket = std::get_if<SslSocketPtr>(&m_socket))
     {
-        auto ssl_socket = std::get<std::shared_ptr<boost::asio::ssl::stream<boost::asio::ip::tcp::socket>>>(m_socket);
-        TerminateSslConnection(*ssl_socket);
+        TerminateSslConnection(**ssl_socket);
     }
-    else if (std::holds_alternative<std::shared_ptr<boost::asio::ip::tcp::socket>>(m_socket))
+    else if (auto tcp_socket = std::get_if<TcpSocketPtr>(&m_socket))
     {
-        auto tcp_socket = std::get<std::shared_ptr<boost::asio::ip::tcp::socket>>(m_socket);
-        TerminateTcpConnection(*tcp_socket);
+        TerminateTcpConnection(**tcp_socket);
     }
     Logger::LogDebug("Exiting SocketWrapper::Close");
 }
 
-bool SocketWrapper::IsOpen() const {
+    bool SocketWrapper::IsOpen() const
+{
     Logger::LogDebug("Entering SocketWrapper::IsOpen");
 
     bool is_open = false;
-    
-    if (std::holds_alternative<std::shared_ptr<SslSocket>>(m_socket)) {
-        auto ssl_socket = std::get<std::shared_ptr<SslSocket>>(m_socket);
-        is_open = ssl_socket && ssl_socket->lowest_layer().is_open();
 
+    if (auto ssl_socket = std::get_if<SslSocketPtr>(&m_socket))
+    {
+        is_open = *ssl_socket && (*ssl_socket)->lowest_layer().is_open();
         Logger::LogProd("SocketWrapper::IsOpen: SSL socket status - " +
                         std::string(is_open ? "Open" : "Closed"));
-    } else if (std::holds_alternative<std::shared_ptr<TcpSocket>>(m_socket)) {
-        auto tcp_socket = std::get<std::shared_ptr<TcpSocket>>(m_socket);
-        is_open = tcp_socket && tcp_socket->is_open();
-
+    }
+    else if (auto tcp_socket = std::get_if<TcpSocketPtr>(&m_socket))
+    {
+        is_open = *tcp_socket && (*tcp_socket)->is_open();
         Logger::LogProd("SocketWrapper::IsOpen: TCP socket status - " +
                         std::string(is_open ? "Open" : "Closed"));
     }
 
     Logger::LogDebug("Exiting SocketWrapper::IsOpen");
-    Logger::LogTrace("Exiting SocketWrapper::IsOpen returning: " +
+    Logger::LogTrace("SocketWrapper::IsOpen returning: " +
                      std::string(is_open ? "Open" : "Closed"));
+
     return is_open;
 }
 
-void SocketWrapper::CloseTcp()
-{
-    Logger::LogDebug("Entering SocketWrapper::CloseTcp");
 
-    auto tcp_socket = std::get<std::shared_ptr<boost::asio::ip::tcp::socket>>(m_socket);
-
-    TerminateTcpConnection(*tcp_socket);
-
-    Logger::LogDebug("Exiting SocketWrapper::CloseTcp");
-}
-
-void SocketWrapper::CloseSsl()
-{
-    Logger::LogDebug("Entering SocketWrapper::CloseSsl");
-
-    auto ssl_socket = std::get<std::shared_ptr<boost::asio::ssl::stream<boost::asio::ip::tcp::socket>>>(m_socket);
-
-    TerminateSslConnection(*ssl_socket);
-
-    Logger::LogDebug("Exiting SocketWrapper::CloseSsl");
-}
-
-void SocketWrapper::TerminateSslConnection(boost::asio::ssl::stream<boost::asio::ip::tcp::socket>& ssl_socket)
+void SocketWrapper::TerminateSslConnection(SslSocket& ssl_socket)
 {
     Logger::LogDebug("Entering SocketWrapper::TerminateSslConnection");
 
@@ -320,10 +313,11 @@ void SocketWrapper::TerminateSslConnection(boost::asio::ssl::stream<boost::asio:
     {
         Logger::LogProd("SocketWrapper::TerminateSslConnection: Shutting down SSL socket");
 
-        ssl_socket.lowest_layer().shutdown(boost::asio::ip::tcp::socket::shutdown_both, ec);
+        ssl_socket.lowest_layer().shutdown(TcpSocket::shutdown_both, ec);
         if (ec && ec != boost::asio::error::not_connected)
         {
-            Logger::LogError("SocketWrapper::TerminateSslConnection: Error shutting down SSL socket: " + ec.message());
+            Logger::LogError("SocketWrapper::TerminateSslConnection: Error shutting down SSL socket: " +
+                ec.message());
         }
         else
         {
@@ -333,7 +327,8 @@ void SocketWrapper::TerminateSslConnection(boost::asio::ssl::stream<boost::asio:
         ssl_socket.lowest_layer().cancel(ec);
         if (ec && ec != boost::asio::error::operation_aborted)
         {
-            Logger::LogError("SocketWrapper::TerminateSslConnection: Error canceling SSL socket: " + ec.message());
+            Logger::LogError("SocketWrapper::TerminateSslConnection: Error canceling SSL socket: " +
+                ec.message());
         }
         else
         {
@@ -343,7 +338,8 @@ void SocketWrapper::TerminateSslConnection(boost::asio::ssl::stream<boost::asio:
         ssl_socket.lowest_layer().close(ec);
         if (ec && ec != boost::asio::error::not_connected)
         {
-            Logger::LogError("SocketWrapper::TerminateSslConnection: Error closing SSL socket: " + ec.message());
+            Logger::LogError("SocketWrapper::TerminateSslConnection: Error closing SSL socket: " +
+                ec.message());
         }
         else
         {
@@ -354,7 +350,7 @@ void SocketWrapper::TerminateSslConnection(boost::asio::ssl::stream<boost::asio:
     Logger::LogDebug("Exiting SocketWrapper::TerminateSslConnection");
 }
 
-void SocketWrapper::TerminateTcpConnection(boost::asio::ip::tcp::socket& tcp_socket)
+void SocketWrapper::TerminateTcpConnection(TcpSocket& tcp_socket)
 {
     Logger::LogDebug("Entering SocketWrapper::TerminateTcpConnection");
 
@@ -364,10 +360,11 @@ void SocketWrapper::TerminateTcpConnection(boost::asio::ip::tcp::socket& tcp_soc
     {
         Logger::LogProd("SocketWrapper::TerminateTcpConnection: Shutting down TCP socket");
 
-        tcp_socket.shutdown(boost::asio::ip::tcp::socket::shutdown_both, ec);
+        tcp_socket.shutdown(TcpSocket::shutdown_both, ec);
         if (ec && ec != boost::asio::error::not_connected)
         {
-            Logger::LogError("SocketWrapper::TerminateTcpConnection: Error shutting down TCP socket: " + ec.message());
+            Logger::LogError("SocketWrapper::TerminateTcpConnection: Error shutting down TCP socket: " +
+                ec.message());
         }
         else
         {
@@ -377,7 +374,8 @@ void SocketWrapper::TerminateTcpConnection(boost::asio::ip::tcp::socket& tcp_soc
         tcp_socket.cancel(ec);
         if (ec && ec != boost::asio::error::operation_aborted)
         {
-            Logger::LogError("SocketWrapper::TerminateTcpConnection: Error canceling TCP socket: " + ec.message());
+            Logger::LogError("SocketWrapper::TerminateTcpConnection: Error canceling TCP socket: " +
+                ec.message());
         }
         else
         {
