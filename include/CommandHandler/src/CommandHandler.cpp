@@ -482,7 +482,6 @@ void CommandHandler::HandleEndOfData(SocketWrapper& socket_wrapper)
             else
             {
                 SaveMailToDatabase(message);
-                future_response = socket_wrapper.SendResponseAsync("250 OK\r\n");
                 Logger::LogProd("Mail message saved successfully.");
             }
             future_response.get();
