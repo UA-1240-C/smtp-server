@@ -15,9 +15,12 @@ int main() {
         boost::asio::io_context io_context;
         boost::asio::ssl::context ssl_context(boost::asio::ssl::context::tlsv12_server);
 
+        // add option later
         // Load server certificates and private key
-        ssl_context.use_certificate_chain_file("/etc/ssl/certs/smtp-server/server.crt");
-        ssl_context.use_private_key_file("/etc/ssl/private/server.key", boost::asio::ssl::context::pem);
+        // ssl_context.use_certificate_chain_file("/etc/ssl/certs/smtp-server/server.crt");
+        // ssl_context.use_private_key_file("/etc/ssl/private/server.key", boost::asio::ssl::context::pem);
+        ssl_context.use_certificate_chain_file("server.crt");
+        ssl_context.use_private_key_file("server.key", boost::asio::ssl::context::pem);
 
         std::cout << "SSL context set up with certificates." << std::endl;
 
