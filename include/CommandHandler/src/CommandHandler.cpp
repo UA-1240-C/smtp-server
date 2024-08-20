@@ -261,7 +261,7 @@ void CommandHandler::HandleQuit(SocketWrapper& socket_wrapper)
 
     try
     {
-        socket_wrapper.SendResponseAsync("221 Bye\r\n").get();
+        socket_wrapper.SendResponseAsync("221 OK\r\n").get();
         Logger::LogProd("CommandHandler::HandleHelp: Successfully sent QUIT response to client.");
     }
     catch (const std::exception& e)
@@ -304,8 +304,15 @@ void CommandHandler::HandleQuitSsl(SocketWrapper& socket_wrapper)
         ssl_socket->shutdown(error);
         if (error)
         {
-            Logger::LogError("Error during SSL shutdown: " + error.message());
-            ErrorHandler::HandleBoostError("SSL shutdown", error);
+            if (error == boost::asio::error::eof || error == boost::asio::ssl::error::stream_truncated)
+            {
+                Logger::LogWarning("SSL shutdown error: stream truncated.");
+            }
+            else
+            {
+                Logger::LogError("Error during SSL shutdown: " + error.message());
+                ErrorHandler::HandleBoostError("SSL shutdown", error);
+            }
         }
         else
         {

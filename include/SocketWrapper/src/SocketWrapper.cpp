@@ -1,5 +1,7 @@
 #include "SocketWrapper.h"
 
+#include <utility>
+
 namespace ISXSocketWrapper
 {
 SocketWrapper::SocketWrapper(std::shared_ptr<TcpSocket> tcp_socket)
@@ -187,17 +189,19 @@ std::future<void> SocketWrapper::StartTlsAsync(boost::asio::ssl::context& contex
     return future;
 }
 
-void SocketWrapper::SetTimeoutTimer(std::shared_ptr<boost::asio::steady_timer> timeout_timer) {
+void SocketWrapper::SetTimeoutTimer(std::shared_ptr<boost::asio::steady_timer> timeout_timer)
+{
     Logger::LogDebug("Entering SocketWrapper::SetTimeoutTimer");
     Logger::LogTrace("SocketWrapper::SetTimeoutTimer params: shared_ptr to steady_timer");
 
-    m_timeout_timer = timeout_timer;
+    m_timeout_timer = std::move(timeout_timer);
 
     Logger::LogProd("Timeout timer successfully set.");
     Logger::LogDebug("Exiting SocketWrapper::SetTimeoutTimer");
 }
 
-void SocketWrapper::StartTimeoutTimer(std::chrono::seconds timeout_duration) {
+void SocketWrapper::StartTimeoutTimer(std::chrono::seconds timeout_duration)
+{
     Logger::LogDebug("Entering SocketWrapper::StartTimeoutTimer");
     Logger::LogTrace("SocketWrapper::StartTimeoutTimer params: " + std::to_string(timeout_duration.count()) + " seconds");
 
@@ -221,7 +225,8 @@ void SocketWrapper::StartTimeoutTimer(std::chrono::seconds timeout_duration) {
     Logger::LogDebug("Exiting SocketWrapper::StartTimeoutTimer");
 }
 
-void SocketWrapper::CancelTimeoutTimer() {
+void SocketWrapper::CancelTimeoutTimer()
+{
     Logger::LogDebug("Entering SocketWrapper::CancelTimeoutTimer");
 
     if (m_timeout_timer) {
@@ -241,7 +246,8 @@ void SocketWrapper::CancelTimeoutTimer() {
 }
 
 
-void SocketWrapper::Close() {
+void SocketWrapper::Close()
+{
     Logger::LogDebug("Entering SocketWrapper::Close");
 
     if (std::holds_alternative<std::shared_ptr<boost::asio::ssl::stream<boost::asio::ip::tcp::socket>>>(m_socket))
@@ -254,11 +260,6 @@ void SocketWrapper::Close() {
         auto tcp_socket = std::get<std::shared_ptr<boost::asio::ip::tcp::socket>>(m_socket);
         TerminateTcpConnection(*tcp_socket);
     }
-    else
-    {
-        std::cerr << "Unsupported socket type" << std::endl;
-    }
-
     Logger::LogDebug("Exiting SocketWrapper::Close");
 }
 
@@ -270,11 +271,13 @@ bool SocketWrapper::IsOpen() const {
     if (std::holds_alternative<std::shared_ptr<SslSocket>>(m_socket)) {
         auto ssl_socket = std::get<std::shared_ptr<SslSocket>>(m_socket);
         is_open = ssl_socket && ssl_socket->lowest_layer().is_open();
+
         Logger::LogProd("SocketWrapper::IsOpen: SSL socket status - " +
                         std::string(is_open ? "Open" : "Closed"));
     } else if (std::holds_alternative<std::shared_ptr<TcpSocket>>(m_socket)) {
         auto tcp_socket = std::get<std::shared_ptr<TcpSocket>>(m_socket);
         is_open = tcp_socket && tcp_socket->is_open();
+
         Logger::LogProd("SocketWrapper::IsOpen: TCP socket status - " +
                         std::string(is_open ? "Open" : "Closed"));
     }
