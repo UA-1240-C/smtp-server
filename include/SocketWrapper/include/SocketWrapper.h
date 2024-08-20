@@ -48,22 +48,6 @@ public:
      */
     [[nodiscard]] bool IsTls() const;
 
-    /**
-     * @brief Gets the underlying socket of a specific type.
-     * @tparam SocketType The type of socket to retrieve (TcpSocket or SslSocket).
-     * @return A pointer to the socket of the requested type, or nullptr if the type is incorrect.
-     */
-    template <typename SocketType>
-    SocketType* get_socket() const
-    {
-        if (auto socket_ptr = std::get_if<std::shared_ptr<SocketType>>(&m_socket))
-        {
-            return socket_ptr->get();
-        }
-        Logger::LogError("Error: Requested socket type does not match the stored socket type.");
-        return nullptr;
-    }
-
     template <typename SocketType>
     void set_socket(std::shared_ptr<SocketType> socket)
     {

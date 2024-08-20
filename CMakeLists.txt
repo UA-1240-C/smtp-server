@@ -53,7 +53,6 @@ add_subdirectory(include/SignalHandler)
 add_subdirectory(include/SocketWrapper)
 add_subdirectory(include/MailMessageFormatter)
 add_subdirectory(include/Utils)
-add_subdirectory(include/ErrorHandler)
 add_subdirectory(include/Parser)
 add_subdirectory(include/Logger)
 
@@ -63,7 +62,6 @@ add_executable(SMTP_server src/main.cpp)
 # Link libraries
 target_link_libraries(SMTP_server PRIVATE
     CommandHandler
-    ErrorHandler
     MailMessage
     MailDB
     Encoding
@@ -87,7 +85,6 @@ target_include_directories(SMTP_server PRIVATE
     ${CMAKE_SOURCE_DIR}/include/CommandHandler/include
     ${CMAKE_SOURCE_DIR}/include/DataBase/include
     ${CMAKE_SOURCE_DIR}/include/Encoding/include
-    ${CMAKE_SOURCE_DIR}/include/ErrorHandler/include
     ${CMAKE_SOURCE_DIR}/include/MailMessageFormatter/include
     ${CMAKE_SOURCE_DIR}/include/Parser/include
     ${CMAKE_SOURCE_DIR}/include/Server/include

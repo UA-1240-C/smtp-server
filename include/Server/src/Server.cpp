@@ -104,7 +104,8 @@ void SmtpServer::Accept() {
             Logger::LogProd("Accepted new connection.");
             m_thread_pool.EnqueueDetach([this, new_socket]() { HandleClient(SocketWrapper(new_socket)); });
         } else {
-            ErrorHandler::HandleBoostError("Accept", error);
+            Logger::LogError("Boost error in SmtpServer::Accept" +
+                error.what());
         }
         Accept();
     });

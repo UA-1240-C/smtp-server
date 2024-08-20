@@ -13,7 +13,6 @@
 #include <string>
 
 #include "CommandHandler.h"
-#include "ErrorHandler.h"
 #include "MailDB/PgMailDB.h"
 #include "MailMessageBuilder.h"
 #include "SignalHandler.h"
@@ -25,7 +24,6 @@
 using boost::asio::ip::tcp;
 using namespace ISXSC;
 using namespace ISXCommandHandler;
-using namespace ISXErrorHandler;
 using namespace ISXSignalHandler;
 using namespace ISXSocketWrapper;
 using namespace ISXThreadPool;

@@ -186,7 +186,6 @@ void CommandHandler::HandleEhlo(SocketWrapper& socket_wrapper)
     {
         Logger::LogError("CommandHandler::HandleEhlo: Exception caught while sending EHLO response: " +
                          std::string(e.what()));
-        ErrorHandler::HandleError("Handle EHLO", e, socket_wrapper, "550 Internal Server Error\r\n");
     }
 
     Logger::LogDebug("Exiting CommandHandler::HandleEhlo");
@@ -206,7 +205,6 @@ void CommandHandler::HandleNoop(SocketWrapper& socket_wrapper)
     {
         Logger::LogError("CommandHandler::HandleNoop: Exception caught while sending NOOP response: " +
                          std::string(e.what()));
-        ErrorHandler::HandleError("Handle NOOP", e, socket_wrapper, "550 Internal Server Error\r\n");
     }
 }
 
@@ -225,8 +223,8 @@ void CommandHandler::HandleRset(SocketWrapper& socket_wrapper)
     }
     catch (const std::exception& e)
     {
-        ErrorHandler::HandleException("Handle RSET", e);
-        ErrorHandler::HandleError("Handle RSET", e, socket_wrapper, "550 Internal Server Error\r\n");
+        Logger::LogError("CommandHandler::HandleRset: Exception caught while sending RSET response: " +
+                         std::string(e.what()));
     }
     Logger::LogDebug("Exiting CommandHandler::HandleRset");
 }
@@ -249,7 +247,6 @@ void CommandHandler::HandleHelp(SocketWrapper& socket_wrapper)
     {
         Logger::LogError("CommandHandler::HandleHelp: Exception caught while sending HELP response: " +
                          std::string(e.what()));
-        ErrorHandler::HandleError("Handle HELP", e, socket_wrapper, "550 Internal Server Error\r\n");
     }
     Logger::LogDebug("Exiting CommandHandler::HandleHelp");
 }
@@ -266,8 +263,8 @@ void CommandHandler::HandleQuit(SocketWrapper& socket_wrapper)
     }
     catch (const std::exception& e)
     {
-        Logger::LogError("Exception caught while sending QUIT response: " + std::string(e.what()));
-        ErrorHandler::HandleException("Handle QUIT", e);
+        Logger::LogError("CommandHandler::HandleQuit: Exception caught while sending QUIT response: "
+            + std::string(e.what()));
         return;
     }
 
@@ -311,18 +308,7 @@ void CommandHandler::HandleMailFrom(SocketWrapper& socket_wrapper, const std::st
     catch (const std::exception& e)
     {
         Logger::LogError("Exception in CommandHandler::HandleMailFrom while processing sender: " +
-                         std::string(e.what()));
-        ErrorHandler::HandleError("Handle MAIL FROM", e, socket_wrapper, "550 Internal Server Error\r\n");
-        try
-        {
-            socket_wrapper.SendResponseAsync("550 Internal Server Error\r\n").get();
-        }
-        catch (const std::exception& e)
-        {
-            Logger::LogError("Exception in CommandHandler::HandleMailFrom while sending 550 error response: " +
-                             std::string(e.what()));
-            ErrorHandler::HandleError("Handle MAIL FROM", e, socket_wrapper, "550 Internal Server Error\r\n");
-        }
+            std::string(e.what()));
     }
     Logger::LogDebug("Exiting CommandHandler::HandleMailFrom");
 }
@@ -355,18 +341,7 @@ void CommandHandler::HandleRcptTo(SocketWrapper& socket_wrapper, const std::stri
     catch (const std::exception& e)
     {
         Logger::LogError("Exception in CommandHandler::HandleRcptTo while processing recipient  : " +
-                         std::string(e.what()));
-        ErrorHandler::HandleError("Handle RCPT TO", e, socket_wrapper, "550 Internal Server Error\r\n");
-        try
-        {
-            socket_wrapper.SendResponseAsync("550 Internal Server Error\r\n").get();
-        }
-        catch (const std::exception& e)
-        {
-            Logger::LogError("Exception in CommandHandler::HandleRcptTo while sending 550 error response: " +
-                             std::string(e.what()));
-            ErrorHandler::HandleError("Handle RCPT TO", e, socket_wrapper, "550 Internal Server Error\r\n");
-        }
+            std::string(e.what()));
     }
     Logger::LogDebug("Exiting CommandHandler::HandleRcptTo");
 }
@@ -395,7 +370,6 @@ void CommandHandler::HandleData(SocketWrapper& socket_wrapper)
     }
     catch (const std::exception& e)
     {
-        ErrorHandler::HandleException("Handle DATA", e);
         Logger::LogError("Exception in HandleData: " + std::string(e.what()));
         throw;
     }
@@ -432,7 +406,6 @@ void CommandHandler::ReadData(SocketWrapper& socket_wrapper, std::string& data_m
     catch (const std::exception& e)
     {
         // Handle other exceptions
-        ErrorHandler::HandleException("Read Data", e);
         Logger::LogError("Exception in ReadData: " + std::string(e.what()));
         throw;
     }
@@ -516,10 +489,10 @@ void CommandHandler::HandleEndOfData(SocketWrapper& socket_wrapper)
         }
         catch (const std::exception& e)
         {
-            ErrorHandler::HandleException("Build and Save Mail", e);
             future_response = socket_wrapper.SendResponseAsync("550 Internal Server Error\r\n");
             future_response.get();
-            Logger::LogError("Exception while building or saving mail: " + std::string(e.what()));
+            Logger::LogError("Exception in CommandHandler::HandleEndOfData while saving mail to DB: " +
+                std::string(e.what()));
         }
 
         m_mail_builder = MailMessageBuilder();
@@ -527,8 +500,7 @@ void CommandHandler::HandleEndOfData(SocketWrapper& socket_wrapper)
     }
     catch (const std::exception& e)
     {
-        ErrorHandler::HandleException("Handle End Of Data", e);
-        Logger::LogError("Exception in HandleEndOfData: " + std::string(e.what()));
+        Logger::LogError("Exception in CommandHandler::HandleEndOfData: " + std::string(e.what()));
     }
 
     Logger::LogDebug("Exiting CommandHandler::HandleEndOfData");
@@ -537,7 +509,7 @@ void CommandHandler::HandleEndOfData(SocketWrapper& socket_wrapper)
 void CommandHandler::SaveMailToDatabase(const MailMessage& message)
 {
     Logger::LogDebug("Entering CommandHandler::SaveMailToDatabase");
-    Logger::LogTrace("CommandHandler::ProcessDataMessage parameters: MailMessage");
+    Logger::LogTrace("CommandHandler::SaveMailToDatabase parameters: MailMessage");
 
     try
     {
@@ -551,13 +523,15 @@ void CommandHandler::SaveMailToDatabase(const MailMessage& message)
             }
             catch (const std::exception& e)
             {
-                Logger::LogError("Failed to insert email for recipient " + recipient.get_address() + ": " + e.what());
+                Logger::LogError("Exception in CommandHandler::SaveMailToDatabase while inserting an email for recipient: "
+                    + recipient.get_address() + ": " + e.what());
             }
         }
     }
     catch (const std::exception& e)
     {
-        Logger::LogError("Database error while saving mail: " + std::string(e.what()));
+        Logger::LogError("Exception in CommandHandler::SaveMailToDatabase while saving mail: " +
+            std::string(e.what()));
         throw;
     }
 
@@ -578,7 +552,8 @@ void CommandHandler::HandleStartTLS(SocketWrapper& socket_wrapper)
         }
         catch (const std::exception& e)
         {
-            Logger::LogError("Failed to send response for already in TLS mode: " + std::string(e.what()));
+            Logger::LogError("Exception in CommandHandler::HandleStartTLS: " +
+                std::string(e.what()));
         }
         Logger::LogDebug("Exiting CommandHandler::HandleStartTLS");
         return;
@@ -603,7 +578,8 @@ void CommandHandler::HandleStartTLS(SocketWrapper& socket_wrapper)
         }
         catch (const std::exception& send_e)
         {
-            Logger::LogError("Failed to send response for STARTTLS handshake failure: " + std::string(send_e.what()));
+            Logger::LogError("Exception in CommandHandler::HandleStartTLS: " +
+                std::string(send_e.what()));
         }
     }
 
@@ -614,16 +590,15 @@ void CommandHandler::HandleAuth(SocketWrapper& socket_wrapper, const std::string
 {
     Logger::LogDebug("Entering CommandHandler::HandleAuth");
     Logger::LogTrace(
-        "CommandHandler::HandleStartTLS parameters: SocketWrapper reference, "
-        "std::string reference " +
-        line);
+        "CommandHandler::HandleAuth parameters: SocketWrapper reference, "
+        "std::string reference " + line);
 
     try
     {
         // Decode the username and password from the AUTH command line
         auto [username, password] = DecodeAndSplitPlain(line.substr(11));
-        Logger::LogTrace("Decoded username: " + username);
-        Logger::LogTrace("Decoded password: [hidden]");
+        Logger::LogProd("Decoded username: " + username);
+        Logger::LogProd("Decoded password: [hidden]");
 
         // Check if the user exists
         if (!m_data_base->UserExists(username))
@@ -642,24 +617,24 @@ void CommandHandler::HandleAuth(SocketWrapper& socket_wrapper, const std::string
         }
         catch (const MailException& e)
         {
-            Logger::LogError("Login failed: " + std::string(e.what()));
+            Logger::LogError("MailException in CommandHandler::HandleAuth: "
+                + std::string(e.what()));
             socket_wrapper.SendResponseAsync("535 Authentication failed\r\n").get();
         }
     }
     catch (const std::runtime_error& e)
     {
-        ErrorHandler::HandleError("Handle AUTH", e, socket_wrapper, "535 Authentication failed\r\n");
-        Logger::LogError("Runtime error during AUTH handling: " + std::string(e.what()));
+        Logger::LogError("Runtime error in CommandHandler::HandleAuth: " +
+            std::string(e.what()));
     }
     catch (const MailException& e)
     {
-        ErrorHandler::HandleError("Handle AUTH", e, socket_wrapper, "535 Authentication failed\r\n");
-        Logger::LogError("MailException during AUTH handling: " + std::string(e.what()));
+        Logger::LogError("MailException in CommandHandler::HandleAuth: " +
+            std::string(e.what()));
     }
     catch (const std::exception& e)
     {
-        ErrorHandler::HandleError("Handle AUTH", e, socket_wrapper, "535 Internal Server Error\r\n");
-        Logger::LogError("Exception during AUTH handling: " + std::string(e.what()));
+        Logger::LogError("Exception in CommandHandler::HandleAuth: " + std::string(e.what()));
     }
 
     Logger::LogDebug("Exiting CommandHandler::HandleAuth");
@@ -669,15 +644,15 @@ void CommandHandler::HandleRegister(SocketWrapper& socket_wrapper, const std::st
 {
     Logger::LogDebug("Entering CommandHandler::HandleRegister");
     Logger::LogTrace(
-        "CommandHandler::HandleStartTLS parameters: SocketWrapper reference, "
+        "CommandHandler::HandleRegister parameters: SocketWrapper reference, "
         "std::string reference " +
         line);
 
     try
     {
         auto [username, password] = DecodeAndSplitPlain(line.substr(9));
-        Logger::LogTrace("Decoded username: " + username);
-        Logger::LogTrace("Decoded password: [hidden]");
+        Logger::LogProd("Decoded username: " + username);
+        Logger::LogProd("Decoded password: [hidden]");
 
         if (m_data_base->UserExists(username))
         {
@@ -692,18 +667,18 @@ void CommandHandler::HandleRegister(SocketWrapper& socket_wrapper, const std::st
     }
     catch (const std::runtime_error& e)
     {
-        ErrorHandler::HandleError("Handle AUTH", e, socket_wrapper, "535 Registration failed\r\n");
-        Logger::LogError("Runtime error during AUTH handling: " + std::string(e.what()));
+        Logger::LogError("Runtime error in CommandHandler::HandleRegister: " +
+            std::string(e.what()));
     }
     catch (const MailException& e)
     {
-        ErrorHandler::HandleError("Handle AUTH", e, socket_wrapper, "535 Registration failed\r\n");
-        Logger::LogError("MailException during AUTH handling: " + std::string(e.what()));
+        Logger::LogError("MailException in CommandHandler::HandleRegister: " +
+            std::string(e.what()));
     }
     catch (const std::exception& e)
     {
-        ErrorHandler::HandleError("Handle AUTH", e, socket_wrapper, "535 Internal Server Error\r\n");
-        Logger::LogError("Exception during AUTH handling: " + std::string(e.what()));
+        Logger::LogError("Exception in CommandHandler::HandleRegister: " +
+            std::string(e.what()));
     }
 
     Logger::LogDebug("Exiting CommandHandler::HandleRegister");
@@ -719,7 +694,6 @@ auto CommandHandler::DecodeAndSplitPlain(const std::string& encoded_data) -> std
     try
     {
         decoded_data = Base64Decode(encoded_data);
-        Logger::LogProd("Base64 decoding successful.");
     }
     catch (const std::exception& e)
     {

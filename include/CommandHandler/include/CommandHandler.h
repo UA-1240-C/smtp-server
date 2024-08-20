@@ -12,10 +12,8 @@
 #include "MailDB/PgMailDB.h"
 #include "MailMessageBuilder.h"
 #include "SocketWrapper.h"
-#include "ErrorHandler.h"
 #include "Logger.h"
 
-using namespace ISXErrorHandler;
 using namespace ISXSC;
 using namespace ISXSocketWrapper;
 using namespace ISXMailDB;
