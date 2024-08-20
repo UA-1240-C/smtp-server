@@ -86,30 +86,6 @@ private:
     void HandleRcptTo(SocketWrapper& socket_wrapper, const std::string& line);
 
     /**
-     * @brief Handles the VRFY command.
-     *
-     * VRFY is used to verify whether a mailbox in the argument exists on the local
-     * host. The server response includes the user’s mailbox and may include the user’s full name.
-     *
-     * An example of usage
-     * @code
-     * VRFY user2
-     * 250 Samantha Smith user2@client.net (server response)
-     * @endcode
-     *
-     * @param socket_wrapper Reference to the SocketWrapper for communication.
-     * @param line The line of input containing the VRFY command.
-     */
-    void HandleVrfy(SocketWrapper& socket_wrapper, const std::string& line);
-
-    /**
-     * @brief Handles the EXPN command.
-     * @param socket_wrapper Reference to the SocketWrapper for communication.
-     * @param line The line of input containing the EXPN command.
-     */
-    void HandleExpn(SocketWrapper& socket_wrapper, const std::string& line);
-
-    /**
      * @brief Handles the NOOP command.
      *
      * The NOOP command is used only to check whether the server can

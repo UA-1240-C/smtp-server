@@ -6,6 +6,8 @@ constexpr std::size_t USERNAME_START_INDEX = 5;
 constexpr std::size_t SENDER_START_INDEX = 10;
 constexpr std::size_t RECIPIENT_START_INDEX = 8;
 
+constexpr std::size_t AUTH_PREFIX_LENGTH = 11;
+
 constexpr std::size_t DELIMITER_OFFSET = 2;
 
 namespace ISXCommandHandler
@@ -271,8 +273,8 @@ void CommandHandler::HandleQuit(SocketWrapper& socket_wrapper)
     }
     catch (const std::exception& e)
     {
-        Logger::LogError("CommandHandler::HandleQuit: Exception caught while sending QUIT response: "
-            + std::string(e.what()));
+        Logger::LogError("CommandHandler::HandleQuit: Exception caught while sending QUIT response: " +
+                         std::string(e.what()));
         return;
     }
 
@@ -284,7 +286,6 @@ void CommandHandler::HandleQuit(SocketWrapper& socket_wrapper)
     throw std::runtime_error("Client disconnected");
 }
 
-
 void CommandHandler::HandleMailFrom(SocketWrapper& socket_wrapper, const std::string& line)
 {
     Logger::LogDebug("Entering CommandHandler::HandleMailFrom");
@@ -292,7 +293,7 @@ void CommandHandler::HandleMailFrom(SocketWrapper& socket_wrapper, const std::st
 
     std::string sender = line.substr(10);
     Logger::LogDebug("Parsed sender: " + sender);
-    
+
     sender.erase(std::remove(sender.begin(), sender.end(), ' '), sender.end());
     if (!sender.empty() && sender.front() == '<' && sender.back() == '>')
     {
@@ -316,7 +317,7 @@ void CommandHandler::HandleMailFrom(SocketWrapper& socket_wrapper, const std::st
     catch (const std::exception& e)
     {
         Logger::LogError("Exception in CommandHandler::HandleMailFrom while processing sender: " +
-            std::string(e.what()));
+                         std::string(e.what()));
     }
     Logger::LogDebug("Exiting CommandHandler::HandleMailFrom");
 }
@@ -328,7 +329,7 @@ void CommandHandler::HandleRcptTo(SocketWrapper& socket_wrapper, const std::stri
 
     std::string recipient = line.substr(RECIPIENT_START_INDEX);
     Logger::LogTrace("Parsed recipient: " + recipient);
-    
+
     recipient.erase(std::remove(recipient.begin(), recipient.end(), ' '), recipient.end());
     if (recipient.front() == '<' && recipient.back() == '>')
     {
@@ -349,7 +350,7 @@ void CommandHandler::HandleRcptTo(SocketWrapper& socket_wrapper, const std::stri
     catch (const std::exception& e)
     {
         Logger::LogError("Exception in CommandHandler::HandleRcptTo while processing recipient  : " +
-            std::string(e.what()));
+                         std::string(e.what()));
     }
     Logger::LogDebug("Exiting CommandHandler::HandleRcptTo");
 }
@@ -399,11 +400,8 @@ void CommandHandler::ReadData(SocketWrapper& socket_wrapper, std::string& data_m
         std::string buffer = future_data.get();
         data_message.append(buffer);
 
-        // Check if data_message contains the end-of-data sequence
-        if (data_message.find("\r\n.\r\n") != std::string::npos)
-        {
-            m_in_data = false;
-        }
+        // Log received data (may be very verbose)
+        Logger::LogTrace("Received data: " + buffer);
     }
     catch (const boost::system::system_error& e)
     {
@@ -423,37 +421,18 @@ void CommandHandler::ReadData(SocketWrapper& socket_wrapper, std::string& data_m
 
 void CommandHandler::ProcessDataMessage(SocketWrapper& socket_wrapper, std::string& data_message)
 {
-    Logger::LogDebug("Entering CommandHandler::ProcessDataMessage");
+    Logger::LogDebug("Exiting CommandHandler::ProcessDataMessage");
+    Logger::LogTrace(
+        "CommandHandler::ProcessDataMessage parameters: "
+        "SocketWrapper reference, std::string reference " +
+        data_message);
 
-    std::size_t pos;
-    bool is_header = true;
-    while ((pos = data_message.find("\r\n")) != std::string::npos)
+    std::size_t last_pos{};
+
+    while ((last_pos = data_message.find("\r\n", last_pos)) != std::string::npos)
     {
-        std::string line = data_message.substr(0, pos);
-        data_message.erase(0, pos + DELIMITER_OFFSET);
-
-        if (is_header)
-        {
-            if (line.empty())
-            {
-                is_header = false;
-                Logger::LogProd("End of headers detected.");
-            }
-            else
-            {
-                if (line.find("Subject: ") == 0)
-                {
-                    std::string subject = line.substr(9);
-                    m_mail_builder.SetSubject(subject);
-                    Logger::LogProd("Subject set to: " + subject);
-                }
-            }
-        }
-        else
-        {
-            m_mail_builder.SetBody(line + "\r\n");
-            Logger::LogProd("Appended to body: " + line);
-        }
+        std::string line = data_message.substr(0, last_pos);
+        last_pos += DELIMITER_OFFSET;
 
         if (line == ".")
         {
@@ -461,8 +440,10 @@ void CommandHandler::ProcessDataMessage(SocketWrapper& socket_wrapper, std::stri
             HandleEndOfData(socket_wrapper);
             break;
         }
-    }
 
+        m_mail_builder.SetBody(line);
+        Logger::LogProd("Mail body set.");
+    }
     Logger::LogDebug("Exiting CommandHandler::ProcessDataMessage");
 }
 
@@ -493,7 +474,7 @@ void CommandHandler::HandleEndOfData(SocketWrapper& socket_wrapper)
     catch (const std::exception& e)
     {
         Logger::LogError("Exception in CommandHandler::HandleEndOfData while saving mail to DB: " +
-            std::string(e.what()));
+                         std::string(e.what()));
     }
 
     m_mail_builder = MailMessageBuilder();
@@ -518,15 +499,15 @@ void CommandHandler::SaveMailToDatabase(const MailMessage& message)
             }
             catch (const std::exception& e)
             {
-                Logger::LogError("Exception in CommandHandler::SaveMailToDatabase while inserting an email for recipient: "
-                    + recipient.get_address() + ": " + e.what());
+                Logger::LogError(
+                    "Exception in CommandHandler::SaveMailToDatabase while inserting an email for recipient: " +
+                    recipient.get_address() + ": " + e.what());
             }
         }
     }
     catch (const std::exception& e)
     {
-        Logger::LogError("Exception in CommandHandler::SaveMailToDatabase while saving mail: " +
-            std::string(e.what()));
+        Logger::LogError("Exception in CommandHandler::SaveMailToDatabase while saving mail: " + std::string(e.what()));
         throw;
     }
 
@@ -547,8 +528,7 @@ void CommandHandler::HandleStartTLS(SocketWrapper& socket_wrapper)
         }
         catch (const std::exception& e)
         {
-            Logger::LogError("Exception in CommandHandler::HandleStartTLS: " +
-                std::string(e.what()));
+            Logger::LogError("Exception in CommandHandler::HandleStartTLS: " + std::string(e.what()));
         }
         Logger::LogDebug("Exiting CommandHandler::HandleStartTLS");
         return;
@@ -573,8 +553,7 @@ void CommandHandler::HandleStartTLS(SocketWrapper& socket_wrapper)
         }
         catch (const std::exception& send_e)
         {
-            Logger::LogError("Exception in CommandHandler::HandleStartTLS: " +
-                std::string(send_e.what()));
+            Logger::LogError("Exception in CommandHandler::HandleStartTLS: " + std::string(send_e.what()));
         }
     }
 
@@ -586,14 +565,15 @@ void CommandHandler::HandleAuth(SocketWrapper& socket_wrapper, const std::string
     Logger::LogDebug("Entering CommandHandler::HandleAuth");
     Logger::LogTrace(
         "CommandHandler::HandleAuth parameters: SocketWrapper reference, "
-        "std::string reference " + line);
+        "std::string reference " +
+        line);
 
     try
     {
         // Decode the username and password from the AUTH command line
-        auto [username, password] = DecodeAndSplitPlain(line.substr(11));
-        Logger::LogProd("Decoded username: " + username);
-        Logger::LogProd("Decoded password: [hidden]");
+        auto [username, password] = DecodeAndSplitPlain(line.substr(AUTH_PREFIX_LENGTH));
+        Logger::LogTrace("Decoded username: " + username);
+        Logger::LogTrace("Decoded password: [hidden]");
 
         // Check if the user exists
         if (!m_data_base->UserExists(username))
@@ -612,20 +592,17 @@ void CommandHandler::HandleAuth(SocketWrapper& socket_wrapper, const std::string
         }
         catch (const MailException& e)
         {
-            Logger::LogError("MailException in CommandHandler::HandleAuth: "
-                + std::string(e.what()));
+            Logger::LogError("MailException in CommandHandler::HandleAuth: " + std::string(e.what()));
             socket_wrapper.SendResponseAsync("535 Authentication failed\r\n").get();
         }
     }
     catch (const std::runtime_error& e)
     {
-        Logger::LogError("Runtime error in CommandHandler::HandleAuth: " +
-            std::string(e.what()));
+        Logger::LogError("Runtime error in CommandHandler::HandleAuth: " + std::string(e.what()));
     }
     catch (const MailException& e)
     {
-        Logger::LogError("MailException in CommandHandler::HandleAuth: " +
-            std::string(e.what()));
+        Logger::LogError("MailException in CommandHandler::HandleAuth: " + std::string(e.what()));
     }
     catch (const std::exception& e)
     {
@@ -662,18 +639,15 @@ void CommandHandler::HandleRegister(SocketWrapper& socket_wrapper, const std::st
     }
     catch (const std::runtime_error& e)
     {
-        Logger::LogError("Runtime error in CommandHandler::HandleRegister: " +
-            std::string(e.what()));
+        Logger::LogError("Runtime error in CommandHandler::HandleRegister: " + std::string(e.what()));
     }
     catch (const MailException& e)
     {
-        Logger::LogError("MailException in CommandHandler::HandleRegister: " +
-            std::string(e.what()));
+        Logger::LogError("MailException in CommandHandler::HandleRegister: " + std::string(e.what()));
     }
     catch (const std::exception& e)
     {
-        Logger::LogError("Exception in CommandHandler::HandleRegister: " +
-            std::string(e.what()));
+        Logger::LogError("Exception in CommandHandler::HandleRegister: " + std::string(e.what()));
     }
 
     Logger::LogDebug("Exiting CommandHandler::HandleRegister");
