@@ -505,9 +505,6 @@ void CommandHandler::ReadData(SocketWrapper& socket_wrapper, std::string& data_m
         std::string buffer = future_data.get();
         data_message.append(buffer);
 
-        // Log received data (may be very verbose)
-        Logger::LogTrace("Received data: " + buffer);
-
         // Check if data_message contains the end-of-data sequence
         if (data_message.find("\r\n.\r\n") != std::string::npos)
         {
@@ -533,17 +530,37 @@ void CommandHandler::ReadData(SocketWrapper& socket_wrapper, std::string& data_m
 
 void CommandHandler::ProcessDataMessage(SocketWrapper& socket_wrapper, std::string& data_message)
 {
-    Logger::LogDebug("Exiting CommandHandler::ProcessDataMessage");
-    Logger::LogTrace(
-        "CommandHandler::ProcessDataMessage parameters: "
-        "SocketWrapper reference, std::string reference " +
-        data_message);
+    Logger::LogDebug("Entering CommandHandler::ProcessDataMessage");
 
     std::size_t pos;
+    bool is_header = true;
     while ((pos = data_message.find("\r\n")) != std::string::npos)
     {
         std::string line = data_message.substr(0, pos);
         data_message.erase(0, pos + 2);
+
+        if (is_header)
+        {
+            if (line.empty())
+            {
+                is_header = false;
+                Logger::LogProd("End of headers detected.");
+            }
+            else
+            {
+                if (line.find("Subject: ") == 0)
+                {
+                    std::string subject = line.substr(9);
+                    m_mail_builder.SetSubject(subject);
+                    Logger::LogProd("Subject set to: " + subject);
+                }
+            }
+        }
+        else
+        {
+            m_mail_builder.SetBody(line + "\r\n");
+            Logger::LogProd("Appended to body: " + line);
+        }
 
         if (line == ".")
         {
@@ -551,12 +568,11 @@ void CommandHandler::ProcessDataMessage(SocketWrapper& socket_wrapper, std::stri
             HandleEndOfData(socket_wrapper);
             break;
         }
-
-        m_mail_builder.SetBody(line);
-        Logger::LogProd("Mail body set.");
     }
+
     Logger::LogDebug("Exiting CommandHandler::ProcessDataMessage");
 }
+
 
 void CommandHandler::HandleEndOfData(SocketWrapper& socket_wrapper)
 {
