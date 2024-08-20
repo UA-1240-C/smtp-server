@@ -1,6 +1,6 @@
 add_library(CommandHandler src/CommandHandler.cpp)
 
-target_link_libraries(CommandHandler PRIVATE MailDB Boost::log Boost::log_setup)
+target_link_libraries(CommandHandler PRIVATE MailDB Boost::log Boost::log_setup ${OPENSSL_LIBRARIES})
 
 target_include_directories(CommandHandler PUBLIC
         ${CMAKE_SOURCE_DIR}/include/CommandHandler/include
