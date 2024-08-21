@@ -9,7 +9,7 @@ target_link_libraries(CommandHandler PRIVATE
 target_include_directories(CommandHandler PUBLIC
         ${CMAKE_SOURCE_DIR}/include/CommandHandler/include
         ${CMAKE_SOURCE_DIR}/include/SocketWrapper/include
-        ${CMAKE_SOURCE_DIR}/include/MailMessageFormatter/include
+        ${CMAKE_SOURCE_DIR}/include/MailMessage/include
         ${CMAKE_SOURCE_DIR}/include/DataBase/MailDB/include
         ${CMAKE_SOURCE_DIR}/include/Logger/include
         ${CMAKE_SOURCE_DIR}/include/Server/include

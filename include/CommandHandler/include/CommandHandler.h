@@ -14,7 +14,7 @@
 #include "SocketWrapper.h"
 #include "Logger.h"
 
-using namespace ISXSC;
+using namespace ISXMM;
 using namespace ISXSocketWrapper;
 using namespace ISXMailDB;
 using namespace ISXBase64;
