@@ -467,44 +467,32 @@ void CommandHandler::HandleEndOfData(SocketWrapper& socket_wrapper)
     m_in_data = false;
     try
     {
-        auto future_response = socket_wrapper.SendResponseAsync("250 OK\r\n");
-        future_response.get();
-        Logger::LogProd("Sent 250 OK response for end of data.");
-
-        try
+        MailMessage message = m_mail_builder.Build();
+        if (message.from.get_address().empty() || message.to.empty())
         {
-            MailMessage message = m_mail_builder.Build();
-            if (message.from.get_address().empty() || message.to.empty())
-            {
-                future_response = socket_wrapper.SendResponseAsync("550 Required fields missing\r\n");
-                Logger::LogWarning("Required fields missing in mail message.");
-            }
-            else
-            {
-                SaveMailToDatabase(message);
-                Logger::LogProd("Mail message saved successfully.");
-            }
-            future_response.get();
+            auto future_response = socket_wrapper.SendResponseAsync("550 Required fields missing\r\n");
+            Logger::LogWarning("Required fields missing in mail message.");
         }
-        catch (const std::exception& e)
+        else
         {
-            future_response = socket_wrapper.SendResponseAsync("550 Internal Server Error\r\n");
-            future_response.get();
-            Logger::LogError("Exception in CommandHandler::HandleEndOfData while saving mail to DB: " +
-                std::string(e.what()));
-        }
+            socket_wrapper.SendResponseAsync("250 OK\r\n").get();
+            Logger::LogProd("Sent 250 OK response for end of data.");
 
-        m_mail_builder = MailMessageBuilder();
-        Logger::LogDebug("MailBuilder reset after handling end of data.");
+            SaveMailToDatabase(message);
+            Logger::LogProd("Mail message saved successfully.");
+        }
     }
     catch (const std::exception& e)
     {
-        Logger::LogError("Exception in CommandHandler::HandleEndOfData: " + std::string(e.what()));
+        Logger::LogError("Exception in CommandHandler::HandleEndOfData while saving mail to DB: " +
+            std::string(e.what()));
     }
+
+    m_mail_builder = MailMessageBuilder();
+    Logger::LogProd("MailBuilder reset after handling end of data.");
 
     Logger::LogDebug("Exiting CommandHandler::HandleEndOfData");
 }
-
 void CommandHandler::SaveMailToDatabase(const MailMessage& message)
 {
     Logger::LogDebug("Entering CommandHandler::SaveMailToDatabase");
