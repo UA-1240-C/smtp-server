@@ -189,10 +189,7 @@ std::future<void> SocketWrapper::StartTlsAsync(boost::asio::ssl::context& contex
     return future;
 }
 
-
-
-void SocketWrapper::SetTimeoutTimer(std::shared_ptr<boost::asio::steady_timer> timeout_timer)
-{
+void SocketWrapper::set_timeout_timer(std::shared_ptr<boost::asio::steady_timer> timeout_timer) {
     Logger::LogDebug("Entering SocketWrapper::SetTimeoutTimer");
     Logger::LogTrace("SocketWrapper::SetTimeoutTimer params: shared_ptr to steady_timer");
 

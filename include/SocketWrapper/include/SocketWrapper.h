@@ -58,6 +58,22 @@ public:
     }
 
     /**
+     * @brief Gets the underlying socket of a specific type.
+     * @tparam SocketType The type of socket to retrieve (TcpSocket or SslSocket).
+     * @return A pointer to the socket of the requested type, or nullptr if the type is incorrect.
+     */
+    template <typename SocketType>
+    SocketType* get_socket() const
+    {
+        if (!std::holds_alternative<std::shared_ptr<SocketType>>(m_socket))
+        {
+            std::cerr << "Error: Incorrect socket type requested." << std::endl;
+            return nullptr;
+        }
+        return std::get<std::shared_ptr<SocketType>>(m_socket).get();
+    }
+
+    /**
      * @brief Sends a response asynchronously.
      * @param message The message to send.
      * @return A future that will be set when the send operation is complete.
@@ -97,32 +113,11 @@ public:
      */
     bool IsOpen() const;
 
-    /**
-     * @brief Sets the timeout timer for the socket.
-     *
-     * This function sets the internal timeout timer for the socket. The timer
-     * can be used later to start, reset, or cancel timeout operations.
-     *
-     * @param timeout_timer Shared pointer to a steady timer used for managing timeouts.
-     */
-    void SetTimeoutTimer(std::shared_ptr<boost::asio::steady_timer> timeout_timer);
+public:
 
-    /**
-     * @brief Starts the timeout timer for the socket.
-     *
-     * This function starts the timeout timer with the specified duration. If the
-     * timer expires, the connection associated with this socket will be closed.
-     *
-     * @param timeout_duration The duration after which the timeout should occur.
-     */
+    void set_timeout_timer(std::shared_ptr<boost::asio::steady_timer> timeout_timer);
+	
     void StartTimeoutTimer(std::chrono::seconds timeout_duration);
-
-    /**
-     * @brief Cancels the currently running timeout timer.
-     *
-     * This function cancels the current timeout timer. If the timer was not set
-     * or an error occurs during cancellation, an error message will be logged.
-     */
     void CancelTimeoutTimer();
 
 private:
@@ -161,6 +156,7 @@ private:
      * This method shuts down and then closes an SSL socket. It handles any errors
      * that occur during the shutdown and closing process.
      */
+
     void CloseSsl();
 };
 }  // namespace ISXSocketWrapper
