@@ -300,7 +300,7 @@ void CommandHandler::HandleMailFrom(SocketWrapper& socket_wrapper, const std::st
         }
         else
         {
-            m_mail_builder.SetFrom(sender);
+            m_mail_builder.set_from(sender);
             Logger::LogProd("Sender address set successfully: " + sender);
             socket_wrapper.SendResponseAsync("250 OK\r\n").get();
         }
@@ -334,7 +334,7 @@ void CommandHandler::HandleRcptTo(SocketWrapper& socket_wrapper, const std::stri
             socket_wrapper.SendResponseAsync("550 Recipient address does not exist\r\n").get();
             return;
         }
-        m_mail_builder.AddTo(recipient);
+        m_mail_builder.add_to(recipient);
         Logger::LogProd("Recipient address set successfully: " + recipient);
         socket_wrapper.SendResponseAsync("250 OK\r\n").get();
     }
@@ -436,14 +436,14 @@ void CommandHandler::ProcessDataMessage(SocketWrapper& socket_wrapper, std::stri
                 if (line.find("Subject: ") == 0)
                 {
                     std::string subject = line.substr(9);
-                    m_mail_builder.SetSubject(subject);
+                    m_mail_builder.set_subject(subject);
                     Logger::LogProd("Subject set to: " + subject);
                 }
             }
         }
         else
         {
-            m_mail_builder.SetBody(line + "\r\n");
+            m_mail_builder.set_body(line + "\r\n");
             Logger::LogProd("Appended to body: " + line);
         }
 

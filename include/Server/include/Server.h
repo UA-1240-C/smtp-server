@@ -22,7 +22,7 @@
 #include "Logger.h"
 
 using boost::asio::ip::tcp;
-using namespace ISXSC;
+using namespace ISXMM;
 using namespace ISXCommandHandler;
 using namespace ISXSignalHandler;
 using namespace ISXSocketWrapper;
