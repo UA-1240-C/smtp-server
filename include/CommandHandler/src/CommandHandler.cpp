@@ -3,21 +3,16 @@
 namespace ISXCommandHandler
 {
 CommandHandler::CommandHandler(boost::asio::ssl::context& ssl_context)
-    : m_ssl_context(ssl_context)
-    , m_data_base(std::make_unique<PgMailDB>("localhost"))
+    : m_ssl_context(ssl_context), m_data_base(std::make_unique<PgMailDB>("localhost"))
 {
     Logger::LogDebug("Entering CommandHandler constructor");
     Logger::LogTrace("Constructor params: ssl_context");
 
     // Set SSL options
     Logger::LogDebug("Setting SSL options");
-    m_ssl_context.set_options(
-        boost::asio::ssl::context::default_workarounds |
-        boost::asio::ssl::context::no_sslv2 |
-        boost::asio::ssl::context::no_sslv3 |
-        boost::asio::ssl::context::no_tlsv1 |
-        boost::asio::ssl::context::no_tlsv1_1
-    );
+    m_ssl_context.set_options(boost::asio::ssl::context::default_workarounds | boost::asio::ssl::context::no_sslv2 |
+                              boost::asio::ssl::context::no_sslv3 | boost::asio::ssl::context::no_tlsv1 |
+                              boost::asio::ssl::context::no_tlsv1_1);
     Logger::LogProd("SSL options set successfully.");
 
     // Connect to the database
@@ -28,12 +23,12 @@ CommandHandler::CommandHandler(boost::asio::ssl::context& ssl_context)
     catch (const MailException& e)
     {
         Logger::LogError("MailException during database connection: " + std::string(e.what()));
-        throw; // Re-throw to ensure proper exception handling at creation time
+        throw;  // Re-throw to ensure proper exception handling at creation time
     }
     catch (const std::exception& e)
     {
         Logger::LogError("Exception during database connection: " + std::string(e.what()));
-        throw; // Re-throw to ensure proper exception handling at creation time
+        throw;  // Re-throw to ensure proper exception handling at creation time
     }
 
     Logger::LogDebug("Exiting CommandHandler constructor");
@@ -78,7 +73,6 @@ void CommandHandler::ConnectToDatabase() const
         }
 
         Logger::LogDebug("Exiting CommandHandler::ConnectToDatabase successfully");
-
     }
     catch (const std::exception& e)
     {
@@ -93,19 +87,23 @@ void CommandHandler::DisconnectFromDatabase() const
 
     if (m_data_base->IsConnected())
     {
-        Logger::LogTrace("CommandHandler::DisconnectFromDatabase: "
-                         "Database is currently connected. Proceeding to disconnect.");
+        Logger::LogTrace(
+            "CommandHandler::DisconnectFromDatabase: "
+            "Database is currently connected. Proceeding to disconnect.");
 
         try
         {
             m_data_base->Disconnect();
-            Logger::LogProd("CommandHandler::DisconnectFromDatabase: "
-                            "Successfully disconnected from the database.");
+            Logger::LogProd(
+                "CommandHandler::DisconnectFromDatabase: "
+                "Successfully disconnected from the database.");
         }
         catch (const std::exception& e)
         {
-            Logger::LogError("CommandHandler::DisconnectFromDatabase: "
-                             "Error during database disconnection: " + std::string(e.what()));
+            Logger::LogError(
+                "CommandHandler::DisconnectFromDatabase: "
+                "Error during database disconnection: " +
+                std::string(e.what()));
         }
     }
     else
@@ -116,13 +114,12 @@ void CommandHandler::DisconnectFromDatabase() const
     Logger::LogDebug("Exiting CommandHandler::DisconnectFromDatabase");
 }
 
-
 void CommandHandler::ProcessLine(const std::string& line, SocketWrapper& socket_wrapper)
 {
     Logger::LogDebug("Entering CommandHandler::ProcessLine");
     Logger::LogTrace("CommandHandler::HandleEhlo parameters: SocketWrapper&, const std::string&");
 
-    if (line.find("EHLO") == 0 || line.find("HELO"))
+    if (line.find("EHLO") == 0 || line.find("HELO") == 0)
     {
         HandleEhlo(socket_wrapper);
     }
@@ -153,14 +150,6 @@ void CommandHandler::ProcessLine(const std::string& line, SocketWrapper& socket_
     else if (line.find("HELP") == 0)
     {
         HandleHelp(socket_wrapper);
-    }
-    else if (line.find("VRFY") == 0)
-    {
-        HandleVrfy(socket_wrapper, line);
-    }
-    else if (line.find("EXPN") == 0)
-    {
-        HandleExpn(socket_wrapper, line);
     }
     else if (line.find("STARTTLS") == 0)
     {
@@ -196,13 +185,11 @@ void CommandHandler::HandleEhlo(SocketWrapper& socket_wrapper)
     catch (const std::exception& e)
     {
         Logger::LogError("CommandHandler::HandleEhlo: Exception caught while sending EHLO response: " +
-            std::string(e.what()));
-        ErrorHandler::HandleError("Handle EHLO", e, socket_wrapper, "550 Internal Server Error\r\n");
+                         std::string(e.what()));
     }
 
     Logger::LogDebug("Exiting CommandHandler::HandleEhlo");
 }
-
 
 void CommandHandler::HandleNoop(SocketWrapper& socket_wrapper)
 {
@@ -214,10 +201,10 @@ void CommandHandler::HandleNoop(SocketWrapper& socket_wrapper)
         socket_wrapper.SendResponseAsync("250 OK\r\n").get();
         Logger::LogProd("CommandHandler::HandleNoop: Successfully sent NOOP response to client.");
     }
-    catch (const std::exception& e) {
+    catch (const std::exception& e)
+    {
         Logger::LogError("CommandHandler::HandleNoop: Exception caught while sending NOOP response: " +
-            std::string(e.what()));
-        ErrorHandler::HandleError("Handle NOOP", e, socket_wrapper, "550 Internal Server Error\r\n");
+                         std::string(e.what()));
     }
 }
 
@@ -234,9 +221,10 @@ void CommandHandler::HandleRset(SocketWrapper& socket_wrapper)
         socket_wrapper.SendResponseAsync("250 OK\r\n").get();
         Logger::LogProd("CommandHandler::HandleRset: Successfully sent RSET response to client.");
     }
-    catch (const std::exception& e) {
-        ErrorHandler::HandleException("Handle RSET", e);
-        ErrorHandler::HandleError("Handle RSET", e, socket_wrapper, "550 Internal Server Error\r\n");
+    catch (const std::exception& e)
+    {
+        Logger::LogError("CommandHandler::HandleRset: Exception caught while sending RSET response: " +
+                         std::string(e.what()));
     }
     Logger::LogDebug("Exiting CommandHandler::HandleRset");
 }
@@ -248,105 +236,20 @@ void CommandHandler::HandleHelp(SocketWrapper& socket_wrapper)
 
     const std::string supported_commands =
         "HELO, MAIL FROM, RCPT TO, DATA, "
-        "QUIT, NOOP, RSET, VRFY, HELP, "
+        "QUIT, NOOP, RSET, HELP, "
         "STARTTLS, AUTH PLAIN, REGISTER\r\n";
-    try {
-        socket_wrapper.SendResponseAsync(
-            "214 The following commands are recognized: " + supported_commands
-        ).get();
+    try
+    {
+        socket_wrapper.SendResponseAsync("214 The following commands are recognized: " + supported_commands).get();
         Logger::LogProd("CommandHandler::HandleHelp: Successfully sent HELP response to client.");
-    } catch (const std::exception& e) {
+    }
+    catch (const std::exception& e)
+    {
         Logger::LogError("CommandHandler::HandleHelp: Exception caught while sending HELP response: " +
-            std::string(e.what()));
-        ErrorHandler::HandleError("Handle HELP", e, socket_wrapper, "550 Internal Server Error\r\n");
+                         std::string(e.what()));
     }
     Logger::LogDebug("Exiting CommandHandler::HandleHelp");
 }
-
-
-void CommandHandler::HandleVrfy(SocketWrapper& socket_wrapper, const std::string& line)
-{
-    Logger::LogDebug("Entering CommandHandler::HandleVrfy");
-    Logger::LogTrace("CommandHandler::HandleVrfy parameter: SocketWrapper reference");
-
-    const std::string user_name = line.substr(5);
-    Logger::LogTrace("VRFY command received for user: " + user_name);
-
-    try
-    {
-        if (m_data_base->UserExists(user_name))
-        {
-            Logger::LogDebug("User exists in database: " + user_name);
-            auto user_info_list = m_data_base->RetrieveUserInfo(user_name);
-
-            if (!user_info_list.empty())
-            {
-                std::string response = "250 User exists: " + user_name + "\r\n";
-                for (const auto& user : user_info_list)
-                {
-                    Logger::LogTrace("User info: " + user.user_name);
-                    response += user.user_name + "\r\n";
-                }
-                socket_wrapper.SendResponseAsync(response).get();
-                Logger::LogDebug("CommandHandler::HandleVrfy: Successfully sent VRFY response to client: " +
-                    response);
-            }
-            else
-            {
-                Logger::LogWarning("No user information found for: " + user_name);
-                socket_wrapper.SendResponseAsync("550 User information not found\r\n").get();
-            }
-        }
-        else
-        {
-            Logger::LogWarning("User does not exist: " + user_name);
-            socket_wrapper.SendResponseAsync("550 User does not exist\r\n").get();
-        }
-    } catch (const MailException& e) {
-        Logger::LogError("MailException caught in HandleVrfy: " + std::string(e.what()));
-        ErrorHandler::HandleError("Handle VRFY", e, socket_wrapper, "550 Internal Server Error\r\n");
-    }
-    Logger::LogDebug("Exiting CommandHandler::HandleVrfy");
-}
-
-
-void CommandHandler::HandleExpn(SocketWrapper& socket_wrapper, const std::string& line)
-{
-    Logger::LogDebug("Entering CommandHandler::HandleExpn");
-    Logger::LogTrace("CommandHandler::HandleExpn parameter: SocketWrapper reference");
-
-    const std::string mailing_list = line.substr(5);
-    Logger::LogTrace("EXPN command received for mailing list: " + mailing_list);
-
-    try
-    {
-        auto members_list = m_data_base->RetrieveUserInfo(mailing_list);
-
-        if (!members_list.empty())
-        {
-            std::string response = "250 Mailing list members:\r\n";
-            for (const auto& member : members_list)
-            {
-                Logger::LogTrace("Mailing list member: " + member.user_name);
-                response += member.user_name + "\r\n";
-            }
-            socket_wrapper.SendResponseAsync(response).get();
-            Logger::LogDebug("Response sent: " + response);
-        }
-        else
-        {
-            Logger::LogWarning("Mailing list does not exist: " + mailing_list);
-            socket_wrapper.SendResponseAsync("550 Mailing list does not exist\r\n").get();
-        }
-    }
-    catch (const MailException& e)
-    {
-        Logger::LogError("MailException caught in HandleExpn: " + std::string(e.what()));
-        ErrorHandler::HandleError("Handle EXPN", e, socket_wrapper, "550 Internal Server Error\r\n");
-    }
-    Logger::LogDebug("Exiting CommandHandler::HandleExpn");
-}
-
 
 void CommandHandler::HandleQuit(SocketWrapper& socket_wrapper)
 {
@@ -355,23 +258,17 @@ void CommandHandler::HandleQuit(SocketWrapper& socket_wrapper)
 
     try
     {
-        socket_wrapper.SendResponseAsync("221 Bye\r\n").get();
-        Logger::LogProd("CommandHandler::HandleHelp: Successfully sent QUIT response to client.");
+        socket_wrapper.SendResponseAsync("221 OK\r\n").get();
+        Logger::LogProd("CommandHandler::HandleQuit: Successfully sent QUIT response to client.");
     }
     catch (const std::exception& e)
     {
-        Logger::LogError("Exception caught while sending QUIT response: " + std::string(e.what()));
-        ErrorHandler::HandleException("Handle QUIT", e);
+        Logger::LogError("CommandHandler::HandleQuit: Exception caught while sending QUIT response: "
+            + std::string(e.what()));
         return;
     }
 
-    if (socket_wrapper.IsTls()) {
-        Logger::LogDebug("Handling QUIT for TLS connection.");
-        HandleQuitSsl(socket_wrapper);
-    } else {
-        Logger::LogDebug("Handling QUIT for TCP connection.");
-        HandleQuitTcp(socket_wrapper);
-    }
+    socket_wrapper.Close();
 
     Logger::LogProd("Connection closed by client.");
     Logger::LogDebug("Exiting CommandHandler::HandleQuit");
@@ -380,91 +277,19 @@ void CommandHandler::HandleQuit(SocketWrapper& socket_wrapper)
 }
 
 
-void CommandHandler::HandleQuitSsl(SocketWrapper& socket_wrapper)
-{
-    Logger::LogDebug("Entering CommandHandler::HandleQuitSsl");
-    Logger::LogTrace("CommandHandler::HandleQuitSsl parameter: SocketWrapper reference");
-
-    auto ssl_socket = socket_wrapper.get_socket<SslSocket>();
-    if (ssl_socket)
-    {
-        Logger::LogDebug("SSL socket found, proceeding with shutdown.");
-
-        boost::system::error_code error;
-
-        // Attempt to shut down the SSL layer
-        ssl_socket->shutdown(error);
-        if (error)
-        {
-            Logger::LogError("Error during SSL shutdown: " + error.message());
-            ErrorHandler::HandleBoostError("SSL shutdown", error);
-        }
-        else
-        {
-            Logger::LogProd("SSL shutdown completed successfully.");
-        }
-
-        // Attempt to close the underlying TCP socket
-        ssl_socket->lowest_layer().close(error);
-        if (error)
-        {
-            Logger::LogError("Error during SSL socket close: " + error.message());
-            ErrorHandler::HandleBoostError("SSL closing socket", error);
-        }
-        else
-        {
-            Logger::LogProd("SSL socket closed successfully.");
-        }
-    }
-    else
-    {
-        Logger::LogWarning("No SSL socket found for closure.");
-    }
-
-    Logger::LogDebug("Exiting CommandHandler::HandleQuitSsl");
-}
-
-
-void CommandHandler::HandleQuitTcp(SocketWrapper& socket_wrapper)
-{
-    Logger::LogDebug("Entering CommandHandler::HandleQuitTcp");
-    Logger::LogTrace("CommandHandler::HandleQuitTcp parameter: SocketWrapper reference");
-
-    auto tcp_socket = socket_wrapper.get_socket<TcpSocket>();
-    if (tcp_socket)
-    {
-        Logger::LogDebug("TCP socket found, proceeding with shutdown.");
-        boost::system::error_code error;
-        tcp_socket->shutdown(TcpSocket::shutdown_both, error);
-        if (error) {
-            Logger::LogError("Error during TCP shutdown: " + error.message());
-            ErrorHandler::HandleBoostError("TCP shutdown", error);
-        }
-        else
-        {
-            Logger::LogProd("SSL socket closed successfully.");
-        }
-
-        tcp_socket->close(error);
-        if (error) {
-            Logger::LogError("Error during TCP closing: " + error.message());
-            ErrorHandler::HandleBoostError("TCP closing socket", error);
-        }
-        else
-        {
-            Logger::LogProd("SSL socket closed successfully.");
-        }
-    }
-    Logger::LogDebug("Exiting CommandHandler::HandleQuitTcp");
-}
-
 void CommandHandler::HandleMailFrom(SocketWrapper& socket_wrapper, const std::string& line)
 {
     Logger::LogDebug("Entering CommandHandler::HandleMailFrom");
     Logger::LogTrace("CommandHandler::HandleMailFrom parameters: SocketWrapper reference, line: " + line);
 
-    const std::string sender = line.substr(10);
-    Logger::LogTrace("Parsed sender: " + sender);
+    std::string sender = line.substr(10);
+    Logger::LogDebug("Parsed sender: " + sender);
+    
+    sender.erase(std::remove(sender.begin(), sender.end(), ' '), sender.end());
+    if (!sender.empty() && sender.front() == '<' && sender.back() == '>')
+    {
+        sender = sender.substr(1, sender.size() - 2);
+    }
 
     try
     {
@@ -484,15 +309,6 @@ void CommandHandler::HandleMailFrom(SocketWrapper& socket_wrapper, const std::st
     {
         Logger::LogError("Exception in CommandHandler::HandleMailFrom while processing sender: " +
             std::string(e.what()));
-        ErrorHandler::HandleError("Handle MAIL FROM", e, socket_wrapper, "550 Internal Server Error\r\n");
-        try
-        {
-            socket_wrapper.SendResponseAsync("550 Internal Server Error\r\n").get();
-        } catch (const std::exception& e) {
-            Logger::LogError("Exception in CommandHandler::HandleMailFrom while sending 550 error response: " +
-                std::string(e.what()));
-            ErrorHandler::HandleError("Handle MAIL FROM", e, socket_wrapper, "550 Internal Server Error\r\n");
-        }
     }
     Logger::LogDebug("Exiting CommandHandler::HandleMailFrom");
 }
@@ -502,9 +318,14 @@ void CommandHandler::HandleRcptTo(SocketWrapper& socket_wrapper, const std::stri
     Logger::LogDebug("Entering CommandHandler::HandleRcptTo");
     Logger::LogTrace("CommandHandler::HandleMailFrom parameters: SocketWrapper reference, line: " + line);
 
-    const std::string recipient = line.substr(8);
+    std::string recipient = line.substr(8);
     Logger::LogTrace("Parsed recipient: " + recipient);
-
+    
+    recipient.erase(std::remove(recipient.begin(), recipient.end(), ' '), recipient.end());
+    if (recipient.front() == '<' && recipient.back() == '>')
+    {
+        recipient = recipient.substr(1, recipient.size() - 2);
+    }
     try
     {
         if (!m_data_base->UserExists(recipient))
@@ -521,17 +342,6 @@ void CommandHandler::HandleRcptTo(SocketWrapper& socket_wrapper, const std::stri
     {
         Logger::LogError("Exception in CommandHandler::HandleRcptTo while processing recipient  : " +
             std::string(e.what()));
-        ErrorHandler::HandleError("Handle RCPT TO", e, socket_wrapper, "550 Internal Server Error\r\n");
-        try
-        {
-            socket_wrapper.SendResponseAsync("550 Internal Server Error\r\n").get();
-        }
-        catch (const std::exception& e)
-        {
-            Logger::LogError("Exception in CommandHandler::HandleRcptTo while sending 550 error response: " +
-                std::string(e.what()));
-            ErrorHandler::HandleError("Handle RCPT TO", e, socket_wrapper, "550 Internal Server Error\r\n");
-        }
     }
     Logger::LogDebug("Exiting CommandHandler::HandleRcptTo");
 }
@@ -560,7 +370,6 @@ void CommandHandler::HandleData(SocketWrapper& socket_wrapper)
     }
     catch (const std::exception& e)
     {
-        ErrorHandler::HandleException("Handle DATA", e);
         Logger::LogError("Exception in HandleData: " + std::string(e.what()));
         throw;
     }
@@ -571,17 +380,16 @@ void CommandHandler::HandleData(SocketWrapper& socket_wrapper)
 void CommandHandler::ReadData(SocketWrapper& socket_wrapper, std::string& data_message)
 {
     Logger::LogDebug("Entering CommandHandler::ReadData");
-    Logger::LogTrace("CommandHandler::ReadData parameters: "
-                     "SocketWrapper reference, std::string reference " + data_message);
+    Logger::LogTrace(
+        "CommandHandler::ReadData parameters: "
+        "SocketWrapper reference, std::string reference " +
+        data_message);
 
     try
     {
         auto future_data = socket_wrapper.ReadFromSocketAsync(1024);
         std::string buffer = future_data.get();
         data_message.append(buffer);
-
-        // Log received data (may be very verbose)
-        Logger::LogTrace("Received data: " + buffer);
 
         // Check if data_message contains the end-of-data sequence
         if (data_message.find("\r\n.\r\n") != std::string::npos)
@@ -598,7 +406,6 @@ void CommandHandler::ReadData(SocketWrapper& socket_wrapper, std::string& data_m
     catch (const std::exception& e)
     {
         // Handle other exceptions
-        ErrorHandler::HandleException("Read Data", e);
         Logger::LogError("Exception in ReadData: " + std::string(e.what()));
         throw;
     }
@@ -606,29 +413,51 @@ void CommandHandler::ReadData(SocketWrapper& socket_wrapper, std::string& data_m
     Logger::LogDebug("Exiting CommandHandler::ReadData");
 }
 
-void CommandHandler::ProcessDataMessage(SocketWrapper& socket_wrapper,
-                                    std::string& data_message)
+void CommandHandler::ProcessDataMessage(SocketWrapper& socket_wrapper, std::string& data_message)
 {
-    Logger::LogDebug("Exiting CommandHandler::ProcessDataMessage");
-    Logger::LogTrace("CommandHandler::ProcessDataMessage parameters: "
-                     "SocketWrapper reference, std::string reference " + data_message);
+    Logger::LogDebug("Entering CommandHandler::ProcessDataMessage");
 
     std::size_t pos;
-    while ((pos = data_message.find("\r\n")) != std::string::npos) {
+    bool is_header = true;
+    while ((pos = data_message.find("\r\n")) != std::string::npos)
+    {
         std::string line = data_message.substr(0, pos);
         data_message.erase(0, pos + 2);
 
-        if (line == ".") {
+        if (is_header)
+        {
+            if (line.empty())
+            {
+                is_header = false;
+                Logger::LogProd("End of headers detected.");
+            }
+            else
+            {
+                if (line.find("Subject: ") == 0)
+                {
+                    std::string subject = line.substr(9);
+                    m_mail_builder.SetSubject(subject);
+                    Logger::LogProd("Subject set to: " + subject);
+                }
+            }
+        }
+        else
+        {
+            m_mail_builder.SetBody(line + "\r\n");
+            Logger::LogProd("Appended to body: " + line);
+        }
+
+        if (line == ".")
+        {
             Logger::LogProd("End-of-data sequence detected, exiting data read loop.");
             HandleEndOfData(socket_wrapper);
             break;
         }
-
-        m_mail_builder.SetBody(line);
-        Logger::LogProd("Mail body set.");
     }
+
     Logger::LogDebug("Exiting CommandHandler::ProcessDataMessage");
 }
+
 
 void CommandHandler::HandleEndOfData(SocketWrapper& socket_wrapper)
 {
@@ -638,50 +467,36 @@ void CommandHandler::HandleEndOfData(SocketWrapper& socket_wrapper)
     m_in_data = false;
     try
     {
-        auto future_response = socket_wrapper.SendResponseAsync("250 OK\r\n");
-        future_response.get();
-        Logger::LogProd("Sent 250 OK response for end of data.");
-
-        try
+        MailMessage message = m_mail_builder.Build();
+        if (message.from.get_address().empty() || message.to.empty())
         {
-            MailMessage message = m_mail_builder.Build();
-            if (message.from.get_address().empty() || message.to.empty())
-            {
-                future_response = socket_wrapper.SendResponseAsync("550 Required fields missing\r\n");
-                Logger::LogWarning("Required fields missing in mail message.");
-            }
-            else
-            {
-                SaveMailToDatabase(message);
-                future_response = socket_wrapper.SendResponseAsync("250 OK\r\n");
-                Logger::LogProd("Mail message saved successfully.");
-            }
-            future_response.get();
+            auto future_response = socket_wrapper.SendResponseAsync("550 Required fields missing\r\n");
+            Logger::LogWarning("Required fields missing in mail message.");
         }
-        catch (const std::exception& e)
+        else
         {
-            ErrorHandler::HandleException("Build and Save Mail", e);
-            future_response = socket_wrapper.SendResponseAsync("550 Internal Server Error\r\n");
-            future_response.get();
-            Logger::LogError("Exception while building or saving mail: " + std::string(e.what()));
-        }
+            socket_wrapper.SendResponseAsync("250 OK\r\n").get();
+            Logger::LogProd("Sent 250 OK response for end of data.");
 
-        m_mail_builder = MailMessageBuilder();
-        Logger::LogDebug("MailBuilder reset after handling end of data.");
+            SaveMailToDatabase(message);
+            Logger::LogProd("Mail message saved successfully.");
+        }
     }
     catch (const std::exception& e)
     {
-        ErrorHandler::HandleException("Handle End Of Data", e);
-        Logger::LogError("Exception in HandleEndOfData: " + std::string(e.what()));
+        Logger::LogError("Exception in CommandHandler::HandleEndOfData while saving mail to DB: " +
+            std::string(e.what()));
     }
+
+    m_mail_builder = MailMessageBuilder();
+    Logger::LogProd("MailBuilder reset after handling end of data.");
 
     Logger::LogDebug("Exiting CommandHandler::HandleEndOfData");
 }
-
 void CommandHandler::SaveMailToDatabase(const MailMessage& message)
 {
     Logger::LogDebug("Entering CommandHandler::SaveMailToDatabase");
-    Logger::LogTrace("CommandHandler::ProcessDataMessage parameters: MailMessage");
+    Logger::LogTrace("CommandHandler::SaveMailToDatabase parameters: MailMessage");
 
     try
     {
@@ -689,22 +504,21 @@ void CommandHandler::SaveMailToDatabase(const MailMessage& message)
         {
             try
             {
-                m_data_base->InsertEmail(
-                    message.from.get_address(),
-                    recipient.get_address(),
-                    message.subject,
-                    message.body);
+                m_data_base->InsertEmail(message.from.get_address(), recipient.get_address(), message.subject,
+                                         message.body);
                 Logger::LogProd("Email inserted into database for recipient: " + recipient.get_address());
             }
             catch (const std::exception& e)
             {
-                Logger::LogError("Failed to insert email for recipient " + recipient.get_address() + ": " + e.what());
+                Logger::LogError("Exception in CommandHandler::SaveMailToDatabase while inserting an email for recipient: "
+                    + recipient.get_address() + ": " + e.what());
             }
         }
     }
     catch (const std::exception& e)
     {
-        Logger::LogError("Database error while saving mail: " + std::string(e.what()));
+        Logger::LogError("Exception in CommandHandler::SaveMailToDatabase while saving mail: " +
+            std::string(e.what()));
         throw;
     }
 
@@ -725,7 +539,8 @@ void CommandHandler::HandleStartTLS(SocketWrapper& socket_wrapper)
         }
         catch (const std::exception& e)
         {
-            Logger::LogError("Failed to send response for already in TLS mode: " + std::string(e.what()));
+            Logger::LogError("Exception in CommandHandler::HandleStartTLS: " +
+                std::string(e.what()));
         }
         Logger::LogDebug("Exiting CommandHandler::HandleStartTLS");
         return;
@@ -740,31 +555,37 @@ void CommandHandler::HandleStartTLS(SocketWrapper& socket_wrapper)
         socket_wrapper.StartTlsAsync(m_ssl_context).get();
 
         Logger::LogProd("STARTTLS handshake completed successfully.");
-    } catch (const std::exception& e) {
+    }
+    catch (const std::exception& e)
+    {
         Logger::LogError("Exception during STARTTLS handshake: " + std::string(e.what()));
-        try {
+        try
+        {
             socket_wrapper.SendResponseAsync("530 STARTTLS handshake failed\r\n").get();
-        } catch (const std::exception& send_e) {
-            Logger::LogError("Failed to send response for STARTTLS handshake failure: " + std::string(send_e.what()));
+        }
+        catch (const std::exception& send_e)
+        {
+            Logger::LogError("Exception in CommandHandler::HandleStartTLS: " +
+                std::string(send_e.what()));
         }
     }
 
     Logger::LogDebug("Exiting CommandHandler::HandleStartTLS");
 }
 
-
 void CommandHandler::HandleAuth(SocketWrapper& socket_wrapper, const std::string& line)
 {
     Logger::LogDebug("Entering CommandHandler::HandleAuth");
-    Logger::LogTrace("CommandHandler::HandleStartTLS parameters: SocketWrapper reference, "
-                     "std::string reference " + line);
+    Logger::LogTrace(
+        "CommandHandler::HandleAuth parameters: SocketWrapper reference, "
+        "std::string reference " + line);
 
     try
     {
         // Decode the username and password from the AUTH command line
         auto [username, password] = DecodeAndSplitPlain(line.substr(11));
-        Logger::LogTrace("Decoded username: " + username);
-        Logger::LogTrace("Decoded password: [hidden]");
+        Logger::LogProd("Decoded username: " + username);
+        Logger::LogProd("Decoded password: [hidden]");
 
         // Check if the user exists
         if (!m_data_base->UserExists(username))
@@ -779,42 +600,28 @@ void CommandHandler::HandleAuth(SocketWrapper& socket_wrapper, const std::string
         {
             m_data_base->Login(username, password);
             Logger::LogProd("User authenticated successfully");
-
-            // Retrieve and send the list of emails for the user
-            auto emails = m_data_base->RetrieveEmails(username, true);
-            std::string email_list_response = "250 OK\r\n";
-            for (const auto& email : emails)
-            {
-                std::ostringstream response_stream;
-                response_stream << email;
-                std::string email_str = response_stream.str();
-                socket_wrapper.SendResponseAsync(email_str + "\r\n").get();
-                Logger::LogTrace("Sent email: " + email_str);
-            }
-            socket_wrapper.SendResponseAsync("250 End of message list\r\n").get();
-            Logger::LogProd("Sent end of message list response.");
-
+            socket_wrapper.SendResponseAsync("235 Authentication successful\r\n").get();
         }
         catch (const MailException& e)
         {
-            Logger::LogError("Login failed: " + std::string(e.what()));
+            Logger::LogError("MailException in CommandHandler::HandleAuth: "
+                + std::string(e.what()));
             socket_wrapper.SendResponseAsync("535 Authentication failed\r\n").get();
         }
     }
     catch (const std::runtime_error& e)
     {
-        ErrorHandler::HandleError("Handle AUTH", e, socket_wrapper, "535 Authentication failed\r\n");
-        Logger::LogError("Runtime error during AUTH handling: " + std::string(e.what()));
+        Logger::LogError("Runtime error in CommandHandler::HandleAuth: " +
+            std::string(e.what()));
     }
     catch (const MailException& e)
     {
-        ErrorHandler::HandleError("Handle AUTH", e, socket_wrapper, "535 Authentication failed\r\n");
-        Logger::LogError("MailException during AUTH handling: " + std::string(e.what()));
+        Logger::LogError("MailException in CommandHandler::HandleAuth: " +
+            std::string(e.what()));
     }
     catch (const std::exception& e)
     {
-        ErrorHandler::HandleError("Handle AUTH", e, socket_wrapper, "535 Internal Server Error\r\n");
-        Logger::LogError("Exception during AUTH handling: " + std::string(e.what()));
+        Logger::LogError("Exception in CommandHandler::HandleAuth: " + std::string(e.what()));
     }
 
     Logger::LogDebug("Exiting CommandHandler::HandleAuth");
@@ -823,15 +630,19 @@ void CommandHandler::HandleAuth(SocketWrapper& socket_wrapper, const std::string
 void CommandHandler::HandleRegister(SocketWrapper& socket_wrapper, const std::string& line)
 {
     Logger::LogDebug("Entering CommandHandler::HandleRegister");
-    Logger::LogTrace("CommandHandler::HandleStartTLS parameters: SocketWrapper reference, "
-                     "std::string reference " + line);
+    Logger::LogTrace(
+        "CommandHandler::HandleRegister parameters: SocketWrapper reference, "
+        "std::string reference " +
+        line);
 
-    try {
+    try
+    {
         auto [username, password] = DecodeAndSplitPlain(line.substr(9));
-        Logger::LogTrace("Decoded username: " + username);
-        Logger::LogTrace("Decoded password: [hidden]");
+        Logger::LogProd("Decoded username: " + username);
+        Logger::LogProd("Decoded password: [hidden]");
 
-        if (m_data_base->UserExists(username)) {
+        if (m_data_base->UserExists(username))
+        {
             Logger::LogWarning("Authentication failed: user does not exist - " + username);
             socket_wrapper.SendResponseAsync("550 User already exists\r\n").get();
             return;
@@ -843,36 +654,33 @@ void CommandHandler::HandleRegister(SocketWrapper& socket_wrapper, const std::st
     }
     catch (const std::runtime_error& e)
     {
-        ErrorHandler::HandleError("Handle AUTH", e, socket_wrapper, "535 Authentication failed\r\n");
-        Logger::LogError("Runtime error during AUTH handling: " + std::string(e.what()));
+        Logger::LogError("Runtime error in CommandHandler::HandleRegister: " +
+            std::string(e.what()));
     }
     catch (const MailException& e)
     {
-        ErrorHandler::HandleError("Handle AUTH", e, socket_wrapper, "535 Authentication failed\r\n");
-        Logger::LogError("MailException during AUTH handling: " + std::string(e.what()));
+        Logger::LogError("MailException in CommandHandler::HandleRegister: " +
+            std::string(e.what()));
     }
     catch (const std::exception& e)
     {
-        ErrorHandler::HandleError("Handle AUTH", e, socket_wrapper, "535 Internal Server Error\r\n");
-        Logger::LogError("Exception during AUTH handling: " + std::string(e.what()));
+        Logger::LogError("Exception in CommandHandler::HandleRegister: " +
+            std::string(e.what()));
     }
 
     Logger::LogDebug("Exiting CommandHandler::HandleRegister");
 }
 
-auto CommandHandler::DecodeAndSplitPlain(const std::string& encoded_data)
-        -> std::pair<std::string, std::string>
+auto CommandHandler::DecodeAndSplitPlain(const std::string& encoded_data) -> std::pair<std::string, std::string>
 {
     Logger::LogDebug("Entering CommandHandler::DecodeAndSplitPlain");
-    Logger::LogTrace("CommandHandler::DecodeAndSplitPlain parameters: std::string reference"
-        + encoded_data);
+    Logger::LogTrace("CommandHandler::DecodeAndSplitPlain parameters: std::string reference" + encoded_data);
 
     // Decode Base64-encoded data
     std::string decoded_data;
     try
     {
         decoded_data = Base64Decode(encoded_data);
-        Logger::LogProd("Base64 decoding successful.");
     }
     catch (const std::exception& e)
     {
@@ -882,7 +690,8 @@ auto CommandHandler::DecodeAndSplitPlain(const std::string& encoded_data)
 
     // Find the first null byte
     const size_t first_null = decoded_data.find('\0');
-    if (first_null == std::string::npos) {
+    if (first_null == std::string::npos)
+    {
         Logger::LogError("Invalid PLAIN format: Missing first null byte.");
         throw std::runtime_error("Invalid PLAIN format: Missing first null byte.");
     }
@@ -890,7 +699,8 @@ auto CommandHandler::DecodeAndSplitPlain(const std::string& encoded_data)
 
     // Find the second null byte
     const size_t second_null = decoded_data.find('\0', first_null + 1);
-    if (second_null == std::string::npos) {
+    if (second_null == std::string::npos)
+    {
         Logger::LogError("Invalid PLAIN format: Missing second null byte.");
         throw std::runtime_error("Invalid PLAIN format: Missing second null byte.");
     }
@@ -908,4 +718,4 @@ auto CommandHandler::DecodeAndSplitPlain(const std::string& encoded_data)
 
     return {username, password};
 }
-}
+}  // namespace ISXCommandHandler

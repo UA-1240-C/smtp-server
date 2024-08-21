@@ -12,8 +12,8 @@ int main() {
         boost::asio::ssl::context ssl_context(boost::asio::ssl::context::tlsv12_server);
 
         // Load server certificates and private key
-        ssl_context.use_certificate_chain_file("../server.crt");
-        ssl_context.use_private_key_file("../server.key", boost::asio::ssl::context::pem);
+        ssl_context.use_certificate_chain_file("/etc/ssl/certs/smtp-server/server.crt");
+        ssl_context.use_private_key_file("/etc/ssl/private/server.key", boost::asio::ssl::context::pem);
 
         SmtpServer server(io_context, ssl_context);
         server.Start();

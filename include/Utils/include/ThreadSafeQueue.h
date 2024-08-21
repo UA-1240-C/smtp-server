@@ -132,7 +132,7 @@ public:
 
     if (m_data.empty()) return std::nullopt;
 
-    auto front = m_data.front();
+    auto front = std::move(m_data.front());
     m_data.pop_front();
 
     m_data.push_back(front);

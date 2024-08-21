@@ -6,8 +6,7 @@ SmtpServer::SmtpServer(boost::asio::io_context& io_context, boost::asio::ssl::co
     : m_timeout_timer(io_context),
       m_thread_pool(InitThreadPool()),
       m_io_context(io_context),
-      m_ssl_context(ssl_context),
-      m_command_handler(ssl_context)
+      m_ssl_context(ssl_context)
 {
     const Config config("../config.txt");
     InitLogging(config.get_logging());
@@ -99,12 +98,14 @@ void SmtpServer::Accept() {
 
     Logger::LogProd("Ready to accept new connections.");
 
+
     m_acceptor->async_accept(*new_socket, [this, new_socket](const boost::system::error_code& error) {
         if (!error) {
             Logger::LogProd("Accepted new connection.");
             m_thread_pool.EnqueueDetach([this, new_socket]() { HandleClient(SocketWrapper(new_socket)); });
         } else {
-            ErrorHandler::HandleBoostError("Accept", error);
+            Logger::LogError("Boost error in SmtpServer::Accept" +
+                error.what());
         }
         Accept();
     });
@@ -118,14 +119,17 @@ void SmtpServer::ResetTimeoutTimer(SocketWrapper& socket_wrapper) {
 	auto timeout_timer = std::make_shared<boost::asio::steady_timer>(m_io_context);
 	socket_wrapper.SetTimeoutTimer(timeout_timer);
 	socket_wrapper.StartTimeoutTimer(m_timeout_seconds);
+
 	Logger::LogDebug("Exiting SmtpServer::ResetTimeoutTimer");
 }
 
 void SmtpServer::HandleClient(SocketWrapper socket_wrapper) {
     Logger::LogDebug("Entering SmtpServer::HandleClient");
+    socket_wrapper.SendResponseAsync("220 Client was successfully connected!\r\n").get();
     Logger::LogTrace("SmtpServer::HandleClient parameters: SocketWrapper");
 
     try {
+        CommandHandler command_handler(m_ssl_context);
         MailMessageBuilder mail_builder;
         std::string current_line;
 
@@ -150,7 +154,7 @@ void SmtpServer::HandleClient(SocketWrapper socket_wrapper) {
 
                     Logger::LogProd("Processing line: " + line);
 
-                    m_command_handler.ProcessLine(line, socket_wrapper);
+                    command_handler.ProcessLine(line, socket_wrapper);
                 }
 
 				socket_wrapper.CancelTimeoutTimer();

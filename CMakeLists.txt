@@ -15,11 +15,7 @@ if (NOT Boost_FOUND)
     FetchContent_Declare(
             boost
             GIT_REPOSITORY https://github.com/boostorg/boost.git
-<<<<<<< HEAD
-            GIT_TAG boost-1.79.0
-=======
             GIT_TAG boost-1.85.0
->>>>>>> 0568652 (Initial commit of actual project stage for logger integration)
     )
     FetchContent_MakeAvailable(boost)
 endif()
@@ -34,13 +30,17 @@ if (NOT OpenSSL_FOUND)
     FetchContent_MakeAvailable(openssl)
 endif()
 
-# Fetch and build libpqxx if not found
+# Disable building tests for libpqxx
 if (NOT TARGET pqxx::pqxx)
     FetchContent_Declare(
-        libpqxx
-        GIT_REPOSITORY https://github.com/jtv/libpqxx.git
-        GIT_TAG master
+            libpqxx
+            GIT_REPOSITORY https://github.com/jtv/libpqxx.git
+            GIT_TAG master
     )
+
+    # Disable tests for libpqxx
+    set(SKIP_BUILD_TEST ON CACHE BOOL "Skip build tests" FORCE)
+
     FetchContent_MakeAvailable(libpqxx)
 endif()
 
@@ -53,7 +53,6 @@ add_subdirectory(include/SignalHandler)
 add_subdirectory(include/SocketWrapper)
 add_subdirectory(include/MailMessageFormatter)
 add_subdirectory(include/Utils)
-add_subdirectory(include/ErrorHandler)
 add_subdirectory(include/Parser)
 add_subdirectory(include/Logger)
 
@@ -62,7 +61,6 @@ add_executable(SMTP_server src/main.cpp)
 
 # Link libraries
 target_link_libraries(SMTP_server PRIVATE
-    ErrorHandler
     CommandHandler
     MailMessage
     MailDB
@@ -87,7 +85,6 @@ target_include_directories(SMTP_server PRIVATE
     ${CMAKE_SOURCE_DIR}/include/CommandHandler/include
     ${CMAKE_SOURCE_DIR}/include/DataBase/include
     ${CMAKE_SOURCE_DIR}/include/Encoding/include
-    ${CMAKE_SOURCE_DIR}/include/ErrorHandler/include
     ${CMAKE_SOURCE_DIR}/include/MailMessageFormatter/include
     ${CMAKE_SOURCE_DIR}/include/Parser/include
     ${CMAKE_SOURCE_DIR}/include/Server/include

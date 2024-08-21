@@ -13,7 +13,6 @@
 #include <string>
 
 #include "CommandHandler.h"
-#include "ErrorHandler.h"
 #include "MailDB/PgMailDB.h"
 #include "MailMessageBuilder.h"
 #include "SignalHandler.h"
@@ -25,7 +24,6 @@
 using boost::asio::ip::tcp;
 using namespace ISXSC;
 using namespace ISXCommandHandler;
-using namespace ISXErrorHandler;
 using namespace ISXSignalHandler;
 using namespace ISXSocketWrapper;
 using namespace ISXThreadPool;
@@ -63,11 +61,7 @@ private:
     void InitTimeout(const Config::CommunicationSettings& comm_settings);
     ThreadPool<> InitThreadPool();
     void InitLogging(const Config::Logging& logging_config);
-    
 
-    // std::filesystem::path m_log_filename;
-    uint8_t m_log_level;
-    // bool m_flush;
 private:
 	std::string m_server_name;
 	std::string m_server_display_name;
@@ -78,6 +72,9 @@ private:
 	boost::asio::steady_timer m_timeout_timer;
 	std::chrono::seconds m_timeout_seconds;
 
+  // std::filesystem::path m_log_filename;
+  uint8_t m_log_level;
+  // bool m_flush;
 private:
 	/**
 	 * @brief Accepts incoming client connections.
@@ -122,7 +119,6 @@ private:
 
 	boost::asio::io_context& m_io_context;		///< The Boost Asio I/O context for asynchronous operations.
 	boost::asio::ssl::context& m_ssl_context;	///< The Boost Asio SSL context for secure connections.
-	CommandHandler m_command_handler;			///< The command handler for processing SMTP commands.
 	std::unique_ptr<tcp::acceptor> m_acceptor;	///< The TCP acceptor for accepting incoming client connections.
 };
 }  // namespace ISXSS

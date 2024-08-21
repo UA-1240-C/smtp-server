@@ -1,4 +1,3 @@
-
 add_library(MailMessage
     src/MailAddress.cpp
     src/MailAttachment.cpp
