@@ -428,6 +428,7 @@ void CommandHandler::ProcessDataMessage(SocketWrapper& socket_wrapper, std::stri
         data_message);
 
     std::size_t last_pos{};
+    std::string body{};
     bool is_header = true;
     while ((last_pos = data_message.find("\r\n", last_pos)) != std::string::npos)
     {
@@ -453,19 +454,18 @@ void CommandHandler::ProcessDataMessage(SocketWrapper& socket_wrapper, std::stri
         }
         else
         {
-            m_mail_builder.set_body(line + "\r\n");
+            body += line + "\r\n";
             Logger::LogProd("Appended to body: " + line);
         }
 
         if (line == ".")
         {
+            m_mail_builder.set_body(body + "\r\n");
+            Logger::LogDebug(body);
             Logger::LogProd("End-of-data sequence detected, exiting data read loop.");
             HandleEndOfData(socket_wrapper);
             break;
         }
-
-        m_mail_builder.SetBody(line);
-        Logger::LogProd("Mail body set.");
     }
     Logger::LogDebug("Exiting CommandHandler::ProcessDataMessage");
 }
