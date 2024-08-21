@@ -48,7 +48,6 @@ endif()
 # Add subdirectories
 add_subdirectory(include/CommandHandler)
 add_subdirectory(include/DataBase/MailDB)
-add_subdirectory(include/Encoding)
 add_subdirectory(include/Server)
 add_subdirectory(include/SignalHandler)
 add_subdirectory(include/SocketWrapper)
@@ -65,7 +64,6 @@ target_link_libraries(SMTP_server PRIVATE
     CommandHandler
     MailMessage
     MailDB
-    Encoding
     Server
     SignalHandler
     SocketWrapper
@@ -85,7 +83,6 @@ target_link_libraries(SMTP_server PRIVATE
 target_include_directories(SMTP_server PRIVATE
     ${CMAKE_SOURCE_DIR}/include/CommandHandler/include
     ${CMAKE_SOURCE_DIR}/include/DataBase/include
-    ${CMAKE_SOURCE_DIR}/include/Encoding/include
     ${CMAKE_SOURCE_DIR}/include/MailMessageFormatter/include
     ${CMAKE_SOURCE_DIR}/include/Parser/include
     ${CMAKE_SOURCE_DIR}/include/Server/include
