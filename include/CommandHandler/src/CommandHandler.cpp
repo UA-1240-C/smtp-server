@@ -419,7 +419,7 @@ void CommandHandler::ReadData(SocketWrapper& socket_wrapper, std::string& data_m
     Logger::LogDebug("Exiting CommandHandler::ReadData");
 }
 
-void CommandHandler::ProcessDataMessage(SocketWrapper& socket_wrapper, std::string& data_message)
+    void CommandHandler::ProcessDataMessage(SocketWrapper& socket_wrapper, std::string& data_message)
 {
     Logger::LogDebug("Exiting CommandHandler::ProcessDataMessage");
     Logger::LogTrace(
@@ -434,6 +434,13 @@ void CommandHandler::ProcessDataMessage(SocketWrapper& socket_wrapper, std::stri
     {
         std::string line = data_message.substr(0, last_pos);
         last_pos += DELIMITER_OFFSET;
+
+        if (line == ".")
+        {
+            Logger::LogProd("End-of-data sequence detected, exiting data read loop.");
+            HandleEndOfData(socket_wrapper);
+            break;
+        }
 
         if (is_header)
         {
@@ -454,17 +461,8 @@ void CommandHandler::ProcessDataMessage(SocketWrapper& socket_wrapper, std::stri
         }
         else
         {
-            body += line + "\r\n";
+            m_mail_builder.set_body(line + "\r\n");
             Logger::LogProd("Appended to body: " + line);
-        }
-
-        if (line == ".")
-        {
-            m_mail_builder.set_body(body + "\r\n");
-            Logger::LogDebug(body);
-            Logger::LogProd("End-of-data sequence detected, exiting data read loop.");
-            HandleEndOfData(socket_wrapper);
-            break;
         }
     }
     Logger::LogDebug("Exiting CommandHandler::ProcessDataMessage");
