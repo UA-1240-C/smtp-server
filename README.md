@@ -19,6 +19,7 @@ C++20
 OpenSSL
 Boost
 PQXX
+GUnit
 ```
 
 ## Setup Guide
@@ -29,7 +30,7 @@ To install the required libraries on Ubuntu or Debian, you can use the `apt` pac
 
 ```bash
 sudo apt update
-sudo apt install cmake g++ libssl-dev libboost-all-dev libpqxx-dev
+sudo apt install cmake g++ libssl-dev libboost-all-dev libpqxx-dev libgtest-dev libgmock-dev
 ```
 * CMake 3.16+: cmake package (may need to add a PPA or manually download if the version is lower).
 * C++20: Ensure you have the latest g++ package to support C++20 features.
@@ -42,12 +43,12 @@ To install the required libraries on Arch Linux or Manjaro, you can use the `pac
 
 * Using pacman:
 ```bash
-sudo pacman -Syu cmake gcc openssl boost libpqxx
+sudo pacman -Syu cmake gcc openssl boost libpqxx gtest
 ```
 
 * Using yay (for AUR packages): 
 ```bash
-yay -S cmake gcc openssl boost libpqxx
+yay -S cmake gcc openssl boost libpqxx gtest gmock
 ```
 
 * CMake 3.16+: cmake package
@@ -55,6 +56,7 @@ yay -S cmake gcc openssl boost libpqxx
 * OpenSSL: openssl package
 * Boost: boost package
 * pqxx: libpqxx package
+* * Google Test: `gtest` package (includes Google Mock)
 
 In the `scripts` directory, there is a file named `start.sh.` This script builds your project and launches a Linux daemon for the server.
 
