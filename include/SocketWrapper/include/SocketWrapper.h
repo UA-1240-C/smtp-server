@@ -58,22 +58,6 @@ public:
     }
 
     /**
-     * @brief Gets the underlying socket of a specific type.
-     * @tparam SocketType The type of socket to retrieve (TcpSocket or SslSocket).
-     * @return A pointer to the socket of the requested type, or nullptr if the type is incorrect.
-     */
-    template <typename SocketType>
-    SocketType* get_socket() const
-    {
-        if (!std::holds_alternative<std::shared_ptr<SocketType>>(m_socket))
-        {
-            std::cerr << "Error: Incorrect socket type requested." << std::endl;
-            return nullptr;
-        }
-        return std::get<std::shared_ptr<SocketType>>(m_socket).get();
-    }
-
-    /**
      * @brief Sends a response asynchronously.
      * @param message The message to send.
      * @return A future that will be set when the send operation is complete.

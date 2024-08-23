@@ -1,0 +1,8 @@
+//
+// Created by shevmee on 8/23/24.
+//
+
+#ifndef STANDARTSMTPRESPONSES_H
+#define STANDARTSMTPRESPONSES_H
+
+#endif //STANDARTSMTPRESPONSES_H
