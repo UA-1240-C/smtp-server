@@ -182,7 +182,7 @@ public:
 	 * @brief Set sink formatter for the logger.
 	 *
 	 * Sets the formatter for the sink as following:
-	 * Thread ID - dd/mm/yyyy hh:mm:ss:mmm [LogLevel] – [Function/Method name] Log message.
+	 * Thread ID - dd/mm/yyyy hh:mm:ss:mmm [LogLevel] ï¿½ [Function/Method name] Log message.
 	 */
 	static void set_sink_formatter();
 
