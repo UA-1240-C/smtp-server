@@ -1,7 +1,16 @@
 #include "Logger.h"
 
 boost::shared_ptr<sinks::synchronous_sink<sinks::text_ostream_backend>> Logger::s_sink_pointer;
-int Logger::s_severity_filter;
+uint8_t Logger::s_severity_filter;
+std::string Logger::s_log_file;
+uint8_t Logger::s_flush;
+std::mutex Logger::s_logging_mutex;
+ISXThreadPool::ThreadPool<> Logger::s_thread_pool(MAX_THREAD_COUNT);
+
+const std::string Colors::BLUE = "\033[1;34m";
+const std::string Colors::CYAN = "\033[1;36m";
+const std::string Colors::RED = "\033[1;31m";
+const std::string Colors::RESET = "\033[0m";
 
 void Logger::set_attributes()
 {
@@ -17,7 +26,7 @@ void Logger::set_sink_filter()
 	{
 	case PROD_WARN_ERR_LOGS:
 		s_sink_pointer->set_filter(
-			expr::attr<LogLevel>("Severity") <= ERROR
+			expr::attr<LogLevel>("Severity") <= ERR
 		);
 		break;
 	case DEBUG_LOGS:
@@ -44,15 +53,22 @@ boost::shared_ptr<sinks::synchronous_sink<sinks::text_ostream_backend>> Logger::
 			locked_backend();
 		const boost::shared_ptr<std::ostream> stream_point(&std::clog, boost::null_deleter());
 		backend_point->add_stream(stream_point);
+
+		// TODO: configure file logging properly
+		boost::shared_ptr<std::ofstream> file_stream(new std::ofstream(s_log_file));
+		backend_point->add_stream(file_stream);
+
+		s_flush
+			? backend_point->auto_flush(true)
+			: backend_point->auto_flush(false);
 	}
 	logging::core::get()->add_sink(sink_point);
 	return sink_point;
 }
 
-void Logger::set_sink_formatter(
-	const boost::shared_ptr<sinks::synchronous_sink<sinks::text_ostream_backend>>& sink_point)
+void Logger::set_sink_formatter()
 {
-	sink_point->set_formatter(expr::stream
+	s_sink_pointer->set_formatter(expr::stream
 		<< logging::expressions::attr<logging::attributes::current_thread_id::value_type>("ThreadID")
 		<< " - " << expr::format_date_time<boost::posix_time::ptime>("TimeStamp", "%d/%m/%Y %H:%M:%S.%f")
 		<< " [" << expr::attr<LogLevel>("Severity")
@@ -62,52 +78,105 @@ void Logger::set_sink_formatter(
 	);
 }
 
-void Logger::Setup(const int& severity = NO_LOGS)
+void Logger::Setup(const Config::Logging& logging_config)
 {
-	set_attributes();
+	std::lock_guard<std::mutex> lock(s_logging_mutex);
+	s_log_file = logging_config.filename;
+	s_severity_filter = logging_config.log_level;
+	s_flush = logging_config.flush;
+
 	s_sink_pointer = set_sink();
-	set_sink_formatter(s_sink_pointer);
-	s_severity_filter = severity;
+	set_attributes();
+	set_sink_formatter();
 	set_sink_filter();
 }
 
 void Logger::Reset()
 {
+	s_thread_pool.WaitForTasks();
 	logging::core::get()->remove_all_sinks();
 	s_sink_pointer.reset();
 }
 
-void Logger::LogDebug(const std::string& message)
+void Logger::LogToConsole(const std::string& message, const LogLevel& log_level)
 {
 	BOOST_LOG_SCOPED_THREAD_ATTR("ThreadID", attrs::current_thread_id())
-	BOOST_LOG_SEV(g_slg, LogLevel::DEBUG) << "\033[1;34m" << message << "\033[0m";
+	std::lock_guard<std::mutex> lock(s_logging_mutex);
+	std::string color{};
+	switch (log_level)
+	{
+	case PROD:
+	case WARNING:
+	case ERR:
+		color = Colors::RED;
+		break;
+	case DEBUG:
+		color = Colors::BLUE;
+		break;
+	case TRACE:
+		color = Colors::CYAN;
+		break;
+	default:
+		color = Colors::RESET;
+		break;
+	}
+	try
+	{
+		BOOST_LOG_SEV(g_slg, log_level) << color << message << Colors::RESET;
+	}
+	catch (const std::exception& e)
+	{
+		std::cerr << e.what() << std::endl;
+	}
+}
+
+void Logger::LogDebug(const std::string& message)
+{
+	s_thread_pool.EnqueueDetach([message]()
+		{
+			LogToConsole(message, DEBUG);
+		}
+	);
 }
 
 void Logger::LogTrace(const std::string& message)
 {
-	BOOST_LOG_SCOPED_THREAD_ATTR("ThreadID", attrs::current_thread_id())
-	BOOST_LOG_SEV(g_slg, LogLevel::TRACE) << "\033[1;36m" << message << "\033[0m";
+	s_thread_pool.EnqueueDetach([message]()
+		{
+			LogToConsole(message, TRACE);
+		}
+	);
 }
 
 void Logger::LogProd(const std::string& message)
 {
-	BOOST_LOG_SCOPED_THREAD_ATTR("ThreadID", attrs::current_thread_id())
-	BOOST_LOG_SEV(g_slg, LogLevel::PROD) << "\033[1;31m" << message << "\033[0m";
+	s_thread_pool.EnqueueDetach([message]()
+		{
+			LogToConsole(message, PROD);
+		}
+	);
 }
 
 void Logger::LogWarning(const std::string& message)
 {
-	BOOST_LOG_SCOPED_THREAD_ATTR("ThreadID", attrs::current_thread_id())
-	BOOST_LOG_SEV(g_slg, LogLevel::WARNING) << "\033[1;31m" << message << "\033[0m";
+	s_thread_pool.EnqueueDetach([message]()
+		{
+			LogToConsole(message, WARNING);
+		}
+	);
 }
 
 void Logger::LogError(const std::string& message)
 {
-	BOOST_LOG_SCOPED_THREAD_ATTR("ThreadID", attrs::current_thread_id())
-	BOOST_LOG_SEV(g_slg, LogLevel::ERROR) << "\033[1;31m" << message << "\033[0m";
+	s_thread_pool.EnqueueDetach([message]()
+		{
+			LogToConsole(message, ERR);
+		}
+	);
 }
 
 Logger::~Logger()
 {
 	Reset();
+	s_thread_pool.WaitForTasks();
 }
