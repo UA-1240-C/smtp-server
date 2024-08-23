@@ -37,6 +37,8 @@ sudo apt install cmake g++ libssl-dev libboost-all-dev libpqxx-dev libgtest-dev 
 * OpenSSL: libssl-dev
 * Boost: libboost-all-dev
 * pqxx: libpqxx-dev
+* Google Test: libgtest-dev
+* Google Mock: libgmock-dev
 
 ### For Arch Linux and Manjaro
 To install the required libraries on Arch Linux or Manjaro, you can use the `pacman` package manager or the `yay` AUR helper. Run the following commands:
@@ -56,7 +58,7 @@ yay -S cmake gcc openssl boost libpqxx gtest gmock
 * OpenSSL: openssl package
 * Boost: boost package
 * pqxx: libpqxx package
-* * Google Test: `gtest` package (includes Google Mock)
+* Google Test: gtest package (includes Google Mock)
 
 In the `scripts` directory, there is a file named `start.sh.` This script builds your project and launches a Linux daemon for the server.
 
