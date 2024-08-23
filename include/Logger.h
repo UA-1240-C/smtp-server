@@ -23,6 +23,7 @@
 #include <boost/log/utility/setup/file.hpp>
 #include <boost/smart_ptr/shared_ptr.hpp>
 
+// Using other project's modules for better functionality and compatibility
 #include "ServerConfig.h"
 #include "ThreadPool.h"
 
@@ -125,8 +126,8 @@ class Logger
 	~Logger();
 
 public:
-	Logger(const Logger &) = delete;
-	Logger &operator=(const Logger &) = delete;
+	Logger(const Logger&) = delete;
+	Logger& operator=(const Logger&) = delete;
 
 	/**
 	 * @brief Set sink for the logger.
@@ -165,7 +166,7 @@ public:
 	 * @brief Setups the logger.
 	 * @param logging_config Config::Logging instance that consists log level, log file name, log flush
 	 */
-	static void Setup(const Config::Logging &logging_config);
+	static void Setup(const Config::Logging& logging_config);
 
 	/**
 	 * @brief Resets the logger.
@@ -179,35 +180,35 @@ public:
 	 * @param message User-defined message to log
 	 * @param log_level Log level of the message, one from LogLevel enum
 	 */
-	static void LogToConsole(const std::string &message, const LogLevel &log_level);
+	static void LogToConsole(const std::string& message, const LogLevel& log_level);
 
 	/**
 	 * @brief Logs the message with the DEBUG log level.
 	 * @param message User-defined message to log
 	 */
-	static void LogDebug(const std::string &message);
+	static void LogDebug(const std::string& message);
 
 	/**
 	 * @brief Logs the message with the TRACE log level.
 	 * @param message User-defined message to log
 	 */
-	static void LogTrace(const std::string &message);
+	static void LogTrace(const std::string& message);
 
 	/**
 	* @brief Logs the message with the PRODUCTION log level.
 	* @param message User-defined message to log
 	*/
-	static void LogProd(const std::string &message);
+	static void LogProd(const std::string& message);
 
 	/**
 	* @brief Logs the message with the WARNING log level.
 	* @param message User-defined message to log
 	*/
-	static void LogWarning(const std::string &message);
+	static void LogWarning(const std::string& message);
 
 	/**
 	* @brief Logs the message with the ERROR log level.
 	* @param message User-defined message to log
 	*/
-	static void LogError(const std::string &message);
+	static void LogError(const std::string& message);
 };
