@@ -45,13 +45,6 @@ void SignalHandler::HandleSignal(const int signal)
 		std::exit(EXIT_FAILURE);
 		break;
 	}
-
-        default:
-            Logger::LogDebug("Received unknown signal: " + std::to_string(signal));
-            Logger::LogProd("Unknown signal (" + std::to_string(signal) + ") received. Exiting...");
-            std::exit(EXIT_FAILURE);
-            break;
-    }
 }
 
 void SignalHandler::SetupSignalHandlers()
