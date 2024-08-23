@@ -52,6 +52,7 @@ Mkfile.old
 dkms.conf
 
 #CMake files
+CMakePresets.json
 CMakeLists.txt.user
 CMakeCache.txt
 CMakeFiles
