@@ -89,7 +89,7 @@ target_include_directories(SMTP_server PRIVATE
     ${CMAKE_SOURCE_DIR}/include/SignalHandler/include
     ${CMAKE_SOURCE_DIR}/include/SocketWrapper/include
     ${CMAKE_SOURCE_DIR}/include/Utils/include
-    ${CMAKE_SOURCE_DIR}/include/Logger
+    ${CMAKE_SOURCE_DIR}/include/Logger/include
     ${Boost_INCLUDE_DIRS}
     ${OPENSSL_INCLUDE_DIR}
     ${LIBSODIUM_INCLUDE_DIRS}
