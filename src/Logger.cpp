@@ -5,7 +5,7 @@ uint8_t Logger::s_severity_filter;
 std::string Logger::s_log_file;
 uint8_t Logger::s_flush;
 std::mutex Logger::s_logging_mutex;
-ISXThreadPool::ThreadPool<> Logger::s_thread_pool(MAX_THREAD_COUNT);
+ThreadPool Logger::s_thread_pool(MAX_THREAD_COUNT);
 
 const std::string Colors::BLUE = "\033[1;34m";
 const std::string Colors::CYAN = "\033[1;36m";
@@ -78,7 +78,7 @@ void Logger::set_sink_formatter()
 	);
 }
 
-void Logger::Setup(const Config::Logging &logging_config)
+void Logger::Setup(const Config::Logging& logging_config)
 {
 	std::lock_guard<std::mutex> lock(s_logging_mutex);
 	s_log_file = logging_config.filename;
@@ -93,15 +93,14 @@ void Logger::Setup(const Config::Logging &logging_config)
 
 void Logger::Reset()
 {
-	s_thread_pool.WaitForTasks();
 	logging::core::get()->remove_all_sinks();
 	s_sink_pointer.reset();
 }
 
-void Logger::LogToConsole(const std::string &message, const LogLevel &log_level)
+void Logger::LogToConsole(const std::string& message, const LogLevel& log_level)
 {
 	BOOST_LOG_SCOPED_THREAD_ATTR("ThreadID", attrs::current_thread_id())
-		std::lock_guard<std::mutex> lock(s_logging_mutex);
+	std::lock_guard<std::mutex> lock(s_logging_mutex);
 	std::string color{};
 	switch (log_level)
 	{
@@ -124,51 +123,51 @@ void Logger::LogToConsole(const std::string &message, const LogLevel &log_level)
 	{
 		BOOST_LOG_SEV(g_slg, log_level) << color << message << Colors::RESET;
 	}
-	catch (const std::exception &e)
+	catch (const std::exception& e)
 	{
 		std::cerr << e.what() << std::endl;
 	}
 }
 
-void Logger::LogDebug(const std::string &message)
+void Logger::LogDebug(const std::string& message)
 {
-	s_thread_pool.EnqueueDetach([message]()
+	s_thread_pool.enqueue([message]()
 		{
 			LogToConsole(message, DEBUG);
 		}
 	);
 }
 
-void Logger::LogTrace(const std::string &message)
+void Logger::LogTrace(const std::string& message)
 {
-	s_thread_pool.EnqueueDetach([message]()
+	s_thread_pool.enqueue([message]()
 		{
 			LogToConsole(message, TRACE);
 		}
 	);
 }
 
-void Logger::LogProd(const std::string &message)
+void Logger::LogProd(const std::string& message)
 {
-	s_thread_pool.EnqueueDetach([message]()
+	s_thread_pool.enqueue([message]()
 		{
 			LogToConsole(message, PROD);
 		}
 	);
 }
 
-void Logger::LogWarning(const std::string &message)
+void Logger::LogWarning(const std::string& message)
 {
-	s_thread_pool.EnqueueDetach([message]()
+	s_thread_pool.enqueue([message]()
 		{
 			LogToConsole(message, WARNING);
 		}
 	);
 }
 
-void Logger::LogError(const std::string &message)
+void Logger::LogError(const std::string& message)
 {
-	s_thread_pool.EnqueueDetach([message]()
+	s_thread_pool.enqueue([message]()
 		{
 			LogToConsole(message, ERR);
 		}
@@ -178,5 +177,4 @@ void Logger::LogError(const std::string &message)
 Logger::~Logger()
 {
 	Reset();
-	s_thread_pool.WaitForTasks();
 }

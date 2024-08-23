@@ -23,9 +23,7 @@
 #include <boost/log/utility/setup/file.hpp>
 #include <boost/smart_ptr/shared_ptr.hpp>
 
-// Using other project's modules for better functionality and compatibility
-#include "ServerConfig.h"
-#include "ThreadPool.h"
+#include "LoggerTestUtilities.h"
 
 namespace logging = boost::log;
 namespace expr = boost::log::expressions;
@@ -107,15 +105,6 @@ inline src::severity_logger_mt<LogLevel> g_slg;
  */
 class Logger
 {
-	// Boost sink pointer for synchronous operations
-	static boost::shared_ptr<sinks::synchronous_sink<sinks::text_ostream_backend>> s_sink_pointer;
-	static uint8_t s_severity_filter; // Severity filter for the sink
-	static std::string s_log_file; // Log file path, in development
-	static uint8_t s_flush; // Auto flushing for console output
-	static std::mutex s_logging_mutex; // STL mutex for thread safety
-	static ISXThreadPool::ThreadPool<> s_thread_pool; // Thread pool for multithreaded logging
-
-
 	Logger() = default;
 
 	/**
@@ -126,6 +115,15 @@ class Logger
 	~Logger();
 
 public:
+	// Boost sink pointer for synchronous operations
+	static boost::shared_ptr<sinks::synchronous_sink<sinks::text_ostream_backend>> s_sink_pointer;
+	static uint8_t s_severity_filter; // Severity filter for the sink
+	static std::string s_log_file; // Log file path, in development
+	static uint8_t s_flush; // Auto flushing for console output
+	static std::mutex s_logging_mutex; // STL mutex for thread safety
+	static ThreadPool s_thread_pool; // Thread pool for multithreaded logging using other modules
+
+
 	Logger(const Logger&) = delete;
 	Logger& operator=(const Logger&) = delete;
 
