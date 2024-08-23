@@ -129,8 +129,9 @@ void SmtpServer::ResetTimeoutTimer(SocketWrapper& socket_wrapper)
 void SmtpServer::HandleClient(SocketWrapper socket_wrapper)
 {
     Logger::LogDebug("Entering SmtpServer::HandleClient");
-    socket_wrapper.SendResponseAsync("220 Client was successfully connected!\r\n").get();
     Logger::LogTrace("SmtpServer::HandleClient parameters: SocketWrapper");
+
+    socket_wrapper.SendResponseAsync(ToString(SmtpResponseCode::SERVER_READY)).get();
 
     try
     {
@@ -174,12 +175,13 @@ void SmtpServer::HandleClient(SocketWrapper socket_wrapper)
                     Logger::LogWarning("Client disconnected.");
                     break;
                 }
-                Logger::LogError("Read from socket" + std::string(e.what()));
+                Logger::LogError("Boost exception in SmtpServer::HandleClient while reading from socket" +
+                    std::string(e.what()));
                 throw;
             }
             catch (const std::exception& e)
             {
-                Logger::LogError("Read from socket" + std::string(e.what()));
+                Logger::LogError("Exception in SmtpServer::HandleClient while reading from socket" + std::string(e.what()));
                 throw;
             }
         }

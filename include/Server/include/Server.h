@@ -20,6 +20,7 @@
 #include "SignalHandler.h"
 #include "SocketWrapper.h"
 #include "ThreadPool.h"
+#include "StandartSmtpResponses.h"
 
 using boost::asio::ip::tcp;
 using namespace ISXMM;
