@@ -230,18 +230,6 @@ private:
     void HandleQuit(SocketWrapper& socket_wrapper);
 
     /**
-     * @brief Handles the QUIT command in SSL mode.
-     * @param socket_wrapper Reference to the SocketWrapper for communication.
-     */
-    void HandleQuitSsl(SocketWrapper& socket_wrapper);
-
-    /**
-     * @brief Handles the QUIT command in TCP mode.
-     * @param socket_wrapper Reference to the SocketWrapper for communication.
-     */
-    void HandleQuitTcp(SocketWrapper& socket_wrapper);
-
-    /**
      * @brief Handles the AUTH command.
      * @param socket_wrapper Reference to the SocketWrapper for communication.
      * @param line The line of input containing the AUTH command and user credentials.
