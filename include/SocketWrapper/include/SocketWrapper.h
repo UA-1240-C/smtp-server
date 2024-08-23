@@ -140,24 +140,6 @@ private:
     * This method closes the socket, which could be only SSL socket.
     */
     void TerminateSslConnection(SslSocket& ssl_socket);
-
-private:
-    /**
-     * @brief Closes a TCP socket.
-     *
-     * This method shuts down and then closes a TCP socket. It handles any errors
-     * that occur during the shutdown and closing process.
-     */
-    void CloseTcp();
-
-    /**
-     * @brief Closes an SSL socket.
-     *
-     * This method shuts down and then closes an SSL socket. It handles any errors
-     * that occur during the shutdown and closing process.
-     */
-
-    void CloseSsl();
 };
 }  // namespace ISXSocketWrapper
 
