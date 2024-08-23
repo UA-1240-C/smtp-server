@@ -1,5 +1,5 @@
 add_library(CommandHandler src/CommandHandler.cpp
-        include/StandartSmtpResponses.h)
+        src/StandartSmtpResponses.cpp)
 
 target_link_libraries(CommandHandler PRIVATE
         MailDB

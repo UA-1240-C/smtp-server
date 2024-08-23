@@ -13,6 +13,7 @@
 #include "MailMessageBuilder.h"
 #include "SocketWrapper.h"
 #include "Logger.h"
+#include "StandartSmtpResponses.h"
 
 using namespace ISXMM;
 using namespace ISXSocketWrapper;
