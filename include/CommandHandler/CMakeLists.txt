@@ -16,5 +16,5 @@ target_include_directories(CommandHandler PUBLIC
         ${CMAKE_SOURCE_DIR}/include/DataBase/MailDB/include
         ${CMAKE_SOURCE_DIR}/include/Logger/include
         ${CMAKE_SOURCE_DIR}/include/Server/include
-        $${CMAKE_SOURCE_DIR}/include/Utils/include
+        ${CMAKE_SOURCE_DIR}/include/Utils/include
 )
