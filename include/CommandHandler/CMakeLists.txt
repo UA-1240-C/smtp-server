@@ -9,6 +9,8 @@ target_link_libraries(CommandHandler PRIVATE
         ${OPENSSL_LIBRARIES})
 
 
+target_link_libraries(CommandHandler PRIVATE MailDB)
+
 target_include_directories(CommandHandler PUBLIC
         ${CMAKE_SOURCE_DIR}/include/CommandHandler/include
         ${CMAKE_SOURCE_DIR}/include/SocketWrapper/include

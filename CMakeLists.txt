@@ -32,7 +32,7 @@ if (NOT OpenSSL_FOUND)
 endif()
 
 # Disable building tests for libpqxx
-if (NOT TARGET pqxx::pqxx)
+if (NOT TARGET pqxx)
     FetchContent_Declare(
             libpqxx
             GIT_REPOSITORY https://github.com/jtv/libpqxx.git
@@ -43,6 +43,16 @@ if (NOT TARGET pqxx::pqxx)
     set(SKIP_BUILD_TEST ON CACHE BOOL "Skip build tests" FORCE)
 
     FetchContent_MakeAvailable(libpqxx)
+endif()
+
+# Add google tests
+FetchContent_Declare(googletest
+	GIT_REPOSITORY https://github.com/google/googletest
+	GIT_TAG v1.15.0)
+FetchContent_GetProperties(googletest)
+if(NOT googletest_POPULATED)
+    FetchContent_Populate(googletest)
+    add_subdirectory(${googletest_SOURCE_DIR} ${googletest_BUILD_DIR})
 endif()
 
 # Add subdirectories
@@ -75,8 +85,6 @@ target_link_libraries(SMTP_server PRIVATE
     Boost::log
     Boost::log_setup
     ${OPENSSL_LIBRARIES}
-    pqxx
-    ${LIBSODIUM_LIBRARIES}
 )
 
 # Include directories

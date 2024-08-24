@@ -19,6 +19,7 @@ PgMailDB::~PgMailDB()
     Disconnect();
 }
 
+
 void PgMailDB::Connect(const std::string& connection_string)
 {
     try {
