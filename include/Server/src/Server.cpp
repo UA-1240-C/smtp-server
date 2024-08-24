@@ -74,7 +74,7 @@ void SmtpServer::InitLogging(const Config::Logging& logging_config)
     Logger::LogDebug("Entering InitLogging");
     Logger::LogTrace("InitLogging params: {log_level: " + std::to_string(logging_config.log_level) + "}");
 
-    Logger::Setup(logging_config.log_level);
+    Logger::Setup(logging_config);
 
     Logger::LogTrace("Logging initialized with log_level: " + std::to_string(logging_config.log_level));
     Logger::LogDebug("Exiting InitLogging");
