@@ -1,4 +1,4 @@
-add_library(Server src/Server.cpp)
+add_library(Server src/Server.cpp src/ServerInitializer.cpp)
 
 target_link_libraries(Server PRIVATE
         MailDB

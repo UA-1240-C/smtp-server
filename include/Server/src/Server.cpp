@@ -6,17 +6,15 @@ constexpr std::size_t DELIMITER_OFFSET = 2;
 namespace ISXSS
 {
 SmtpServer::SmtpServer(boost::asio::io_context& io_context, boost::asio::ssl::context& ssl_context)
-    : m_timeout_timer(io_context), m_thread_pool(InitThreadPool()), m_io_context(io_context), m_ssl_context(ssl_context)
+    : m_timeout_timer(io_context)
+    , m_thread_pool(InitThreadPool())
+    , m_io_context(io_context)
+    , m_ssl_context(ssl_context)
 {
-    const Config config("../config.txt");
-    InitLogging(config.get_logging());
-
     Logger::LogDebug("Entering SmtpServer constructor");
     Logger::LogTrace("Constructor params: io_context, ssl_context");
 
-    SignalHandler::SetupSignalHandlers();
-    InitServer(config.get_server());
-    InitTimeout(config.get_communication_settings());
+    Serv
 
     Logger::LogProd("SmtpServer initialized and listening on port " + std::to_string(m_port));
     Logger::LogDebug("Exiting SmtpServer constructor");

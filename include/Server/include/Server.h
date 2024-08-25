@@ -21,6 +21,7 @@
 #include "SocketWrapper.h"
 #include "ThreadPool.h"
 #include "StandartSmtpResponses.h"
+#include "ServerInitializer.h"
 
 using boost::asio::ip::tcp;
 using namespace ISXMM;
@@ -69,20 +70,6 @@ private:
     void InitTimeout(const Config::CommunicationSettings& comm_settings);
     ThreadPool<> InitThreadPool();
     void InitLogging(const Config::Logging& logging_config);
-
- private:
-    std::string m_server_name;
-    std::string m_server_display_name;
-    unsigned int m_port;
-
-    size_t m_max_threads;
-
-    boost::asio::steady_timer m_timeout_timer;
-    std::chrono::seconds m_timeout_seconds;
-
-  // std::filesystem::path m_log_filename;
-  uint8_t m_log_level;
-  // bool m_flush;
 private:
 
     /**
@@ -126,12 +113,24 @@ private:
     void ResetTimeoutTimer(SocketWrapper& socket_wrapper);
 
 private:
+    ServerInitializer initializer;
     MailMessageBuilder m_mail_builder;  ///< The mail message builder for constructing email messages.
     ThreadPool<> m_thread_pool;         ///< The thread pool for managing concurrent tasks.
 
     boost::asio::io_context& m_io_context;      ///< The Boost Asio I/O context for asynchronous operations.
     boost::asio::ssl::context& m_ssl_context;   ///< The Boost Asio SSL context for secure connections.
     std::unique_ptr<tcp::acceptor> m_acceptor;  ///< The TCP acceptor for accepting incoming client connections.
+private:
+ std::string m_server_name;
+ std::string m_server_display_name;
+ unsigned int m_port;
+
+ size_t m_max_threads;
+
+ boost::asio::steady_timer m_timeout_timer;
+ std::chrono::seconds m_timeout_seconds;
+
+ uint8_t m_log_level;
 };
 }  // namespace ISXSS
 
