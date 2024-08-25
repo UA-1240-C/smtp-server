@@ -15,6 +15,8 @@ CERT_DIR=/etc/ssl/certs/smtp-server
 KEY_DIR=/etc/ssl/private
 CERT_FILE=$CERT_DIR/server.crt
 KEY_FILE=$KEY_DIR/server.key
+DH_PARAM_FILE="$KEY_DIR/dhparam.pem"
+
 
 # Create and navigate to the build directory in the project root
 echo "Creating build directory in the project root..."
@@ -42,10 +44,13 @@ if [ ! -f "$CERT_FILE" ] || [ ! -f "$KEY_FILE" ]; then
     sudo chmod 700 $KEY_DIR
 
     # Generate a private key without password
-    sudo openssl genpkey -algorithm RSA -out $KEY_FILE
+        sudo openssl genpkey -algorithm RSA -out $KEY_FILE
 
-    # Generate a self-signed certificate
-    sudo openssl req -new -x509 -key $KEY_FILE -out $CERT_FILE -days 365 -subj "/C=US/ST=State/L=City/O=Organization/OU=Unit/CN=localhost"
+        # Generate Diffie-Hellman parameters (you can choose a different size, e.g., 4096)
+        sudo openssl dhparam -out $DH_PARAM_FILE 2048
+
+        # Generate a self-signed certificate
+        sudo openssl req -new -x509 -key $KEY_FILE -out $CERT_FILE -days 365 -subj "/C=US/ST=State/L=City/O=Organization/OU=Unit/CN=localhost"
 
     # Set proper permissions
     sudo chmod 600 $KEY_FILE
@@ -77,7 +82,7 @@ echo "Reloading systemd..."
 sudo systemctl daemon-reload
 
 # Stop the service if it is running
-sudo systemctl stop smtp-server
+sudo systemctl disable smtp-server
 
 # Start the service
 echo "Starting the SMTP server service..."

@@ -124,6 +124,27 @@ void CommandHandler::DisconnectFromDatabase() const
     Logger::LogDebug(   "Exiting CommandHandler::DisconnectFromDatabase");
 }
 
+std::vector<unsigned char> CommandHandler::ExtractSessionKey(SslSocket& ssl_socket)
+{
+    SSL* ssl = ssl_socket.native_handle();
+    std::vector<unsigned char> key(32);
+    if (SSL_export_keying_material(ssl, key.data(), key.size(), "exporter", 7, nullptr, 0, 0) != 1)
+    {
+        throw std::runtime_error("Failed to export keying material");
+    }
+    return key;
+}
+
+std::string CommandHandler::ComputeHMAC(const std::vector<unsigned char>& key, const std::string& data)
+{
+    unsigned char hmac[EVP_MAX_MD_SIZE];
+    unsigned int hmac_len;
+    HMAC(EVP_sha256(), key.data(), key.size(),
+        reinterpret_cast<const unsigned char*>(data.data()),
+        data.size(), hmac, &hmac_len);
+    return {reinterpret_cast<char*>(hmac), hmac_len};
+}
+
 void CommandHandler::ProcessLine(const std::string& line, SocketWrapper& socket_wrapper)
 {
     Logger::LogDebug("Entering CommandHandler::ProcessLine");

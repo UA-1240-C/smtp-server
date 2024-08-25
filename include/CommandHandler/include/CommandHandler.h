@@ -6,6 +6,8 @@
 #include <boost/asio/ssl.hpp>
 #include <string>
 #include <utility>
+#include <openssl/ssl.h>
+#include <openssl/evp.h>
 
 #include "Base64.h"
 #include "Logger.h"
@@ -273,6 +275,8 @@ private:
      */
     void DisconnectFromDatabase() const;
 
+    std::vector<unsigned char> ExtractSessionKey(SslSocket& ssl_socket);
+    std::string ComputeHMAC(const std::vector<unsigned char>& key, const std::string& data);
 private:
     boost::asio::ssl::context& m_ssl_context;  ///< Reference to the SSL context.
     std::unique_ptr<PgMailDB> m_data_base;     ///< Pointer to the mail database.

@@ -1,7 +1,6 @@
 #ifndef SERVER_INITIALIZER_H
 #define SERVER_INITIALIZER_H
 
-#include <iostream>
 #include <memory>
 
 #include <boost/asio.hpp>
@@ -25,26 +24,19 @@ namespace ISXSS
 
 		std::string get_server_name();
 		std::string get_server_display_name();
-		unsigned get_port();
-		size_t get_max_threads();
-		auto get_timeout_seconds() -> std::chrono::seconds;
-		uint8_t get_log_level();
-		auto get_acceptor() -> std::unique_ptr<tcp::acceptor>;
-
-		void set_server_name(std::string server_name);
-		void set_server_display_name(std::string server_display_name);
-		void set_port(unsigned port);
-		void set_max_threads();
-		void set_timeout_seconds(std::chrono::seconds timeout_seconds);
-		void set_log_level(uint8_t log_level);
+		[[nodiscard]] unsigned get_port() const;
+		[[nodiscard]] size_t get_max_threads() const;
+		[[nodiscard]] auto get_timeout_seconds() const -> std::chrono::seconds;
+		[[nodiscard]] uint8_t get_log_level() const;
+		[[nodiscard]] tcp::acceptor& get_acceptor() const;
+		[[nodiscard]] auto get_thread_pool() const -> ISXThreadPool::ThreadPool<>&;
+		[[nodiscard]] boost::asio::ssl::context& get_ssl_context() const;
+		[[nodiscard]] boost::asio::io_context& get_io_context() const;
 	private:
-		void InitializeServerName();
 		void InitializeLogging();
 		void InitializeThreadPool();
 		void InitializeAcceptor();
 		void InitializeTimeout();
-
-		ISXThreadPool::ThreadPool<> get_thread_pool_impl();
 	private:
 		boost::asio::io_context& m_io_context;
 		boost::asio::ssl::context& m_ssl_context;
@@ -55,10 +47,10 @@ namespace ISXSS
 		std::string m_server_name;
 		std::string m_server_display_name;
 		unsigned m_port;
+		std::string m_server_ip;
 
 		size_t m_max_threads;
 
-		boost::asio::steady_timer m_timeout_timer;
 		std::chrono::seconds m_timeout_seconds;
 
 		uint8_t m_log_level;

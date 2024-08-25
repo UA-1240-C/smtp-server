@@ -1,81 +1,15 @@
 #include "Server.h"
 
-constexpr size_t MAX_LENGTH = 1024;
-constexpr std::size_t DELIMITER_OFFSET = 2;
-
 namespace ISXSS
 {
 SmtpServer::SmtpServer(boost::asio::io_context& io_context, boost::asio::ssl::context& ssl_context)
-    : m_timeout_timer(io_context)
-    , m_thread_pool(InitThreadPool())
-    , m_io_context(io_context)
-    , m_ssl_context(ssl_context)
+    : m_initializer(io_context, ssl_context)
+    , m_timeout_timer(io_context)
 {
     Logger::LogDebug("Entering SmtpServer constructor");
     Logger::LogTrace("Constructor params: io_context, ssl_context");
 
-    Serv
-
-    Logger::LogProd("SmtpServer initialized and listening on port " + std::to_string(m_port));
     Logger::LogDebug("Exiting SmtpServer constructor");
-}
-
-void SmtpServer::InitServer(const Config::Server& server_config)
-{
-    Logger::LogDebug("Entering InitServer");
-    Logger::LogTrace("InitServer params: {server_name: " + server_config.server_name +
-                     ", server_display_name: " + server_config.server_display_name +
-                     ", listener_port: " + std::to_string(server_config.listener_port) + "}");
-
-    m_port = server_config.listener_port;
-    m_server_display_name = server_config.server_display_name;
-    m_server_name = server_config.server_name;
-    m_acceptor = std::make_unique<tcp::acceptor>(m_io_context, tcp::endpoint(tcp::v4(), m_port));
-
-    Logger::LogTrace("Initialized server with server_name: " + m_server_name +
-                     ", server_display_name: " + m_server_display_name + ", listener_port: " + std::to_string(m_port));
-    Logger::LogDebug("Exiting InitServer");
-}
-
-void SmtpServer::InitTimeout(const Config::CommunicationSettings& comm_settings)
-{
-    Logger::LogDebug("Entering InitTimeout");
-    Logger::LogTrace("InitTimeout params: {socket_timeout: " + std::to_string(comm_settings.socket_timeout) + "}");
-
-    m_timeout_seconds = std::chrono::seconds(comm_settings.socket_timeout);
-
-    Logger::LogTrace("Timeout initialized to " + std::to_string(m_timeout_seconds.count()) + " seconds");
-    Logger::LogDebug("Exiting InitTimeout");
-}
-
-ThreadPool<> SmtpServer::InitThreadPool()
-{
-    Logger::LogDebug("Entering InitThreadPool");
-
-    const Config config("../config.txt");
-    auto [max_working_threads] = config.get_thread_pool();
-
-    Logger::LogTrace("InitThreadPool params: {max_working_threads: " + std::to_string(max_working_threads) + "}");
-
-    const size_t max_threads = max_working_threads > std::thread::hardware_concurrency()
-                                   ? std::thread::hardware_concurrency()
-                                   : max_working_threads;
-
-    Logger::LogTrace("Thread pool initialized with " + std::to_string(max_threads) + " threads");
-    Logger::LogDebug("Exiting InitThreadPool");
-
-    return ThreadPool<>(max_threads);
-}
-
-void SmtpServer::InitLogging(const Config::Logging& logging_config)
-{
-    Logger::LogDebug("Entering InitLogging");
-    Logger::LogTrace("InitLogging params: {log_level: " + std::to_string(logging_config.log_level) + "}");
-
-    Logger::Setup(logging_config);
-
-    Logger::LogTrace("Logging initialized with log_level: " + std::to_string(logging_config.log_level));
-    Logger::LogDebug("Exiting InitLogging");
 }
 
 void SmtpServer::Start()
@@ -90,18 +24,22 @@ void SmtpServer::Start()
 void SmtpServer::Accept()
 {
     Logger::LogDebug("Entering SmtpServer::Accept");
-    auto new_socket = std::make_shared<TcpSocket>(m_io_context);
+    auto new_socket = std::make_shared<TcpSocket>(m_initializer.get_io_context());
 
     Logger::LogProd("Ready to accept new connections.");
 
-    m_acceptor->async_accept(
+    auto& acceptor = m_initializer.get_acceptor();
+    acceptor.async_accept(
         *new_socket,
         [this, new_socket](const boost::system::error_code& error)
         {
             if (!error)
             {
                 Logger::LogProd("Accepted new connection.");
-                m_thread_pool.EnqueueDetach([this, new_socket]() { HandleClient(SocketWrapper(new_socket)); });
+                m_initializer.get_thread_pool().EnqueueDetach([this, new_socket]
+                {
+                    HandleClient(SocketWrapper(new_socket));
+                });
             }
             else
             {
@@ -118,9 +56,9 @@ void SmtpServer::ResetTimeoutTimer(SocketWrapper& socket_wrapper)
     Logger::LogDebug("Entering SmtpServer::ResetTimeoutTimer");
     Logger::LogTrace("SmtpServer::ResetTimeoutTimer params: SocketWrapper reference");
 
-    auto timeout_timer = std::make_shared<boost::asio::steady_timer>(m_io_context);
+    auto timeout_timer = std::make_shared<boost::asio::steady_timer>(m_initializer.get_io_context());
     socket_wrapper.set_timeout_timer(timeout_timer);
-    socket_wrapper.StartTimeoutTimer(m_timeout_seconds);
+    socket_wrapper.StartTimeoutTimer(m_initializer.get_timeout_seconds());
     Logger::LogDebug("Exiting SmtpServer::ResetTimeoutTimer");
 }
 
@@ -133,7 +71,7 @@ void SmtpServer::HandleClient(SocketWrapper socket_wrapper)
 
     try
     {
-        CommandHandler command_handler(m_ssl_context);
+        CommandHandler command_handler(m_initializer.get_ssl_context());
         MailMessageBuilder mail_builder;
         std::string current_line;
 
