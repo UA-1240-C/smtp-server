@@ -4,7 +4,7 @@ An SMTP (Simple Mail Transfer Protocol) server receives, sends, and relays email
 
 ## Class diagram
 
-The class diagram is too large to be included as a screenshot, so you can view it via this [link](https://lucid.app/lucidchart/b109abd4-9765-43d5-8761-981ac61ed9fe/edit?useCachedRole=false&docId=b109abd4-9765-43d5-8761-981ac61ed9fe&shared=true&page=0_0#). This diagram covers all parts of our system, including the database, client, and server.
+The class diagram is too large to be included as a screenshot, so you can view it via this [link](https://app.diagrams.net/#G18TAVlUWYbuGFc7bfx1EHllH8uL5EcOHS#%7B%22pageId%22%3A%229f46799a-70d6-7492-0946-bef42562c5a5%22%7D). This diagram covers all parts of our system, including the database, client, and server.
 
 A simplified version of the class diagram is presented in the image below. It maintains all the logical connections of the full diagram but does not include the class fields.
 
