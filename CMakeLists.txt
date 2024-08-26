@@ -36,7 +36,7 @@ if (NOT TARGET pqxx)
     FetchContent_Declare(
             libpqxx
             GIT_REPOSITORY https://github.com/jtv/libpqxx.git
-            GIT_TAG master
+            GIT_TAG 7.9.1
     )
 
     # Disable tests for libpqxx
