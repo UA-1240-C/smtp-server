@@ -4,8 +4,8 @@
 #define THREADSAFEQUEUE_H
 
 #include <algorithm>
-#include <deque>
 #include <mutex>
+#include <deque>
 #include <optional>
 
 namespace ISXThreadPool
@@ -17,12 +17,13 @@ namespace ISXThreadPool
  * try-lock functionality.
  *
  * @tparam Lock The type to be checked for lockable functionality.
- */
+*/
 template <typename Lock>
-concept IsLocable = requires(Lock&& lock) {
-    lock.lock();
-    lock.unlock();
-    { lock.try_lock() } -> std::convertible_to<bool>;
+concept IsLocable = requires(Lock&& lock)
+{
+  lock.lock();
+  lock.unlock();
+  { lock.try_lock() } -> std::convertible_to<bool>;
 };
 
 /**
@@ -41,107 +42,106 @@ template <typename T, IsLocable Lock = std::mutex>
 class ThreadSafeQueue
 {
 public:
-    /**
-     * @brief Constructs an empty ThreadSafeQueue.
-     */
-    ThreadSafeQueue() : m_mutex(), m_data() {}
+  /**
+   * @brief Constructs an empty ThreadSafeQueue.
+   */
+  ThreadSafeQueue() : m_mutex(), m_data() {}
 
-    /**
-     * @brief Adds an element to the back of the queue.
-     * @param value The element to be added.
-     */
-    void push_back(T&& value)
+  /**
+   * @brief Adds an element to the back of the queue.
+   * @param value The element to be added.
+   */
+  void push_back(T&& value)
+  {
+    std::scoped_lock<std::mutex> lock(m_mutex);
+    m_data.push_back(std::forward<T>(value));
+  }
+
+  /**
+   * @brief Adds an element to the front of the queue.
+   * @param value The element to be added.
+   */
+  void push_front(T&& value)
+  {
+    std::scoped_lock<std::mutex> lock(m_mutex);
+    m_data.push_front(std::forward<T>(value));
+  }
+
+  /**
+   * @brief Removes and returns the front element of the queue.
+   * @return An std::optional containing the front element if the queue is not empty,
+   *         or std::nullopt otherwise.
+   */
+  std::optional<T> pop_front()
+  {
+    std::scoped_lock<std::mutex> lock(m_mutex);
+    if (m_data.empty()) return std::nullopt;
+
+    auto front = std::move(m_data.front());
+    m_data.pop_front();
+    return front;
+  }
+
+  /**
+   * @brief Removes and returns the back element of the queue.
+   * @return An std::optional containing the back element if the queue is not empty,
+   *         or std::nullopt if the queue is empty.
+   */
+  std::optional<T> pop_back()
+  {
+    std::scoped_lock<std::mutex> lock(m_mutex);
+    if (m_data.empty()) return std::nullopt;
+
+    auto back = std::move(m_data.back());
+    m_data.pop_back();
+    return back;
+  }
+
+	/**
+	 * @brief Moves an element to the front of the queue.
+	 *
+	 * If the item is found in the queue, it is removed from its current position
+	 * and added to the front of the queue.
+	 *
+	 * @param item The item to be moved to the front.
+	 */
+  void rotate_to_front(const T& item)
+  {
+    std::scoped_lock lock(m_mutex);
+    auto iter = std::find(m_data.begin(), m_data.end(), item);
+
+    if (iter != m_data.end())
     {
-        std::scoped_lock<std::mutex> lock(m_mutex);
-        m_data.push_back(std::forward<T>(value));
+      m_data.erase(iter);
     }
 
-    /**
-     * @brief Adds an element to the front of the queue.
-     * @param value The element to be added.
-     */
-    void push_front(T&& value)
-    {
-        std::scoped_lock<std::mutex> lock(m_mutex);
-        m_data.push_front(std::forward<T>(value));
-    }
+    m_data.push_front(item);
+  }
 
-    /**
-     * @brief Removes and returns the front element of the queue.
-     * @return An std::optional containing the front element if the queue is not empty,
-     *         or std::nullopt otherwise.
-     */
-    std::optional<T> pop_front()
-    {
-        std::scoped_lock<std::mutex> lock(m_mutex);
-        if (m_data.empty()) return std::nullopt;
+	/**
+	 * @brief Copies the front element and moves it to the back of the queue.
+	 *
+	 * Removes the front element, adds it to the back of the queue, and returns it.
+	 *
+	 * @return An std::optional containing the copied front element if the queue is not empty,
+	 *         or std::nullopt if the queue is empty.
+	 */
+  std::optional<T> copy_front_and_rotate_to_back()
+  {
+    std::scoped_lock lock(m_mutex);
 
-        auto front = std::move(m_data.front());
-        m_data.pop_front();
-        return front;
-    }
+    if (m_data.empty()) return std::nullopt;
 
-    /**
-     * @brief Removes and returns the back element of the queue.
-     * @return An std::optional containing the back element if the queue is not empty,
-     *         or std::nullopt if the queue is empty.
-     */
-    std::optional<T> pop_back()
-    {
-        std::scoped_lock<std::mutex> lock(m_mutex);
-        if (m_data.empty()) return std::nullopt;
+    auto front = std::move(m_data.front());
+    m_data.pop_front();
 
-        auto back = std::move(m_data.back());
-        m_data.pop_back();
-        return back;
-    }
+    m_data.push_back(front);
 
-    /**
-     * @brief Moves an element to the front of the queue.
-     *
-     * If the item is found in the queue, it is removed from its current position
-     * and added to the front of the queue.
-     *
-     * @param item The item to be moved to the front.
-     */
-    void rotate_to_front(const T& item)
-    {
-        std::scoped_lock lock(m_mutex);
-        auto iter = std::find(m_data.begin(), m_data.end(), item);
-
-        if (iter != m_data.end())
-        {
-            m_data.erase(iter);
-        }
-
-        m_data.push_front(item);
-    }
-
-    /**
-     * @brief Copies the front element and moves it to the back of the queue.
-     *
-     * Removes the front element, adds it to the back of the queue, and returns it.
-     *
-     * @return An std::optional containing the copied front element if the queue is not empty,
-     *         or std::nullopt if the queue is empty.
-     */
-    std::optional<T> copy_front_and_rotate_to_back()
-    {
-        std::scoped_lock lock(m_mutex);
-
-        if (m_data.empty()) return std::nullopt;
-
-        auto front = std::move(m_data.front());
-        m_data.pop_front();
-
-        m_data.push_back(std::move(front));
-
-        return front;
-    }
-
+    return front;
+  }
 private:
-    mutable Lock m_mutex;  ///< The mutex used for synchronization.
-    std::deque<T> m_data;  ///< The underlying deque storing the elements, guarded by mutex_.
+  mutable Lock m_mutex;	///< The mutex used for synchronization.
+  std::deque<T> m_data; ///< The underlying deque storing the elements, guarded by mutex_.
 };
-}  // namespace ISXThreadPool
-#endif  // THREADSAFEQUEUE_H
+}
+#endif //THREADSAFEQUEUE_H

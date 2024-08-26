@@ -1,6 +1,4 @@
 #pragma once
-#ifndef THREAD_POOL_H
-#define THREAD_POOL_H
 
 #include <atomic>
 #include <concepts>
@@ -16,11 +14,10 @@
 
 namespace ISXThreadPool
 {
-
 template <typename FunctionType = std::function<void()>, typename ThreadType = std::jthread>
-    requires std::invocable<FunctionType> && std::is_same_v<void, std::invoke_result_t<FunctionType>>
-class ThreadPool
-{
+    requires std::invocable<FunctionType> &&
+             std::is_same_v<void, std::invoke_result_t<FunctionType>>
+class ThreadPool {
 public:
     template <typename InitFunction = std::function<void(std::size_t)>>
         requires std::invocable<InitFunction, std::size_t> &&
@@ -28,19 +25,91 @@ public:
     explicit ThreadPool(
         const unsigned int &number_of_threads = std::thread::hardware_concurrency(),
         InitFunction init = [](std::size_t) {})
-        : m_tasks(number_of_threads)
-    {
-        InitializeThreads(number_of_threads, init);
+        : m_tasks(number_of_threads) {
+        std::size_t current_id = 0;
+        for (std::size_t i = 0; i < number_of_threads; ++i) {
+            m_priority_queue.push_back(static_cast<size_t>(current_id));
+            try {
+                m_threads.emplace_back([&, id = current_id,
+                                       init](const std::stop_token &stop_tok) {
+                    // invoke the init function on the thread
+                    try {
+                        std::invoke(init, id);
+                    } catch (...) { /* suppress exception*/ }
+
+                    do {
+                        // wait until signaled
+                        m_tasks[id].m_signal.acquire();
+
+                        do {
+                            // invoke the task
+                            while (auto task = m_tasks[id].m_tasks.pop_front()) {
+                                // decrement the unassigned tasks as the task is now going
+                                // to be executed
+                                m_unassigned_tasks.fetch_sub(1, std::memory_order_release);
+                                // invoke the task
+                                std::invoke(std::move(task.value()));
+                                // the above task can push more work onto the pool, so we
+                                // only decrement the in flights once the task has been
+                                // executed because now it's now longer "in flight"
+                                m_in_flight_tasks.fetch_sub(1, std::memory_order_release);
+                            }
+
+                            // try to steal a task
+                            for (std::size_t j = 1; j < m_tasks.size(); ++j) {
+                                const std::size_t index = (id + j) % m_tasks.size();
+                                if (auto task = m_tasks[index].m_tasks.pop_back()) {
+                                    // steal a task
+                                    m_unassigned_tasks.fetch_sub(1, std::memory_order_release);
+                                    std::invoke(std::move(task.value()));
+                                    m_in_flight_tasks.fetch_sub(1, std::memory_order_release);
+                                    // stop stealing once we have invoked a stolen task
+                                    break;
+                                }
+                            }
+                            // check if there are any unassigned tasks before rotating to the
+                            // front and waiting for more work
+                        } while (m_unassigned_tasks.load(std::memory_order_acquire) > 0);
+
+                        m_priority_queue.rotate_to_front(id);
+                        // check if all tasks are completed and release the barrier (binary
+                        // semaphore)
+                        if (m_in_flight_tasks.load(std::memory_order_acquire) == 0) {
+                            m_threads_complete_signal.store(true, std::memory_order_release);
+                            m_threads_complete_signal.notify_one();
+                        }
+
+                    } while (!stop_tok.stop_requested());
+                });
+                // increment the thread id
+                ++current_id;
+
+            } catch (...) {
+                // catch all
+
+                // remove one item from the tasks
+                m_tasks.pop_back();
+
+                // remove our thread from the priority queue
+                std::ignore = m_priority_queue.pop_back();
+            }
+        }
     }
 
-    ~ThreadPool()
-    {
+    ~ThreadPool() {
         WaitForTasks();
-        StopAllThreads();
+
+        // stop all threads
+        for (std::size_t i = 0; i < m_threads.size(); ++i) {
+            m_threads[i].request_stop();
+            m_tasks[i].m_signal.release();
+            m_threads[i].join();
+        }
     }
 
-    /// Thread pool is non-copyable
+    /// thread pool is non-copyable
     ThreadPool(const ThreadPool &) = delete;
+    //ThreadPool &operator=(const ThreadPool &) = delete;
 
     /**
      * @brief Enqueue a task into the thread pool that returns a result.
@@ -52,14 +121,30 @@ public:
      * @param args The parameters that will be passed (copied) to the function.
      * @return A std::future<ReturnType> that can be used to retrieve the returned value.
      */
-    template <typename Function, typename... Args, typename ReturnType = std::invoke_result_t<Function &&, Args &&...>>
+    template <typename Function, typename... Args,
+              typename ReturnType = std::invoke_result_t<Function &&, Args &&...>>
         requires std::invocable<Function, Args...>
-    [[nodiscard]] std::future<ReturnType> Enqueue(Function f, Args... args)
-    {
+    [[nodiscard]] std::future<ReturnType> Enqueue(Function f, Args... args) {
         auto shared_promise = std::make_shared<std::promise<ReturnType>>();
-        auto task = CreateTask(std::move(f), std::move(args)..., shared_promise);
+        auto task = [func = std::move(f), ... largs = std::move(args),
+                     promise = shared_promise]() {
+            try {
+                if constexpr (std::is_same_v<ReturnType, void>) {
+                    func(largs...);
+                    promise->set_value();
+                } else {
+                    promise->set_value(func(largs...));
+                }
+
+            } catch (...) {
+                promise->set_exception(std::current_exception());
+            }
+        };
+
+        // get the future before enqueuing the task
         auto future = shared_promise->get_future();
-        EnqueueTask(std::move(task));
+        // enqueue the task
+        enqueue_task(std::move(task));
         return future;
     }
 
@@ -73,223 +158,43 @@ public:
      */
     template <typename Function, typename... Args>
         requires std::invocable<Function, Args...>
-    void EnqueueDetach(Function &&func, Args &&...args)
-    {
-        EnqueueTask(CreateDetachedTask(std::forward<Function>(func), std::forward<Args>(args)...));
+    void EnqueueDetach(Function &&func, Args &&...args) {
+        EnqueueTask(std::move([f = std::forward<Function>(func),
+                                ... largs =
+                                    std::forward<Args>(args)]() mutable -> decltype(auto) {
+            // suppress exceptions
+            try {
+                if constexpr (std::is_same_v<void,
+                                             std::invoke_result_t<Function &&, Args &&...>>) {
+                    std::invoke(f, largs...);
+                } else {
+                    // the function returns an argument, but can be ignored
+                    std::ignore = std::invoke(f, largs...);
+                }
+            } catch (...) {
+            }
+        }));
     }
 
     /**
      * @brief Returns the number of threads in the pool.
+     *
      * @return std::size_t The number of threads in the pool.
      */
     [[nodiscard]] auto Size() const { return m_threads.size(); }
 
-    /**
-     * @brief Wait for all tasks to finish.
-     */
-    void WaitForTasks() const
-    {
-        if (m_in_flight_tasks.load(std::memory_order_acquire) > 0)
-        {
+    // Wait for all tasks to finish.
+
+    void WaitForTasks() const {
+        if (m_in_flight_tasks.load(std::memory_order_acquire) > 0) {
+            // wait for all tasks to finish
             m_threads_complete_signal.wait(false);
         }
     }
 
 private:
-    /**
-     * @brief Initialize the threads in the pool.
-     * @tparam InitFunction A function to initialize each thread.
-     * @param number_of_threads The number of threads to create.
-     * @param init The initialization function.
-     */
-    template <typename InitFunction>
-    void InitializeThreads(const unsigned int &number_of_threads, InitFunction init)
-    {
-        std::size_t current_id = 0;
-        for (std::size_t i = 0; i < number_of_threads; ++i)
-        {
-            m_priority_queue.push_back(static_cast<size_t>(current_id));
-            try
-            {
-                m_threads.emplace_back([&, id = current_id, init](const std::stop_token &stop_tok)
-                                       { ThreadLoop(id, init, stop_tok); });
-                ++current_id;
-            }
-            catch (...)
-            {
-                m_tasks.pop_back();
-                std::ignore = m_priority_queue.pop_back();
-            }
-        }
-    }
-
-    /**
-     * @brief Main loop executed by each thread.
-     * @param id The thread's identifier.
-     * @param init The initialization function for the thread.
-     * @param stop_tok Stop token for the thread.
-     */
-    void ThreadLoop(std::size_t id, std::function<void(std::size_t)> init, const std::stop_token &stop_tok)
-    {
-        try
-        {
-            std::invoke(init, id);
-        }
-        catch (...)
-        { /* suppress exception*/
-        }
-
-        do
-        {
-            m_tasks[id].m_signal.acquire();
-            ProcessTasks(id);
-            m_priority_queue.rotate_to_front(id);
-            SignalCompletion();
-        } while (!stop_tok.stop_requested());
-    }
-
-    /**
-     * @brief Process tasks for a given thread.
-     * @param id The thread's identifier.
-     */
-    void ProcessTasks(std::size_t id)
-    {
-        do
-        {
-            while (auto task = m_tasks[id].m_tasks.pop_front())
-            {
-                ExecuteTask(std::move(task.value()));
-            }
-            StealTask(id);
-        } while (m_unassigned_tasks.load(std::memory_order_acquire) > 0);
-    }
-
-    /**
-     * @brief Steal a task from another thread's queue.
-     * @param id The thread's identifier.
-     */
-    void StealTask(std::size_t id)
-    {
-        for (std::size_t j = 1; j < m_tasks.size(); ++j)
-        {
-            const std::size_t index = (id + j) % m_tasks.size();
-            if (auto task = m_tasks[index].m_tasks.pop_back())
-            {
-                ExecuteTask(std::move(task.value()));
-                break;
-            }
-        }
-    }
-
-    /**
-     * @brief Execute a task and update counters.
-     * @param task The task to be executed.
-     */
-    void ExecuteTask(FunctionType task)
-    {
-        m_unassigned_tasks.fetch_sub(1, std::memory_order_release);
-        std::invoke(std::move(task));
-        m_in_flight_tasks.fetch_sub(1, std::memory_order_release);
-    }
-
-    /**
-     * @brief Signal the completion of all tasks.
-     */
-    void SignalCompletion()
-    {
-        if (m_in_flight_tasks.load(std::memory_order_acquire) == 0)
-        {
-            m_threads_complete_signal.store(true, std::memory_order_release);
-            m_threads_complete_signal.notify_one();
-        }
-    }
-
-    /**
-     * @brief Stop all threads in the pool.
-     */
-    void StopAllThreads()
-    {
-        for (std::size_t i = 0; i < m_threads.size(); ++i)
-        {
-            m_threads[i].request_stop();
-            m_tasks[i].m_signal.release();
-            m_threads[i].join();
-        }
-    }
-
-    /**
-     * @brief Create a task with a return value.
-     * @tparam Function The function type.
-     * @tparam Args The argument types.
-     * @tparam ReturnType The return type of the function.
-     * @param f The function to be executed.
-     * @param args The arguments to be passed to the function.
-     * @param promise A shared promise for the task's return value.
-     * @return A callable task.
-     */
-    template <typename Function, typename... Args, typename ReturnType>
-    auto CreateTask(Function &&f, Args &&...args, std::shared_ptr<std::promise<ReturnType>> promise)
-    {
-        return [func = std::move(f), ... largs = std::move(args), promise]()
-        {
-            try
-            {
-                if constexpr (std::is_same_v<ReturnType, void>)
-                {
-                    func(largs...);
-                    promise->set_value();
-                }
-                else
-                {
-                    promise->set_value(func(largs...));
-                }
-            }
-            catch (...)
-            {
-                promise->set_exception(std::current_exception());
-            }
-        };
-    }
-
-    /**
-     * @brief Create a detached task that ignores its return value.
-     * @tparam Function The function type.
-     * @tparam Args The argument types.
-     * @param func The function to be executed.
-     * @param args The arguments to be passed to the function.
-     * @return A callable task.
-     */
-    template <typename Function, typename... Args>
-    auto CreateDetachedTask(Function &&func, Args &&...args)
-    {
-        return [f = std::forward<Function>(func), ... largs = std::forward<Args>(args)]() mutable -> decltype(auto)
-        {
-            try
-            {
-                if constexpr (std::is_same_v<void, std::invoke_result_t<Function &&, Args &&...>>)
-                {
-                    std::invoke(f, largs...);
-                }
-                else
-                {
-                    std::ignore = std::invoke(f, largs...);
-                }
-            }
-            catch (...)
-            {
-            }
-        };
-    }
-
-    /**
-     * @brief Enqueue a task to the thread pool.
-     * @tparam Function The function type.
-     * @param f The task to be enqueued.
-     */
-
     template <typename Function>
-    void EnqueueTask(Function &&f)
-    {
+    void EnqueueTask(Function &&f) {
         auto i_opt = m_priority_queue.copy_front_and_rotate_to_back();
         if (!i_opt.has_value()) return;
 
@@ -300,10 +205,10 @@ private:
         m_unassigned_tasks.fetch_add(1, std::memory_order_release);
 
         // reset the in flight signal if the list was previously empty
-        if (const auto prev_in_flight = m_in_flight_tasks.fetch_add(1, std::memory_order_release) == 0)
-        {
+        if (const auto prev_in_flight =
+            m_in_flight_tasks.fetch_add(1, std::memory_order_release) == 0) {
             m_threads_complete_signal.store(false, std::memory_order_release);
-        }
+            }
 
         // assign work
         m_tasks[i].m_tasks.push_back(std::forward<Function>(f));
@@ -317,8 +222,7 @@ private:
      * This structure holds a queue of tasks and a semaphore used for signaling. It is designed
      * to manage tasks that need to be processed by threads in a thread pool.
      */
-    struct TaskItem
-    {
+    struct TaskItem {
         /**
          * @var m_tasks
          * @brief A thread-safe queue holding tasks to be processed.
@@ -389,6 +293,4 @@ private:
      */
     std::atomic_bool m_threads_complete_signal{false};
 };
-};  // namespace ISXThreadPool
-
-#endif  // THREAD_POOL_H
+};

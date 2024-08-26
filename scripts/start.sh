@@ -47,7 +47,7 @@ if [ ! -f "$CERT_FILE" ] || [ ! -f "$KEY_FILE" ]; then
         sudo openssl genpkey -algorithm RSA -out $KEY_FILE
 
         # Generate Diffie-Hellman parameters (you can choose a different size, e.g., 4096)
-        sudo openssl dhparam -out $DH_PARAM_FILE 2048
+        # sudo openssl dhparam -out $DH_PARAM_FILE 2048
 
         # Generate a self-signed certificate
         sudo openssl req -new -x509 -key $KEY_FILE -out $CERT_FILE -days 365 -subj "/C=US/ST=State/L=City/O=Organization/OU=Unit/CN=localhost"
