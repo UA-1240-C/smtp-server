@@ -82,6 +82,7 @@ echo "Reloading systemd..."
 sudo systemctl daemon-reload
 
 # Stop the service if it is running
+sudo systemctl stop smtp-server
 sudo systemctl disable smtp-server
 
 # Start the service
