@@ -3,8 +3,7 @@
 namespace ISXSS
 {
 SmtpServer::SmtpServer(boost::asio::io_context& io_context, boost::asio::ssl::context& ssl_context)
-    : m_initializer(io_context, ssl_context)
-    , m_timeout_timer(io_context)
+    : m_initializer(io_context, ssl_context), m_timeout_timer(io_context)
 {
     Logger::LogDebug("Entering SmtpServer constructor");
     Logger::LogTrace("Constructor params: io_context, ssl_context");
@@ -29,24 +28,21 @@ void SmtpServer::Accept()
     Logger::LogProd("Ready to accept new connections.");
 
     auto& acceptor = m_initializer.get_acceptor();
-    acceptor.async_accept(
-        *new_socket,
-        [this, new_socket](const boost::system::error_code& error)
-        {
-            if (!error)
-            {
-                Logger::LogProd("Accepted new connection.");
-                m_initializer.get_thread_pool().EnqueueDetach([this, new_socket]
-                {
-                    HandleClient(SocketWrapper(new_socket));
-                });
-            }
-            else
-            {
-                Logger::LogError("Boost error in SmtpServer::Accept" + error.what());
-            }
-            Accept();
-        });
+    acceptor.async_accept(*new_socket,
+                          [this, new_socket](const boost::system::error_code& error)
+                          {
+                              if (!error)
+                              {
+                                  Logger::LogProd("Accepted new connection.");
+                                  m_initializer.get_thread_pool().EnqueueDetach(
+                                      [this, new_socket] { HandleClient(SocketWrapper(new_socket)); });
+                              }
+                              else
+                              {
+                                  Logger::LogError("Boost error in SmtpServer::Accept" + error.what());
+                              }
+                              Accept();
+                          });
 
     Logger::LogDebug("Exiting Accept");
 }
@@ -112,12 +108,13 @@ void SmtpServer::HandleClient(SocketWrapper socket_wrapper)
                     break;
                 }
                 Logger::LogError("Boost exception in SmtpServer::HandleClient while reading from socket" +
-                    std::string(e.what()));
+                                 std::string(e.what()));
                 throw;
             }
             catch (const std::exception& e)
             {
-                Logger::LogError("Exception in SmtpServer::HandleClient while reading from socket" + std::string(e.what()));
+                Logger::LogError("Exception in SmtpServer::HandleClient while reading from socket" +
+                                 std::string(e.what()));
                 throw;
             }
         }

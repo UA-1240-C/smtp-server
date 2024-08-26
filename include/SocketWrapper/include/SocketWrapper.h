@@ -17,6 +17,8 @@ using TcpSocketPtr = std::shared_ptr<TcpSocket>;
 using SslSocket = boost::asio::ssl::stream<boost::asio::ip::tcp::socket>;
 using SslSocketPtr = std::shared_ptr<SslSocket>;
 
+constexpr size_t MAX_LENGTH = 1024 * 1024;
+
 namespace ISXSocketWrapper
 {
 /**
@@ -98,31 +100,30 @@ public:
     bool IsOpen() const;
 
 public:
-
     void set_timeout_timer(std::shared_ptr<boost::asio::steady_timer> timeout_timer);
-	
+
     void StartTimeoutTimer(std::chrono::seconds timeout_duration);
     void CancelTimeoutTimer();
 
 private:
-    std::variant<TcpSocketPtr, SslSocketPtr> m_socket;   ///< The variant holding either a TCP or SSL/TLS socket.
-    bool m_is_tls;  ///< Flag indicating whether the socket is an SSL/TLS socket.
-    std::shared_ptr<boost::asio::steady_timer> m_timeout_timer; ///< Timer to count down until the client is sent to timeout
-
+    std::variant<TcpSocketPtr, SslSocketPtr> m_socket;  ///< The variant holding either a TCP or SSL/TLS socket.
+    bool m_is_tls;                                      ///< Flag indicating whether the socket is an SSL/TLS socket.
+    std::shared_ptr<boost::asio::steady_timer>
+        m_timeout_timer;  ///< Timer to count down until the client is sent to timeout
 
 private:
     /**
-    * @brief Closes a TCP socket.
-    *
-    * This method closes the socket, which could be only TCP socket.
-    */
+     * @brief Closes a TCP socket.
+     *
+     * This method closes the socket, which could be only TCP socket.
+     */
     void TerminateTcpConnection(TcpSocket& tcp_socket);
 
     /**
-    * @brief Closes a SSL socket.
-    *
-    * This method closes the socket, which could be only SSL socket.
-    */
+     * @brief Closes a SSL socket.
+     *
+     * This method closes the socket, which could be only SSL socket.
+     */
     void TerminateSslConnection(SslSocket& ssl_socket);
 };
 }  // namespace ISXSocketWrapper
