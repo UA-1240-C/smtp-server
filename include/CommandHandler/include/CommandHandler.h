@@ -199,7 +199,7 @@ private:
      * @param socket_wrapper Reference to the SocketWrapper for communication.
      * @param data_message The data message to process.
      */
-    void ProcessDataMessage(SocketWrapper& socket_wrapper, std::string& data_message);
+    void ProcessDataMessage(SocketWrapper& socket_wrapper, std::string& data_message, std::string& body);
 
     /**
      * @brief Handles the end of the data message.
