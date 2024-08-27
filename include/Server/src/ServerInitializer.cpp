@@ -105,9 +105,9 @@ boost::asio::ssl::context& ServerInitializer::get_ssl_context() const { return m
 
 boost::asio::io_context& ServerInitializer::get_io_context() const { return m_io_context; }
 
-std::string ServerInitializer::get_server_name() { return m_server_name; }
+std::string ServerInitializer::get_server_name() const { return m_server_name; }
 
-std::string ServerInitializer::get_server_display_name() { return m_server_display_name; }
+std::string ServerInitializer::get_server_display_name() const { return m_server_display_name; }
 
 unsigned ServerInitializer::get_port() const { return m_port; }
 

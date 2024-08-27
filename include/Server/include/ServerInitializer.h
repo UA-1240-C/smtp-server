@@ -52,14 +52,14 @@ public:
      *
      * @return The server name as a string.
      */
-    std::string get_server_name() const;
+    [[nodiscard]] std::string get_server_name() const;
 
     /**
      * @brief Retrieves the server display name.
      *
      * @return The server display name as a string.
      */
-    std::string get_server_display_name() const;
+    [[nodiscard]] std::string get_server_display_name() const;
 
     /**
      * @brief Retrieves the port number on which the server is listening.
