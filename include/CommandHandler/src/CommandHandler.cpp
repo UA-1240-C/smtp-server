@@ -399,12 +399,12 @@ void CommandHandler::HandleData(SocketWrapper& socket_wrapper)
         Logger::LogProd("Sent response for DATA command, waiting for data.");
 
         m_in_data = true;
-
+        std::string body{};
         while (m_in_data)
         {
             std::string data_message;
             ReadData(socket_wrapper, data_message);
-            ProcessDataMessage(socket_wrapper, data_message);
+            ProcessDataMessage(socket_wrapper, data_message, body);
         }
 
         Logger::LogProd("Data handling complete.");
@@ -448,7 +448,7 @@ void CommandHandler::ReadData(SocketWrapper& socket_wrapper, std::string& data_m
     Logger::LogDebug("Exiting CommandHandler::ReadData");
 }
 
-void CommandHandler::ProcessDataMessage(SocketWrapper& socket_wrapper, std::string& data_message)
+void CommandHandler::ProcessDataMessage(SocketWrapper& socket_wrapper, std::string& data_message, std::string& body)
 {
     Logger::LogDebug("Exiting CommandHandler::ProcessDataMessage");
     Logger::LogTrace(
@@ -457,7 +457,6 @@ void CommandHandler::ProcessDataMessage(SocketWrapper& socket_wrapper, std::stri
         data_message);
 
     std::size_t last_pos{}, start_pos{};
-    std::string body{};
     try
     {
         while ((last_pos = data_message.find("\r\n", last_pos)) != std::string::npos)
@@ -481,7 +480,7 @@ void CommandHandler::ProcessDataMessage(SocketWrapper& socket_wrapper, std::stri
             {
                 std::string subject = line.substr(9);
                 m_mail_builder.set_subject(subject);
-                Logger::LogProd("Subject set to: " + subject);
+                Logger::LogDebug("Subject set to: " + subject);
             }
             else
             {
