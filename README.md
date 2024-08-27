@@ -8,7 +8,7 @@ The class diagram is too large to be included as a screenshot, so you can view i
 
 A simplified version of the class diagram is presented in the image below. It maintains all the logical connections of the full diagram but does not include the class fields.
 
-![image](https://github.com/user-attachments/assets/6ec5e391-61c2-4075-83a9-018c93945c3a)
+![image](https://github.com/user-attachments/assets/5b6301ed-13fd-48b1-bc42-3961c6ca55b0)
 
 ## Requirments
 
