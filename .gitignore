@@ -6,6 +6,10 @@ cmake-build-debug/
 server.crt
 server.key
 server.csr
+Doxyfile
+
+html
+latex
 
 .vs
 .vscode
