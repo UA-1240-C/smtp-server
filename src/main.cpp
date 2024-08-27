@@ -10,6 +10,7 @@ int main() {
     try {
         boost::asio::io_context io_context;
         boost::asio::ssl::context ssl_context(boost::asio::ssl::context::tlsv12_server);
+
         // Load server certificates and private key
         ssl_context.use_certificate_chain_file("/etc/ssl/certs/smtp-server/server.crt");    // public key
         ssl_context.use_private_key_file("/etc/ssl/private/server.key", boost::asio::ssl::context::pem);
@@ -19,7 +20,7 @@ int main() {
 
         io_context.run();
     } catch (const std::exception& e) {
-        Logger::LogError("Exception: " + std::string(e.what()));
+        Logger::LogError("Exception catched in entry point: " + std::string(e.what()));
     }
     return 0;
 }

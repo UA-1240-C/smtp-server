@@ -16,7 +16,9 @@ namespace ISXSignalHandler
  * @brief A class that sets up and handles signal interruptions.
  *
  * This class provides static methods to set up signal handlers and
- * handle specific signals such as SIGINT (interrupt signal).
+ * handle specific signals such.
+ *
+ * For now it is SIGIINT, SIGTERM, SIGSEGV, SIGABRT, SIGHUP
  */
 class SignalHandler
 {

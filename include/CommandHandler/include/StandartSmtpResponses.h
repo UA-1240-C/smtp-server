@@ -5,6 +5,14 @@
 #include <string>
 #include <stdexcept>
 
+/**
+ * @enum SmtpResponseCode
+ * @brief Represents SMTP response codes used in the protocol.
+ *
+ * This enum class defines various SMTP response codes that are used to indicate the result
+ * of the command execution in the SMTP protocol. Each code is associated with a specific
+ * meaning as defined by the SMTP protocol specification.
+ */
 enum class SmtpResponseCode {
 	// Informational responses
 	SERVER_CONNECTION_ERROR = 101,
@@ -15,7 +23,7 @@ enum class SmtpResponseCode {
 	SERVER_READY = 220,
 	CLOSING_TRANSMISSION_CHANNEL = 221,
 	AUTH_SUCCESSFUL = 235,
-	REGISTER_SUCCESSFUL = 236,
+	REGISTER_SUCCESSFUL = 236,		///< Custom SMTP response code
 	OK = 250,
 	USER_NOT_LOCAL = 251,
 	CANNOT_VERIFY_USER= 252,
@@ -23,7 +31,7 @@ enum class SmtpResponseCode {
 	START_MAIL_INPUT = 354,
 
 	// Transient Negative Completion responses
-	USER_ALREADY_EXISTS = 411,
+	USER_ALREADY_EXISTS = 411,		///< Custom SMTP response code
 	SERVER_UNAVAILABLE = 421,
 	MAILBOX_EXCEEDED_STORAGE = 422,
 	FILE_OVERLOAD = 431,
@@ -60,6 +68,16 @@ enum class SmtpResponseCode {
 	PARAMETERS_NOT_RECOGNIZED = 555
 };
 
+/**
+ * @brief Converts an SMTP response code to its corresponding string representation.
+ *
+ * This function takes an `SmtpResponseCode` enum value and returns its string
+ * representation. It is useful for logging and displaying human-readable
+ * information about the response code.
+ *
+ * @param code The SMTP response code to convert.
+ * @return A string representation of the SMTP response code.
+ */
 std::string ToString(SmtpResponseCode code);
 
 #endif //STANDARTSMTPRESPONSES_H

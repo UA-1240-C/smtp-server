@@ -1,6 +1,8 @@
 #include "CommandHandler.h"
+#include "Logger.h"
+#include "StandartSmtpResponses.h"
 
-const std::size_t MAILING_LIST_PREFIX_LENGTH = 5;
+constexpr std::size_t MAILING_LIST_PREFIX_LENGTH = 5;
 
 constexpr std::size_t USERNAME_START_INDEX = 5;
 constexpr std::size_t SENDER_START_INDEX = 10;
@@ -30,11 +32,6 @@ CommandHandler::CommandHandler(boost::asio::ssl::context& ssl_context)
     {
         ConnectToDatabase();
     }
-    catch (const MailException& e)
-    {
-        Logger::LogError("MailException during database connection: " + std::string(e.what()));
-        throw;  // Re-throw to ensure proper exception handling at creation time
-    }
     catch (const std::exception& e)
     {
         Logger::LogError("Exception during database connection: " + std::string(e.what()));
@@ -48,19 +45,7 @@ CommandHandler::~CommandHandler()
 {
     Logger::LogDebug("Entering CommandHandler destructor");
 
-    // Disconnect from the database
-    try
-    {
-        DisconnectFromDatabase();
-    }
-    catch (const MailException& e)
-    {
-        Logger::LogError("MailException during database disconnect: " + std::string(e.what()));
-    }
-    catch (const std::exception& e)
-    {
-        Logger::LogError("Exception during database disconnect: " + std::string(e.what()));
-    }
+    DisconnectFromDatabase();
 
     Logger::LogDebug("Exiting CommandHandler destructor");
 }
@@ -122,26 +107,6 @@ void CommandHandler::DisconnectFromDatabase() const
     }
 
     Logger::LogDebug("Exiting CommandHandler::DisconnectFromDatabase");
-}
-
-std::vector<unsigned char> CommandHandler::ExtractSessionKey(SslSocket& ssl_socket)
-{
-    SSL* ssl = ssl_socket.native_handle();
-    std::vector<unsigned char> key(32);
-    if (SSL_export_keying_material(ssl, key.data(), key.size(), "exporter", 7, nullptr, 0, 0) != 1)
-    {
-        throw std::runtime_error("Failed to export keying material");
-    }
-    return key;
-}
-
-std::string CommandHandler::ComputeHMAC(const std::vector<unsigned char>& key, const std::string& data)
-{
-    unsigned char hmac[EVP_MAX_MD_SIZE];
-    unsigned int hmac_len;
-    HMAC(EVP_sha256(), key.data(), key.size(), reinterpret_cast<const unsigned char*>(data.data()), data.size(), hmac,
-         &hmac_len);
-    return {reinterpret_cast<char*>(hmac), hmac_len};
 }
 
 void CommandHandler::ProcessLine(const std::string& line, SocketWrapper& socket_wrapper)

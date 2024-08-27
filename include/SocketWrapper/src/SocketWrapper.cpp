@@ -257,7 +257,6 @@ void SocketWrapper::CancelTimeoutTimer()
     Logger::LogDebug("Exiting SocketWrapper::CancelTimeoutTimer");
 }
 
-
 void SocketWrapper::Close()
 {
     Logger::LogDebug("Entering SocketWrapper::Close");

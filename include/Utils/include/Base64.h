@@ -17,7 +17,7 @@ namespace ISXBase64
  * @param decoded The string to encode.
  * @return The Base64 encoded string.
  *
- * This function takes a string and encodes it using Base64 encoding.
+ * This function takes a string and encodes it using boost's Base64 encoding wrapper.
  * The encoded string can be used in contexts where Base64 encoding is required.
  */
 string Base64Encode(const string& decoded);
