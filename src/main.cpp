@@ -10,17 +10,9 @@ int main() {
     try {
         boost::asio::io_context io_context;
         boost::asio::ssl::context ssl_context(boost::asio::ssl::context::tlsv12_server);
-        ssl_context.set_options(boost::asio::ssl::context::default_workarounds |
-                        boost::asio::ssl::context::no_sslv2 |
-                        boost::asio::ssl::context::no_sslv3 |
-                        boost::asio::ssl::context::no_tlsv1 |
-                        boost::asio::ssl::context::no_tlsv1_1 |
-                        boost::asio::ssl::context::single_dh_use);
-
         // Load server certificates and private key
         ssl_context.use_certificate_chain_file("/etc/ssl/certs/smtp-server/server.crt");    // public key
         ssl_context.use_private_key_file("/etc/ssl/private/server.key", boost::asio::ssl::context::pem);
-        ssl_context.use_tmp_dh_file("/etc/ssl/private/dhparam.pem");
 
         SmtpServer server(io_context, ssl_context);
         server.Start();
