@@ -23,7 +23,8 @@
 #include <boost/log/utility/setup/file.hpp>
 #include <boost/smart_ptr/shared_ptr.hpp>
 
-#include "LoggerTestUtilities.h"
+#include "ServerConfig.h"
+#include "ThreadPool.h"
 
 namespace logging = boost::log;
 namespace expr = boost::log::expressions;
