@@ -180,7 +180,7 @@ private:
     {
         do
         {
-            while (auto task = m_tasks[id].m_tasks.pop_front())
+            while (auto task = m_tasks[id].m_tasks.PopFront())
             {
                 ExecuteTask(std::move(task.value()));
             }
@@ -197,7 +197,7 @@ private:
         for (std::size_t j = 1; j < m_tasks.size(); ++j)
         {
             const std::size_t index = (id + j) % m_tasks.size();
-            if (auto task = m_tasks[index].m_tasks.pop_back())
+            if (auto task = m_tasks[index].m_tasks.PopBack())
             {
                 ExecuteTask(std::move(task.value()));
                 break;
@@ -331,7 +331,7 @@ private:
         }
 
         // assign work
-        m_tasks[i].m_tasks.push_back(std::forward<Function>(f));
+        m_tasks[i].m_tasks.PushBack(std::forward<Function>(f));
         m_tasks[i].m_signal.release(); ///< Update m_signal to 1 which gives an ability to free thread to execute this task
     }
 
