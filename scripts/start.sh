@@ -16,7 +16,6 @@ KEY_DIR=/etc/ssl/private
 CERT_FILE=$CERT_DIR/server.crt
 KEY_FILE=$KEY_DIR/server.key
 
-
 # Create and navigate to the build directory in the project root
 echo "Creating build directory in the project root..."
 mkdir -p build

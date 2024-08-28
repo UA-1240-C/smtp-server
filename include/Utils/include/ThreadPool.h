@@ -254,7 +254,7 @@ private:
     template <typename Function, typename... Args, typename ReturnType>
     auto CreateTask(Function &&f, Args &&...args, std::shared_ptr<std::promise<ReturnType>> promise)
     {
-        return [func = std::forward<Function>(f), ... largs = std::move(args), promise]()
+        return [func = std::forward<Function>(f), ... largs = std::move(args), promise]
         {
             try
             {
@@ -299,9 +299,7 @@ private:
                     std::ignore = std::invoke(f, largs...);
                 }
             }
-            catch (...)
-            {
-            }
+            catch (...) {}
         };
     }
 
@@ -381,9 +379,11 @@ private:
 
     /**
      * @var m_priority_queue
-     * @brief A thread-safe queue for managing task priorities.
+     * @brief A thread-safe queue for managing thread prioritization.
      *
-     * This queue stores task priorities and is used to prioritize tasks in the processing system.
+     * This queue stores prioritized thread IDs rather than tasks. It is used to determine the order
+     * in which threads are assigned new tasks, ensuring that threads with fewer tasks are prioritized
+     * for assignment.
      */
     ThreadSafeQueue<std::size_t> m_priority_queue;
 

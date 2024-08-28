@@ -143,7 +143,6 @@ private:
     void ResetTimeoutTimer(SocketWrapper& socket_wrapper);
 private:
     ServerInitializer m_initializer;  ///< Responsible for initializing server parameters and configurations.
-    MailMessageBuilder m_mail_builder;  ///< The mail message builder for constructing email messages from client data.
     boost::asio::steady_timer m_timeout_timer;  ///< Timer to manage client connection timeouts.
 };
 }  // namespace ISXSS
