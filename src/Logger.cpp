@@ -3,9 +3,9 @@
 boost::shared_ptr<sinks::synchronous_sink<sinks::text_ostream_backend>> Logger::s_sink_pointer;
 uint8_t Logger::s_severity_filter;
 std::string Logger::s_log_file;
-uint8_t Logger::s_flush;
+bool Logger::s_flush;
 std::mutex Logger::s_logging_mutex;
-ThreadPool Logger::s_thread_pool(MAX_THREAD_COUNT);
+ISXThreadPool::ThreadPool<> Logger::s_thread_pool(MAX_THREAD_COUNT);
 
 const std::string Colors::BLUE = "\033[1;34m";
 const std::string Colors::CYAN = "\033[1;36m";
@@ -16,8 +16,7 @@ void Logger::set_attributes()
 {
 	const attrs::local_clock time_stamp;
 	logging::core::get()->add_global_attribute("TimeStamp", time_stamp);
-	const attrs::named_scope scope;
-	logging::core::get()->add_thread_attribute("Scope", scope);
+	logging::core::get()->add_global_attribute("Scope", attrs::named_scope());
 }
 
 void Logger::set_sink_filter()
@@ -40,6 +39,10 @@ void Logger::set_sink_filter()
 		);
 		break;
 	default:
+		LogError("Error while setting sink filter!");
+		s_sink_pointer->set_filter(
+			expr::attr<LogLevel>("Severity") > TRACE
+		);
 		break;
 	}
 }
@@ -73,17 +76,18 @@ void Logger::set_sink_formatter()
 		<< " - " << expr::format_date_time<boost::posix_time::ptime>("TimeStamp", "%d/%m/%Y %H:%M:%S.%f")
 		<< " [" << expr::attr<LogLevel>("Severity")
 		<< "] - ["
-		<< format_named_scope("Scope", keywords::format = "%n", keywords::iteration = expr::reverse) << "] "
+		<< format_named_scope("Scope", keywords::format = "%n", keywords::iteration = expr::reverse)
+		<< "] "
 		<< expr::smessage
 	);
 }
 
-void Logger::Setup(const Config::Logging& logging_config)
+void Logger::Setup(const Config::Logging &logging_config)
 {
 	std::lock_guard<std::mutex> lock(s_logging_mutex);
 	s_log_file = logging_config.filename;
 	s_severity_filter = logging_config.log_level;
-	s_flush = logging_config.flush;
+	s_flush = logging_config.flush ? true : false;
 
 	s_sink_pointer = set_sink();
 	set_attributes();
@@ -93,14 +97,15 @@ void Logger::Setup(const Config::Logging& logging_config)
 
 void Logger::Reset()
 {
+	s_thread_pool.WaitForTasks();
 	logging::core::get()->remove_all_sinks();
 	s_sink_pointer.reset();
 }
 
-void Logger::LogToConsole(const std::string& message, const LogLevel& log_level)
+void Logger::LogToConsole(const std::string &message, const LogLevel &log_level)
 {
 	BOOST_LOG_SCOPED_THREAD_ATTR("ThreadID", attrs::current_thread_id())
-	std::lock_guard<std::mutex> lock(s_logging_mutex);
+		std::lock_guard<std::mutex> lock(s_logging_mutex);
 	std::string color{};
 	switch (log_level)
 	{
@@ -119,55 +124,48 @@ void Logger::LogToConsole(const std::string& message, const LogLevel& log_level)
 		color = Colors::RESET;
 		break;
 	}
-	try
-	{
-		BOOST_LOG_SEV(g_slg, log_level) << color << message << Colors::RESET;
-	}
-	catch (const std::exception& e)
-	{
-		std::cerr << e.what() << std::endl;
-	}
+	BOOST_LOG_SEV(g_slg, log_level) << color << message << Colors::RESET;
 }
 
-void Logger::LogDebug(const std::string& message)
+void Logger::LogDebug(const std::string &message)
 {
-	s_thread_pool.enqueue([message]()
+	s_thread_pool.EnqueueDetach([message]()
 		{
 			LogToConsole(message, DEBUG);
 		}
 	);
 }
 
-void Logger::LogTrace(const std::string& message)
+void Logger::LogTrace(const std::string &message)
 {
-	s_thread_pool.enqueue([message]()
+	s_thread_pool.EnqueueDetach([message]()
 		{
 			LogToConsole(message, TRACE);
 		}
 	);
 }
 
-void Logger::LogProd(const std::string& message)
+void Logger::LogProd(const std::string &message)
 {
-	s_thread_pool.enqueue([message]()
+	s_thread_pool.EnqueueDetach([message]()
 		{
 			LogToConsole(message, PROD);
 		}
 	);
 }
 
-void Logger::LogWarning(const std::string& message)
+void Logger::LogWarning(const std::string &message)
 {
-	s_thread_pool.enqueue([message]()
+	s_thread_pool.EnqueueDetach([message]()
 		{
 			LogToConsole(message, WARNING);
 		}
 	);
 }
 
-void Logger::LogError(const std::string& message)
+void Logger::LogError(const std::string &message)
 {
-	s_thread_pool.enqueue([message]()
+	s_thread_pool.EnqueueDetach([message]()
 		{
 			LogToConsole(message, ERR);
 		}
@@ -176,5 +174,6 @@ void Logger::LogError(const std::string& message)
 
 Logger::~Logger()
 {
+	s_thread_pool.WaitForTasks();
 	Reset();
 }

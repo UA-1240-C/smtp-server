@@ -119,10 +119,9 @@ public:
 	static boost::shared_ptr<sinks::synchronous_sink<sinks::text_ostream_backend>> s_sink_pointer;
 	static uint8_t s_severity_filter; // Severity filter for the sink
 	static std::string s_log_file; // Log file path, in development
-	static uint8_t s_flush; // Auto flushing for console output
+	static bool s_flush; // Auto flushing for console output
 	static std::mutex s_logging_mutex; // STL mutex for thread safety
-	static ThreadPool s_thread_pool; // Thread pool for multithreaded logging using other modules
-
+	static ISXThreadPool::ThreadPool<> s_thread_pool; // Thread pool for multithreaded logging
 
 	Logger(const Logger&) = delete;
 	Logger& operator=(const Logger&) = delete;
