@@ -355,7 +355,7 @@ private:
          * @var m_signal
          * @brief A semaphore used for signaling task availability.
          *
-         * The semaphore is initialized to zero and used to signal when tasks are available
+         * The semaphore is initialized to zero and used to signal to free thread when tasks are available
          * for processing. It helps in synchronizing task processing among threads.
          */
         std::binary_semaphore m_signal{0};
