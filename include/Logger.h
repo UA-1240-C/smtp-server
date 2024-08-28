@@ -106,6 +106,14 @@ inline src::severity_logger_mt<LogLevel> g_slg;
  */
 class Logger
 {
+	// Boost sink pointer for synchronous operations
+	static boost::shared_ptr<sinks::synchronous_sink<sinks::text_ostream_backend>> s_sink_pointer;
+	static uint8_t s_severity_filter; // Severity filter for the sink
+	static std::string s_log_file; // Log file path, in development
+	static bool s_flush; // Auto flushing for console output
+	static std::mutex s_logging_mutex; // STL mutex for thread safety
+	static ISXThreadPool::ThreadPool<> s_thread_pool; // Thread pool for multithreaded logging
+
 	Logger() = default;
 
 	/**
@@ -116,13 +124,30 @@ class Logger
 	~Logger();
 
 public:
-	// Boost sink pointer for synchronous operations
-	static boost::shared_ptr<sinks::synchronous_sink<sinks::text_ostream_backend>> s_sink_pointer;
-	static uint8_t s_severity_filter; // Severity filter for the sink
-	static std::string s_log_file; // Log file path, in development
-	static bool s_flush; // Auto flushing for console output
-	static std::mutex s_logging_mutex; // STL mutex for thread safety
-	static ISXThreadPool::ThreadPool<> s_thread_pool; // Thread pool for multithreaded logging
+	/**
+	* @brief Get current sink pointer from the Logger class
+	* @return Sink pointer from the Logger class; used for testing
+	*/
+	static boost::shared_ptr<sinks::synchronous_sink<sinks::text_ostream_backend>> get_sink_pointer()
+	{
+		return s_sink_pointer;
+	}
+
+	/**
+	 * @brief Get current severity filter from the Logger class
+	 * @return Severity filter from the Logger class; used for testing
+	 */
+	static uint8_t get_severity_filter() { return s_severity_filter; }
+	/**
+	 * @brief Get current log file from the Logger class
+	 * @return Log file from the Logger class; used for testing
+	 */
+	static std::string get_log_file() { return s_log_file; }
+	/**
+	* @brief Get current flush setting from the Logger class
+	* @return Flush setting from the Logger class; used for testing
+	*/
+	static bool get_flush() { return s_flush; }
 
 	Logger(const Logger&) = delete;
 	Logger& operator=(const Logger&) = delete;
