@@ -360,8 +360,9 @@ private:
          */
         std::binary_semaphore m_signal{0};
     };
+
     /**
-     * @var threads_
+     * @var m_threads
      * @brief A vector of threads used for task processing.
      *
      * This vector holds the threads that are responsible for processing tasks from the task items.
@@ -372,7 +373,8 @@ private:
      * @var m_tasks
      * @brief A deque of task items.
      *
-     * This deque contains task items, each of which includes a queue of tasks and a semaphore
+     * This deque contains task items represented by main client handling loop,
+     * each of which includes a queue of tasks asked by the client and a semaphore
      * for signaling. It helps in organizing and managing tasks to be processed.
      */
     std::deque<TaskItem> m_tasks;
