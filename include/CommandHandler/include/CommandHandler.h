@@ -349,9 +349,7 @@ private:
     MailMessageBuilder m_mail_builder;         ///< Instance of the mail message builder for constructing messages.
     bool m_in_data = false;                    ///< lag indicating whether the server is currently processing mail data.
     std::string m_connection_string =
-        "postgresql://postgres.qotrdwfvknwbfrompcji:"
-        "yUf73LWenSqd9Lt4@aws-0-eu-central-1.pooler."
-        "supabase.com:6543/postgres?sslmode=require";  ///< Data base connection string.
+        "dbname=testuserdb user=testuser password=password hostaddr=127.0.0.1 port=5432";  ///< Data base connection string.
 };
 }  // namespace ISXCommandHandler
 
