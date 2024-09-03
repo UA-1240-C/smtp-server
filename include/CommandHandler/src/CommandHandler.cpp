@@ -71,8 +71,6 @@ void CommandHandler::ConnectToDatabase() const
     }
     catch (const std::exception& e)
     {
-        // remove later
-        std::cout << "CommandHandler::ConnectToDatabase: Exception occurred - " <<  std::string(e.what()) << std::endl;
         Logger::LogError("CommandHandler::ConnectToDatabase: Exception occurred - " + std::string(e.what()));
         throw;
     }
