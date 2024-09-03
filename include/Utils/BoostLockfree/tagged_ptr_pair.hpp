@@ -13,7 +13,7 @@
 #ifndef BOOST_LOCKFREE_5C0B91C3_F812_4DA3_A9B7_7F39440555EB
 #define BOOST_LOCKFREE_5C0B91C3_F812_4DA3_A9B7_7F39440555EB
 
-#include <boost/lockfree/detail/branch_hints.hpp>
+#include "branch_hints.hpp"
 
 #include <cstddef> // for std::size_t
 
