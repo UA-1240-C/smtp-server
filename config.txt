@@ -12,7 +12,7 @@
     },
     "logging": {
       "filename": "serverlog.txt",
-      "LogLevel": 2,
+      "LogLevel": 1,
       "flush": 0
     },
     "time": {
