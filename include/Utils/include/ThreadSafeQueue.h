@@ -39,7 +39,7 @@ concept IsLocable = requires(Lock&& lock)
  * @tparam Lock The type of lock used for synchronization (default is std::mutex).
  */
 template <typename T, IsLocable Lock = std::mutex>
-class ThreadSafeQueue
+class [[deprecated]] ThreadSafeQueue
 {
 public:
   /**
