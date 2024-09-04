@@ -298,8 +298,15 @@ bool MailMessageForwarder::ForwardEmailToClientServer(const ISXMM::MailMessage& 
                     std::make_shared<boost::asio::ssl::stream<boost::asio::ip::tcp::socket>>(io_context, ssl_context);
 
                 // Connect to the mail server
-                boost::asio::connect(ssl_socket->lowest_layer(), endpoints);
-                ssl_socket->handshake(boost::asio::ssl::stream_base::client);
+                boost::system::error_code error;
+                boost::asio::connect(ssl_socket->lowest_layer(), endpoints, error);
+                ssl_socket->handshake(boost::asio::ssl::stream_base::client, error);
+
+                if (!error) {
+                    std::cout << "Connection established." << std::endl;
+                } else {
+                    std::cout << "Failed to establish connection: " << error.message() << std::endl;
+                }
 
                 // Create a SocketWrapper object
                 ISXSocketWrapper::SocketWrapper socket_wrapper(std::move(ssl_socket));

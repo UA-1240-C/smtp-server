@@ -5,6 +5,7 @@
 
 #include <boost/asio.hpp>
 #include <boost/asio/ssl.hpp>
+#include <boost/asio/ip/tcp.hpp>
 #include <future>
 #include <memory>
 #include <variant>
@@ -73,6 +74,8 @@ public:
     }
 
     std::future<void> Connect(const std::string& host, const std::string& port);
+    std::future<void> PerformTlsHandshake(boost::asio::ssl::context& context, boost::asio::ssl::stream_base::handshake_type type);
+
 
     /**
      * @brief Asynchronously sends a response message over a socket.
