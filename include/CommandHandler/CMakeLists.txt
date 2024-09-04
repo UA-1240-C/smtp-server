@@ -8,7 +8,9 @@ target_link_libraries(CommandHandler PRIVATE
         Utils
         Boost::log
         Boost::log_setup
-        ${OPENSSL_LIBRARIES})
+        c-ares
+        ${OPENSSL_LIBRARIES}
+        )
 
 
 target_link_libraries(CommandHandler PRIVATE MailDB)

@@ -55,6 +55,13 @@ if(NOT googletest_POPULATED)
     add_subdirectory(${googletest_SOURCE_DIR} ${googletest_BUILD_DIR})
 endif()
 
+FetchContent_Declare(
+    cares
+    GIT_REPOSITORY https://github.com/c-ares/c-ares.git
+    GIT_TAG v1.33
+)
+FetchContent_MakeAvailable(cares)
+
 # Add subdirectories
 add_subdirectory(include/CommandHandler)
 add_subdirectory(include/DataBase/MailDB)
@@ -84,6 +91,7 @@ target_link_libraries(SMTP_server PRIVATE
     Boost::thread
     Boost::log
     Boost::log_setup
+    c-ares
     ${OPENSSL_LIBRARIES}
 )
 

@@ -24,8 +24,12 @@ private:
 	bool SendDATA(ISXSocketWrapper::SocketWrapper& socket_wrapper, const std::string& email_body);
 	void SendQUIT(ISXSocketWrapper::SocketWrapper& socket_wrapper);
 
-private:
-	std::string m_server_domain;
+	bool SendSMTPCommands(ISXSocketWrapper::SocketWrapper& socket_wrapper, const std::string& sender_email, const std::string& recipient_email, const std::string& email_body);
+
+    void OnMXQueryComplete(void* arg, int status, int timeouts, struct ares_mx_reply* mx_reply);
+
+private : std::string m_server_domain;
+    boost::asio::io_context m_io_context; 
 };
 
 #endif //MAILMESSAGEFORWARDER_H
