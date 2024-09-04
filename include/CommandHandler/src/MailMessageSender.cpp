@@ -194,6 +194,7 @@ void OnHostQueryComplete(void* arg, int status, int timeouts, struct hostent* ho
 {
     if (status == ARES_SUCCESS && host != nullptr)
     {
+        std::cout << "Resolved IP addresses:" << std::endl;
         char ip[INET6_ADDRSTRLEN];
         for (int i = 0; host->h_addr_list[i] != nullptr; ++i)
         {
@@ -219,6 +220,8 @@ void ResolveIPAddresses(const std::vector<std::string>& mx_servers)
         std::cerr << "Failed to initialize c-ares: " << ares_strerror(status) << std::endl;
         return;
     }
+
+    std::cout << "Resolving IP addresses for MX servers:" << std::endl;
 
     // Resolve IP addresses for each MX server
     for (const auto& mx_server : mx_servers)
@@ -286,41 +289,38 @@ bool MailMessageForwarder::ForwardEmailToClientServer(const ISXMM::MailMessage& 
 
                 // Create a TCP socket and SSL context
                 boost::asio::io_context io_context;
+                boost::asio::ip::tcp::resolver resolver(io_context);
+                boost::asio::ip::tcp::resolver::results_type endpoints = resolver.resolve(mx_server, std::to_string(465));
                 boost::asio::ssl::context ssl_context(boost::asio::ssl::context::tlsv13_client);
-
-                // Create an SSL socket and connect to the MX server
+                ssl_context.set_default_verify_paths();
+                ssl_context.set_verify_mode(boost::asio::ssl::verify_peer);
                 auto ssl_socket =
                     std::make_shared<boost::asio::ssl::stream<boost::asio::ip::tcp::socket>>(io_context, ssl_context);
 
-                // Resolve endpoints with correct port (e.g., 465 for SSL)
-                boost::asio::ip::tcp::resolver resolver(io_context);
-                boost::asio::ip::tcp::resolver::query query("smtp.gmail.com", "587");
-                auto endpoints = resolver.resolve(query);
-
-                ResolveIPAddresses(mx_servers);
-
-
-                std::cout << "connecting" << std::endl;
+                // Connect to the mail server
                 boost::asio::connect(ssl_socket->lowest_layer(), endpoints);
-				std::cout << "connected" << std::endl;
                 ssl_socket->handshake(boost::asio::ssl::stream_base::client);
 
-                // Wrap the socket in your socket wrapper
-                ISXSocketWrapper::SocketWrapper socket_wrapper(ssl_socket);
+                // Create a SocketWrapper object
+                ISXSocketWrapper::SocketWrapper socket_wrapper(std::move(ssl_socket));
+
                 // Send SMTP commands
                 if (SendSMTPCommands(socket_wrapper, message.from.get_address(), recipient.get_address(), message.body))
                 {
-                    Logger::LogProd("Email successfully forwarded to server: " + mx_server);
-                    break;  // Stop trying once the email is successfully sent
+                    std::cout << "Email successfully forwarded to " << recipient.get_address() << std::endl;
+                    return true;  // Successfully forwarded the email
                 }
-                Logger::LogError("Failed to send email to server: " + mx_server);
+                else
+                {
+                    Logger::LogError("Failed to forward email to " + recipient.get_address());
+                }
             }
             catch (const std::exception& e)
             {
-                Logger::LogError("Exception while connecting to server: " + mx_server + ". Error: " + e.what());
+                std::cerr << "Exception while connecting to server: " << mx_server << ". Error: " << e.what() << std::endl;
             }
         }
     }
 
-    return true;  // Return true if at least one email was successfully forwarded
+    return false;  // Email forwarding failed for all recipients
 }
