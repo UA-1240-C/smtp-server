@@ -72,6 +72,8 @@ public:
                          std::string(m_is_tls ? "SslSocket" : "TcpSocket"));
     }
 
+    std::future<void> Connect(const std::string& host, const std::string& port);
+
     /**
      * @brief Asynchronously sends a response message over a socket.
      *

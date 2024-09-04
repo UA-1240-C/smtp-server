@@ -3,9 +3,10 @@
 #ifndef COMMANDHANDLER_H
 #define COMMANDHANDLER_H
 
-#include <boost/asio/ssl.hpp>
 #include <string>
 #include <utility>
+
+#include <boost/asio/ssl.hpp>
 
 #include "Base64.h"
 #include "MailDB/PgMailDB.h"
@@ -343,6 +344,7 @@ private:
      * @see DataBase::MailDB::include::MailDB::PgMailDB::Disconnect
      */
     void DisconnectFromDatabase() const;
+
 private:
     boost::asio::ssl::context& m_ssl_context;  ///< Reference to the SSL context for secure connections.
     std::unique_ptr<PgMailDB> m_data_base;     ///< Pointer to the mail database for storing and retrieving mail messages.
