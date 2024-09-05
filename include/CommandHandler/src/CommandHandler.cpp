@@ -546,7 +546,7 @@ void CommandHandler::HandleAuth(SocketWrapper& socket_wrapper, const std::string
         catch (const MailException& e)
         {
             Logger::LogError("MailException in CommandHandler::HandleAuth: " + std::string(e.what()));
-            socket_wrapper.SendResponseAsync(ToString(SmtpResponseCode::AUTH_SUCCESSFUL)).get();
+            socket_wrapper.SendResponseAsync(ToString(SmtpResponseCode::AUTHENTICATION_FAILED)).get();
         }
     }
     catch (const std::exception& e)
