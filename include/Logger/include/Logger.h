@@ -5,6 +5,7 @@
 #include <ostream>
 #include <string>
 #include <thread>
+#include <source_location>
 
 #include <boost/core/null_deleter.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
@@ -12,6 +13,7 @@
 #include <boost/log/common.hpp>
 #include <boost/log/core.hpp>
 #include <boost/log/expressions.hpp>
+#include <boost/phoenix/bind.hpp>
 #include <boost/log/sinks.hpp>
 #include <boost/log/attributes/scoped_attribute.hpp>
 #include <boost/log/sinks/text_ostream_backend.hpp>
@@ -48,12 +50,12 @@ inline constexpr uint8_t MAX_THREAD_COUNT = 5;
  */
 enum LogLevel
 {
+	TRACE, // Trace log level: for e.g. Detailed information about the function
+	// (input params, and return value (still to be added))
+	DEBUG, // Debug log level: for e.g. Start and End functions, if configuration is successfully parsed
 	PROD, // Production log level: for e.g. Server start/stop/restart
 	WARNING, // Warning log level: for e.g. Invalid input
-	ERR, // Error log level: for e.g. Server crash
-	DEBUG, // Debug log level: for e.g. Start and End functions, if configuration is successfully parsed
-	TRACE // Trace log level: for e.g. Detailed information about the function
-	// (input params, and return value (still to be added))
+	ERR // Error log level: for e.g. Server crash
 };
 
 /**
@@ -200,39 +202,51 @@ public:
 	static void Reset();
 
 	/**
+	* @brief Converts a SeverityFilter enum value to its corresponding string representation.
+	* @return A string representing the severity level.
+	*/
+	static std::string SeverityToOutput();
+
+	/**
 	 *
 	 * @param message User-defined message to log
 	 * @param log_level Log level of the message, one from LogLevel enum
 	 */
-	static void LogToConsole(const std::string& message, const LogLevel& log_level);
+	static void LogToConsole(const std::string& message, const LogLevel& log_level,
+							const std::source_location& location = std::source_location::current());
 
 	/**
 	 * @brief Logs the message with the DEBUG log level.
 	 * @param message User-defined message to log
 	 */
-	static void LogDebug(const std::string& message);
+	static void LogDebug(const std::string& message, const std::source_location& location =
+							std::source_location::current());
 
 	/**
 	 * @brief Logs the message with the TRACE log level.
 	 * @param message User-defined message to log
 	 */
-	static void LogTrace(const std::string& message);
+	static void LogTrace(const std::string& message, const std::source_location& location =
+							std::source_location::current());
 
 	/**
 	* @brief Logs the message with the PRODUCTION log level.
 	* @param message User-defined message to log
 	*/
-	static void LogProd(const std::string& message);
+	static void LogProd(const std::string& message, const std::source_location& location =
+							std::source_location::current());
 
 	/**
 	* @brief Logs the message with the WARNING log level.
 	* @param message User-defined message to log
 	*/
-	static void LogWarning(const std::string& message);
+	static void LogWarning(const std::string& message, const std::source_location& location =
+								std::source_location::current());
 
 	/**
 	* @brief Logs the message with the ERROR log level.
 	* @param message User-defined message to log
 	*/
-	static void LogError(const std::string& message);
+	static void LogError(const std::string& message, const std::source_location& location =
+							std::source_location::current());
 };
