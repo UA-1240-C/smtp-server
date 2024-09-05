@@ -13,6 +13,8 @@ set(LIBRARY_HEADERS
     ${LIBRARY_HEADERS_DIR}/IMailDB.h
     ${LIBRARY_HEADERS_DIR}/PgMailDB.h
     ${LIBRARY_HEADERS_DIR}/MailException.h
+    ${LIBRARY_HEADERS_DIR}/ConnectionPool.h
+    ${LIBRARY_HEADERS_DIR}/ConnectionPoolWrapper.h
 )
 
 set(LIBRARY_SOURCE_DIR
