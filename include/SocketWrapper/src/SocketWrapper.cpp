@@ -31,7 +31,7 @@ SocketWrapper::SocketWrapper(SslSocketPtr ssl_socket)
     return m_is_tls;
 }
 
-    std::future<void> SocketWrapper::Connect(const std::string& host, const std::string& service)
+std::future<void> SocketWrapper::Connect(const std::string& host, const std::string& service)
 {
     Logger::LogDebug("Entering SocketWrapper::Connect");
     Logger::LogTrace("Connecting to host: " + host + " on service: " + service);
@@ -41,7 +41,8 @@ SocketWrapper::SocketWrapper(SslSocketPtr ssl_socket)
 
     if (auto* tcp_socket = std::get_if<TcpSocketPtr>(&m_socket))
     {
-        auto resolver = std::make_shared<boost::asio::ip::tcp::resolver>((*tcp_socket)->get_executor().context());
+        auto& io_context = static_cast<boost::asio::io_context&>((*tcp_socket)->get_executor().context());
+        auto resolver = std::make_shared<boost::asio::ip::tcp::resolver>(io_context);
         auto endpoints = resolver->resolve(host, service);
 
         async_connect(**tcp_socket, endpoints,
@@ -231,7 +232,7 @@ std::future<std::string> SocketWrapper::ReadFromSocketAsync(size_t max_length)
     return future;
 }
 
-    std::future<void> SocketWrapper::StartTlsAsync(boost::asio::ssl::context& context)
+std::future<void> SocketWrapper::StartTlsAsync(boost::asio::ssl::context& context)
 {
     Logger::LogDebug("Entering SocketWrapper::StartTlsAsync");
     Logger::LogTrace("SocketWrapper::StartTlsAsync parameter: ssl_context reference");

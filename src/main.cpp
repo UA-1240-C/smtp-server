@@ -36,7 +36,7 @@ int main() {
             .set_subject("Hello, Emma!")
             .set_body("Hello, Emma! This is a test email from John Doe.");
 
-        ISXMM::MailMessage mail_message = mail_builder.Build();
+        MailMessage mail_message = mail_builder.Build();
 
         // Forward the email to the server
         bool success = forwarder.ForwardEmailToClientServer(mail_message);

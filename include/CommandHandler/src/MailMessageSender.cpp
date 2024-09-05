@@ -60,31 +60,36 @@ std::string MailMessageForwarder::ExtractDomain(const std::string& email) {
 	return "";
 }
 
-void MailMessageForwarder::OnMXQueryComplete(void* arg, int status, int timeouts, struct ares_mx_reply* mx_reply)
+void MailMessageForwarder::OnMXQueryComplete(void* arg, int status, ares_mx_reply* mx_reply)
 {
     auto* mx_servers = static_cast<std::vector<std::string>*>(arg);
     if (status == ARES_SUCCESS && mx_reply != nullptr)
     {
-        for (struct ares_mx_reply* mx = mx_reply; mx != nullptr; mx = mx->next)
+        for (ares_mx_reply* mx = mx_reply; mx != nullptr; mx = mx->next)
         {
-            mx_servers->push_back(mx->host);
+            mx_servers->emplace_back(mx->host);
         }
     }
     else
     {
         std::cerr << "Failed to resolve MX records: " << ares_strerror(status) << std::endl;
     }
-    ares_free_data(mx_reply);
+    ares_free_data(mx_reply);   // clean the ares_mx_reply structure where we store resolved mx records
 }
 
 std::vector<std::string> MailMessageForwarder::ResolveMXRecords(const std::string& domain)
 {
     std::vector<std::string> mx_servers;
-    ares_channel channel;
-    int status;
+    ares_channel channel; // manages a process of queries, including their creating and tracking
+
+    // options for the channel set up
+    ares_options options;
+    int optmask = 0;  // a mask for options choosing
+
+    // Initialize c-ares channel with options
+    int status = ares_init_options(&channel, &options, optmask);
 
     // Initialize c-ares library
-    status = ares_init(&channel);
     if (status != ARES_SUCCESS)
     {
         std::cerr << "Failed to initialize c-ares: " << ares_strerror(status) << std::endl;
@@ -101,13 +106,13 @@ std::vector<std::string> MailMessageForwarder::ResolveMXRecords(const std::strin
             auto* mx_servers = static_cast<std::vector<std::string>*>(arg);
             if (status == ARES_SUCCESS)
             {
-                struct ares_mx_reply* mx_reply = nullptr;
+                ares_mx_reply* mx_reply = nullptr;
                 int parse_status = ares_parse_mx_reply(abuf, alen, &mx_reply);
                 if (parse_status == ARES_SUCCESS)
                 {
-                    for (struct ares_mx_reply* mx = mx_reply; mx != nullptr; mx = mx->next)
+                    for (ares_mx_reply* mx = mx_reply; mx != nullptr; mx = mx->next)
                     {
-                        mx_servers->push_back(mx->host);
+                        mx_servers->emplace_back(mx->host);
                     }
                     ares_free_data(mx_reply);
                 }
@@ -128,7 +133,7 @@ std::vector<std::string> MailMessageForwarder::ResolveMXRecords(const std::strin
     FD_ZERO(&write_fds);
     FD_ZERO(&exc_fds);
 
-    struct timeval tv;
+    timeval tv;
     tv.tv_sec = 5;  // Timeout of 5 seconds
     tv.tv_usec = 0;
 
@@ -190,7 +195,7 @@ bool MailMessageForwarder::SendSMTPCommands(ISXSocketWrapper::SocketWrapper& soc
     return true;
 }
 
-void OnHostQueryComplete(void* arg, int status, int timeouts, struct hostent* host)
+void OnHostQueryComplete(void* arg, int status, int timeouts, hostent* host)
 {
     if (status == ARES_SUCCESS && host != nullptr)
     {
@@ -210,11 +215,14 @@ void OnHostQueryComplete(void* arg, int status, int timeouts, struct hostent* ho
 
 void ResolveIPAddresses(const std::vector<std::string>& mx_servers)
 {
-    ares_channel channel;
-    int status;
+    ares_channel channel; // manages a process of queries, including their creating and tracking
 
-    // Initialize c-ares library
-    status = ares_init(&channel);
+    // options for the channel set up
+    ares_options options;
+    int optmask = 0;  // a mask for options choosing
+
+    // Initialize c-ares channel with options
+    int status = ares_init_options(&channel, &options, optmask);
     if (status != ARES_SUCCESS)
     {
         std::cerr << "Failed to initialize c-ares: " << ares_strerror(status) << std::endl;
@@ -234,7 +242,7 @@ void ResolveIPAddresses(const std::vector<std::string>& mx_servers)
     FD_ZERO(&read_fds);
     FD_ZERO(&write_fds);
 
-    struct timeval tv;
+    timeval tv;
     tv.tv_sec = 5;  // Timeout of 5 seconds
     tv.tv_usec = 0;
 
@@ -261,73 +269,128 @@ void ResolveIPAddresses(const std::vector<std::string>& mx_servers)
     // Cleanup
     ares_destroy(channel);
 }
-
+/*
 bool MailMessageForwarder::ForwardEmailToClientServer(const ISXMM::MailMessage& message)
 {
-    for (const auto& recipient : message.to)
+    // Initialize io_context, required for asynchronous operations
+    boost::asio::io_context io_context;
+
+    // Initialize the SSL context for TLS
+    boost::asio::ssl::context ssl_context(boost::asio::ssl::context::sslv23);
+    ssl_context.set_default_verify_paths();  // Set default verification paths
+
+    // Initialize the SocketWrapper with the io_context
+    ISXSocketWrapper::SocketWrapper socket_wrapper(io_context);
+
+    for (const auto& recipient : recipients)
     {
-        std::string recipient_domain = ExtractDomain(recipient.get_address());
-        if (recipient_domain.empty())
-        {
-            Logger::LogError("Invalid recipient email address: " + recipient.get_address());
-            continue;  // Skip to the next recipient
-        }
+        auto mx_servers = ResolveMXRecords(recipient.get_domain());
 
-        auto mx_servers = ResolveMXRecords(recipient_domain);
-        if (mx_servers.empty())
-        {
-            Logger::LogError("Failed to resolve MX records for domain: " + recipient_domain);
-            continue;  // Skip to the next recipient
-        }
-
-        // Iterate through MX servers and attempt to send the email
         for (const auto& mx_server : mx_servers)
         {
             try
             {
-                std::cout << "mx_server: " << mx_server << std::endl;
+                // Step 1: Connect to MX server
+                auto connect_future = socketWrapper.Connect(mx_server, "smtp");
+                io_context.run(); // Run the io_context to process async operations
+                connect_future.get(); // Wait for connection to complete
 
-                // Create a TCP socket and SSL context
-                boost::asio::io_context io_context;
-                boost::asio::ip::tcp::resolver resolver(io_context);
-                boost::asio::ip::tcp::resolver::results_type endpoints = resolver.resolve(mx_server, std::to_string(465));
-                boost::asio::ssl::context ssl_context(boost::asio::ssl::context::tlsv13_client);
-                ssl_context.set_default_verify_paths();
-                ssl_context.set_verify_mode(boost::asio::ssl::verify_peer);
-                auto ssl_socket =
-                    std::make_shared<boost::asio::ssl::stream<boost::asio::ip::tcp::socket>>(io_context, ssl_context);
+                Logger::LogProd("Connected to MX server: " + mx_server);
 
-                // Connect to the mail server
-                boost::system::error_code error;
-                boost::asio::connect(ssl_socket->lowest_layer(), endpoints, error);
-                ssl_socket->handshake(boost::asio::ssl::stream_base::client, error);
+                // Step 2: Perform TLS handshake
+                auto tls_future = socketWrapper.PerformTlsHandshake(ssl_context, boost::asio::ssl::stream_base::client);
+                io_context.restart(); // Reset io_context to reuse
+                io_context.run();     // Run io_context for the TLS handshake
+                tls_future.get();      // Wait for TLS handshake to complete
 
-                if (!error) {
-                    std::cout << "Connection established." << std::endl;
-                } else {
-                    std::cout << "Failed to establish connection: " << error.message() << std::endl;
-                }
+                Logger::LogProd("TLS handshake successful with: " + mx_server);
 
-                // Create a SocketWrapper object
-                ISXSocketWrapper::SocketWrapper socket_wrapper(std::move(ssl_socket));
-
-                // Send SMTP commands
-                if (SendSMTPCommands(socket_wrapper, message.from.get_address(), recipient.get_address(), message.body))
+                // Step 3: Retrieve the SSL socket using std::get_if
+                if (auto* ssl_socket = std::get_if<SslSocketPtr>(&socketWrapper.get_socket()))
                 {
-                    std::cout << "Email successfully forwarded to " << recipient.get_address() << std::endl;
-                    return true;  // Successfully forwarded the email
+                    // Send SMTP commands using the SSL socket
+                    if (SendSMTPCommands(*ssl_socket, message.from.get_address(), recipient.get_address(), message.body))
+                    {
+                        std::cout << "Email forwarded successfully to: " << recipient.get_address() << std::endl;
+                        return true;
+                    }
+                    else
+                    {
+                        Logger::LogError("Failed to forward email to: " + recipient.get_address());
+                    }
                 }
                 else
                 {
-                    Logger::LogError("Failed to forward email to " + recipient.get_address());
+                    Logger::LogError("No SSL socket available after TLS handshake.");
                 }
             }
             catch (const std::exception& e)
             {
-                std::cerr << "Exception while connecting to server: " << mx_server << ". Error: " << e.what() << std::endl;
+                Logger::LogError("Exception: " + std::string(e.what()) + " while forwarding to: " + mx_server);
             }
         }
     }
 
-    return false;  // Email forwarding failed for all recipients
+    return false;
+}*/
+
+#include <MailMessageForwarder.h>
+#include <ares.h>
+#include <boost/asio.hpp>
+#include <boost/asio/ssl.hpp>
+#include <iostream>
+#include <stdexcept>
+
+bool MailMessageForwarder::ForwardEmailToClientServer(const ISXMM::MailMessage& message) {
+    // Extract domain from recipient email
+    std::string recipient_domain = ExtractDomain(message.to[0].get_address());
+
+    // Resolve MX records for the recipient's domain
+    std::vector<std::string> mx_servers = ResolveMXRecords(recipient_domain);
+    if (mx_servers.empty()) {
+        Logger::LogError("No MX servers found for domain: " + recipient_domain);
+        return false;
+    }
+
+    // Resolve IP addresses for the MX servers
+    ResolveIPAddresses(mx_servers);
+
+    // Use the first resolved MX server to connect
+    std::string mx_server_ip = mx_servers.front();  // Assume we use the first MX server for simplicity
+    boost::asio::io_context io_context;
+    auto tcp_socket = std::make_shared<boost::asio::ip::tcp::socket>(io_context);
+    ISXSocketWrapper::SocketWrapper socket_wrapper(tcp_socket);
+
+    // Connect to the MX server
+    auto connect_future = socket_wrapper.Connect(mx_server_ip, "smtp");
+    try {
+        connect_future.get();  // Wait for connection to complete
+    } catch (const std::exception& e) {
+        Logger::LogError("Connection error: " + std::string(e.what()));
+        return false;
+    }
+
+    // Create SSL context
+    boost::asio::ssl::context ssl_context(boost::asio::ssl::context::tlsv12_client);
+
+    // Perform TLS handshake
+    auto tls_future = socket_wrapper.PerformTlsHandshake(ssl_context, boost::asio::ssl::stream_base::client);
+    try {
+        tls_future.get();  // Wait for TLS handshake to complete
+    } catch (const std::exception& e) {
+        Logger::LogError("TLS handshake error: " + std::string(e.what()));
+        return false;
+    }
+
+    // Send SMTP commands
+    bool smtp_success = SendSMTPCommands(socket_wrapper,
+        message.from.get_address(),
+        message.to[0].get_address(),
+        message.body);
+    if (!smtp_success) {
+        Logger::LogError("Failed to send SMTP commands.");
+        return false;
+    }
+
+    return true;
 }
