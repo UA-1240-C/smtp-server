@@ -224,13 +224,12 @@ void CommandHandler::HandleMailFrom(SocketWrapper& socket_wrapper, const std::st
 
     try
     {
-        // maybe rewrite later
-        if (!m_data_base->UserExists(sender))
+        if (m_data_base->get_user_name() != sender)
         {
-            Logger::LogProd("Sender address doesn't exist: " + sender);
+            Logger::LogProd("Sender must be logged in");
             socket_wrapper
                 .SendResponseAsync(ToString(SmtpResponseCode::INVALID_EMAIL_ADDRESS) +
-                                   " : sender address doesn't exist.")
+                                   " : sender must be logged in.")
                 .get();
         }
         else
