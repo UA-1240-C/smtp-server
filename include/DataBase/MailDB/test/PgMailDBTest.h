@@ -1,3 +1,5 @@
+#pragma once
+
 #include <memory>
 #include <gtest/gtest.h>
 #include <iostream>
@@ -91,7 +93,6 @@ protected:
       ExecuteQueryFromFile(tx, DB_TABLE_CREATION_FILE)
     );
 
-
   }
 
   static void TearDownTestSuite() 
@@ -104,20 +105,9 @@ protected:
     s_connection.close();
   }
 
-  PgMailDBTest() : pg("test host") {}
+  PgMailDBTest() : pg("test host", *s_con_pool) {}
   ~PgMailDBTest() = default;
 
-  void SetUp() override 
-  { 
-    try
-    {
-      pg.Connect(CONNECTION_STRING1);
-    }
-    catch(const std::exception& e)
-    {
-      FAIL() << "Fail in setup : " << e.what();
-    }
-  }
 
   void TearDown() override
   {
@@ -132,10 +122,17 @@ protected:
   }
 
   PgMailDB pg;
+  static std::shared_ptr<ConnectionPool<pqxx::connection>> s_con_pool;
   static pqxx::connection s_connection;  
 };
 
 pqxx::connection PgMailDBTest::s_connection{CONNECTION_STRING1};
+std::shared_ptr<ConnectionPool<pqxx::connection>> PgMailDBTest::s_con_pool = std::make_shared<ConnectionPool<pqxx::connection>>(3, CONNECTION_STRING1, 
+    [] (const std::string& connection_str)
+    { 
+        return std::make_shared<pqxx::connection>(connection_str);
+    }
+  );
 
 TEST_F(PgMailDBTest, SignUpTest)
 {
@@ -206,6 +203,22 @@ TEST_F(PgMailDBTest, LoginTest)
   ASSERT_THROW(pg.Login("test_user1", "hash_password"), MailException);
 }
 
+TEST_F(PgMailDBTest, LoginLogoutTest)
+{
+  std::string user_name = "testuser1", password = "password";
+
+  pg.SignUp(user_name, password);
+  EXPECT_NO_THROW(pg.Login(user_name,password));
+
+  EXPECT_EQ(user_name, pg.get_user_name());
+  EXPECT_TRUE(pg.get_user_id() > 0);
+
+  pg.Logout();
+  EXPECT_TRUE(pg.get_user_name().empty());
+  EXPECT_EQ(0, pg.get_user_id());
+
+}
+
 TEST_F(PgMailDBTest, SignUpWithLoginTest)
 {
   std::vector<std::pair<std::string, std::string>> user_password_pairs =
@@ -226,15 +239,14 @@ TEST_F(PgMailDBTest, SignUpWithLoginTest)
 
 TEST_F(PgMailDBTest, MarkEmailsAsReceived)
 {
-  pqxx::work tx(s_connection);
-  
-  ASSERT_NO_FATAL_FAILURE(
-    ExecuteQueryFromFile(tx, DB_INSERT_DUMMY_DATA_FILE)
-  );
+  EXPECT_THROW(pg.MarkEmailsAsReceived(), MailException);
 
-  EXPECT_THROW(pg.MarkEmailsAsReceived("non-existent user"), MailException);
-
-  pg.MarkEmailsAsReceived("user1");
+  std::string user_name = "testuser1", password = "password";
+  pg.SignUp(user_name, password);
+  pg.Login(user_name, password);
+  pg.InsertEmail(user_name, "sub1", "body1");
+  pg.InsertEmail(user_name, "sub2", "body2");
+  pg.MarkEmailsAsReceived();
 
 
   pqxx::work w(s_connection);
@@ -243,7 +255,7 @@ TEST_F(PgMailDBTest, MarkEmailsAsReceived)
     "SELECT COUNT(*) "
     "FROM \"emailMessages\" "
     "WHERE is_received = true "
-    "AND recipient_id = (SELECT user_id FROM users WHERE user_name = 'user1'); "
+    "AND recipient_id = (SELECT user_id FROM users WHERE user_name = " + w.quote(user_name) + "); "
     );
 
     EXPECT_EQ(2, received_email_count);
@@ -251,38 +263,29 @@ TEST_F(PgMailDBTest, MarkEmailsAsReceived)
 
 TEST_F(PgMailDBTest, RetrieveEmailsTest)
 {
-  pqxx::work tx(s_connection);
-  
-  ASSERT_NO_FATAL_FAILURE(
-    ExecuteQueryFromFile(tx, DB_INSERT_DUMMY_DATA_FILE)
-  );
 
-  EXPECT_THROW(pg.RetrieveEmails("non-existent user"), MailException);
+  EXPECT_THROW(pg.RetrieveEmails(), MailException);
 
-  std::vector<Mail> expected_result = {{"user1", "user2", "Subject 2", "This is the body of the second email."}, 
-  {"user1", "user3", "Subject 3", "This is the body of the third email."}};
+  std::string user_name = "testuser1", password = "password";
+  pg.SignUp(user_name, password);
+  pg.Login(user_name, password);
+  pg.InsertEmail(user_name, "sub1", "body1");
+  pg.InsertEmail(user_name, "sub2", "body2");
 
-  std::vector<Mail> result = pg.RetrieveEmails("user1");
+  std::vector<Mail> expected_result = {{"testuser1", "testuser1", "sub2", "body2"}, 
+  {"testuser1", "testuser1", "sub1", "body1"}};
+
+  std::vector<Mail> result = pg.RetrieveEmails();
   EXPECT_TRUE(expected_result==result);
 
-  pg.MarkEmailsAsReceived("user1");
-  result = pg.RetrieveEmails("user1");
+  pg.MarkEmailsAsReceived();
+  result = pg.RetrieveEmails();
   EXPECT_TRUE(result.empty());
 
-  result = pg.RetrieveEmails("user1", true);
+  result = pg.RetrieveEmails(true);
   EXPECT_TRUE(expected_result==result);
 }
 
-TEST_F(PgMailDBTest, CheckFunctionsAfterDisconnect)
-{
-  pg.Disconnect();
-
-  EXPECT_THROW(pg.Login("user1","password"), std::exception);
-  EXPECT_THROW(pg.SignUp("user1","password"), std::exception);
-  EXPECT_THROW(pg.RetrieveEmails("user1"), std::exception);
-  EXPECT_THROW(pg.UserExists("user1"), std::exception);
-  EXPECT_THROW(pg.MarkEmailsAsReceived("user1"), std::exception);
-}
 
 TEST_F(PgMailDBTest, CheckUserExists)
 {
@@ -324,11 +327,7 @@ TEST_F(PgMailDBTest, CheckMultipleHosts)
   pg.SignUp("user2", "password");
   EXPECT_TRUE(pg.UserExists("user1"));
 
-  PgMailDB pg1("host1"), pg2("host2");
-
-  pg1.Connect(CONNECTION_STRING1);
-  pg2.Connect(CONNECTION_STRING1);
-
+  PgMailDB pg1("host1", *s_con_pool), pg2("host2", *s_con_pool);
 
   EXPECT_FALSE(pg1.UserExists("user1"));
   EXPECT_FALSE(pg2.UserExists("user1"));

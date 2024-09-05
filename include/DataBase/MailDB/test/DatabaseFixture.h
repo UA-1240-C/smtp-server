@@ -1,5 +1,6 @@
-#include <memory>
+#pragma once
 
+#include <memory>
 #include <gtest/gtest.h>
 #include <iostream>
 #include <fstream>
@@ -25,9 +26,12 @@ class DatabaseFixture : public testing::Test
         m_database->SignUp("user2", "pass2");
         m_database->SignUp("user3", "pass3");
 
-        m_database->InsertEmail("user1", "user2", "subject1", "looooong body1");
-        m_database->InsertEmail("user2", "user3", "subject2", "small body2");
-        m_database->InsertEmail("user3", "user1", "subject3", "medium body3");
+        m_database->Login("user1", "pass1");
+        m_database->InsertEmail("user2", "subject1", "looooong body1");
+        m_database->Login("user2", "pass2");
+        m_database->InsertEmail("user3", "subject2", "small body2");
+        m_database->Login("user3", "pass3");
+        m_database->InsertEmail("user1", "subject3", "medium body3");
     }
 
     virtual void TearDown() override
@@ -42,84 +46,20 @@ class DatabaseFixture : public testing::Test
   
     static void SetUpTestCase()
     {
-      m_database = std::make_unique<ISXMailDB::PgMailDB>("host");
-      m_database->Connect(CONNECTION_STRING2);
-    }
-
-    static void TearDownTestCase()
-    {
-      m_database->Disconnect();
+        s_con_pool = std::make_shared<ConnectionPool<pqxx::connection>>(3, CONNECTION_STRING2, 
+        [] (const std::string& connection_str)
+        { 
+            return std::make_shared<pqxx::connection>(connection_str);
+        }
+  );
+        m_database = std::make_unique<ISXMailDB::PgMailDB>("host", *s_con_pool);
     }
 
   protected:
       inline static std::unique_ptr<ISXMailDB::PgMailDB> m_database;
+      inline static std::shared_ptr<ConnectionPool<pqxx::connection>> s_con_pool;
 };
 
-TEST(ConnectionTestSuite, Connect_To_Local_Test)
-{
-    ISXMailDB::PgMailDB database("host");
-    EXPECT_NO_THROW(database.Connect(CONNECTION_STRING2));
-
-    database.Disconnect();
-}
-
-TEST(ConnectionTestSuite, Connect_To_Remote_Test)
-{
-    ISXMailDB::PgMailDB database("host");
-    EXPECT_NO_THROW(database.Connect("postgresql://postgres.qotrdwfvknwbfrompcji:yUf73LWenSqd9Lt4@aws-0-eu-central-1.pooler.supabase.com:6543/postgres?sslmode=require"));
-
-    database.Disconnect();
-}
-
-TEST(ConnectionTestSuite, Connect_To_Unexisting_DB_Test)
-{
-    ISXMailDB::PgMailDB database("host");
-    EXPECT_ANY_THROW(database.Connect("dbname=db user=postgres password=1234 hostaddr=127.0.0.1 port=5432"));
-
-    database.Disconnect();
-}
-
-TEST(ConnectionTestSuite, Connect_Several_Times_Test)
-{
-    ISXMailDB::PgMailDB database("host");
-    EXPECT_NO_THROW(database.Connect("postgresql://postgres.qotrdwfvknwbfrompcji:yUf73LWenSqd9Lt4@aws-0-eu-central-1.pooler.supabase.com:6543/postgres?sslmode=require"));
-    EXPECT_NO_THROW(database.Connect("postgresql://postgres.qotrdwfvknwbfrompcji:yUf73LWenSqd9Lt4@aws-0-eu-central-1.pooler.supabase.com:6543/postgres?sslmode=require"));
-    EXPECT_NO_THROW(database.Connect("postgresql://postgres.qotrdwfvknwbfrompcji:yUf73LWenSqd9Lt4@aws-0-eu-central-1.pooler.supabase.com:6543/postgres?sslmode=require"));
-
-    database.Disconnect();
-}
-
-TEST(ConnectionTestSuite, Disconnect_When_Connected_To_DB_Test)
-{
-    ISXMailDB::PgMailDB database("host");
-    database.Connect("postgresql://postgres.qotrdwfvknwbfrompcji:yUf73LWenSqd9Lt4@aws-0-eu-central-1.pooler.supabase.com:6543/postgres?sslmode=require");
-    EXPECT_TRUE(database.IsConnected());
-
-    database.Disconnect();
-    EXPECT_FALSE(database.IsConnected());
-}
-
-TEST(ConnectionTestSuite, Disconnect_When_Not_Connected_To_DB_Test)
-{
-    ISXMailDB::PgMailDB database("host");
-    EXPECT_FALSE(database.IsConnected());
-
-    database.Disconnect();
-    EXPECT_FALSE(database.IsConnected());
-}
-
-TEST(ConnectionTestSuite, Disconnect_Several_Times_Test)
-{
-    ISXMailDB::PgMailDB database("host");
-    EXPECT_FALSE(database.IsConnected());
-
-    database.Disconnect();
-    database.Disconnect();
-    database.Disconnect();
-    database.Disconnect();
-    EXPECT_FALSE(database.IsConnected());
-
-}
 
 TEST_F(DatabaseFixture, Retrieve_Existing_User_Test)
 {
@@ -153,27 +93,34 @@ TEST_F(DatabaseFixture, Retrieve_All_Body_Content_Test)
 
 TEST_F(DatabaseFixture, Insert_Email_With_Existing_Sender_Receiver_Test)
 {
-    EXPECT_NO_THROW(m_database->InsertEmail("user3", "user2", "subjectsubject", "body"));
-    EXPECT_EQ(2, m_database->RetrieveEmails("user2").size());
+    m_database->Login("user3", "pass3");
+    EXPECT_NO_THROW(m_database->InsertEmail("user2", "subjectsubject", "body"));
+    m_database->Login("user2", "pass2");
+    EXPECT_EQ(2, m_database->RetrieveEmails().size());
 }
 
 TEST_F(DatabaseFixture, Insert_Email_With_Unexisting_Sender_Receiver_Test)
-{
-    EXPECT_ANY_THROW(m_database->InsertEmail("user3242", "user2", "subjectsubject", "body"));
-    EXPECT_ANY_THROW(m_database->InsertEmail("user3", "user54235", "subjectsubject", "body"));
-    EXPECT_ANY_THROW(m_database->InsertEmail("", "", "subjectsubject", "body"));
+{   
+    m_database->Logout();
+    EXPECT_ANY_THROW(m_database->InsertEmail("user2", "subjectsubject", "body"));
+    m_database->Login("user3", "pass3");
+    EXPECT_ANY_THROW(m_database->InsertEmail("user54235", "subjectsubject", "body"));
+    EXPECT_ANY_THROW(m_database->InsertEmail("", "subjectsubject", "body"));
 }
 
 TEST_F(DatabaseFixture, Insert_Blank_Email_Test)
 {
-    EXPECT_NO_THROW(m_database->InsertEmail("user1", "user2", "", ""));
-    EXPECT_EQ(2, m_database->RetrieveEmails("user2").size());
+    m_database->Login("user1", "pass1");
+    EXPECT_NO_THROW(m_database->InsertEmail("user2", "", ""));
+    m_database->Login("user2", "pass2");
+    EXPECT_EQ(2, m_database->RetrieveEmails().size());
 }
 
 TEST_F(DatabaseFixture, Delete_Email_With_Existing_User_Test)
 {
     EXPECT_NO_THROW(m_database->DeleteEmail("user1"));
-    EXPECT_EQ(0, m_database->RetrieveEmails("user1").size());
+    m_database->Login("user1", "pass1");
+    EXPECT_EQ(0, m_database->RetrieveEmails().size());
 }
 
 TEST_F(DatabaseFixture, Delete_Email_With_Unexisting_User_Test)
