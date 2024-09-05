@@ -5,53 +5,27 @@
 
 namespace ISXMailDB
 {
-PgMailDB::PgMailDB(std::string_view host_name)
-    : IMailDB(host_name)
+
+using PgConnection = ConnectionPoolWrapper<pqxx::connection>;
+
+PgMailDB::PgMailDB(std::string_view host_name, ConnectionPool<pqxx::connection>& connection_pool)
+    : IMailDB(host_name), m_connection_pool(connection_pool)
 {
+    InsertHost(m_host_name);
 }
 
-PgMailDB::PgMailDB(const PgMailDB& other) : IMailDB(other.m_host_name)
+PgMailDB::PgMailDB(const PgMailDB& other) : IMailDB(other.m_host_name), m_connection_pool(other.m_connection_pool)
 {
 }
 
 PgMailDB::~PgMailDB()
 {   
-    Disconnect();
-}
-
-
-void PgMailDB::Connect(const std::string& connection_string)
-{
-    try {
-        m_conn = std::make_unique<pqxx::connection>(connection_string);
-        InsertHost(m_host_name);
-    }
-    catch (const std::exception &e) {
-        throw MailException(e.what());
-    }
-}
-
-void PgMailDB::Disconnect()
-{
-    if (IsConnected())
-    {
-        m_conn->close();
-    }
-}
-
-bool PgMailDB::IsConnected() const
-{
-    if (m_conn) 
-    {
-        return m_conn->is_open();
-    }
-
-    return false;
 }
 
 void PgMailDB::SignUp(const std::string_view user_name, const std::string_view password)
 {
-    pqxx::work tx(*m_conn);
+    PgConnection conn(m_connection_pool);
+    pqxx::work tx(*conn);
     try
     {
         tx.exec_params0("SELECT 1 FROM users WHERE host_id = $1 AND user_name = $2", m_host_id, user_name);
@@ -67,16 +41,13 @@ void PgMailDB::SignUp(const std::string_view user_name, const std::string_view p
     {
         throw MailException("User already exists");
     }
-    catch (const MailException& e)
-    {
-        throw;
-    }
     tx.commit();
 }
 
 void PgMailDB::InsertHost(const std::string_view host_name)
 {
-    pqxx::work tx(*m_conn);
+    PgConnection conn(m_connection_pool);
+    pqxx::work tx(*conn);
     try
     {
         m_host_id = tx.query_value<uint32_t>("SELECT host_id FROM hosts WHERE host_name = " + tx.quote(m_host_name));
@@ -115,11 +86,12 @@ bool PgMailDB::VerifyPassword(const std::string& password, const std::string& ha
 
 void PgMailDB::Login(const std::string_view user_name, const std::string_view password)
 {
-    pqxx::nontransaction ntx(*m_conn);
-
+    PgConnection conn(m_connection_pool);
+    pqxx::nontransaction ntx(*conn);
     try
     {
-        std::string hashed_password = ntx.query_value<std::string>("SELECT password_hash FROM users "
+        auto [hashed_password, user_id] = ntx.query1<std::string, uint32_t>
+        ("SELECT password_hash, user_id FROM users "
             "WHERE user_name = " + ntx.quote(user_name) 
             +  " AND host_id = " + ntx.quote(m_host_id)
             );
@@ -128,6 +100,8 @@ void PgMailDB::Login(const std::string_view user_name, const std::string_view pa
         {
             throw MailException("Invalid username or password");
         }
+        m_user_id = user_id;
+        m_user_name = user_name;
 
     }
     catch (const pqxx::unexpected_rows &e)
@@ -136,14 +110,17 @@ void PgMailDB::Login(const std::string_view user_name, const std::string_view pa
     }
 }
 
+void PgMailDB::Logout()
+{
+    m_user_id = 0;
+    m_user_name.clear();
+}
+
 std::vector<User> PgMailDB::RetrieveUserInfo(const std::string_view user_name)
     {
-        if (!IsConnected())
-        {
-            throw MailException("Connection with database lost or was manually already closed");
-        }
+        PgConnection conn(m_connection_pool);
 
-        pqxx::nontransaction nontransaction(*m_conn);
+        pqxx::nontransaction nontransaction(*conn);
         pqxx::result user_query_result;
     
         if (user_name.empty())
@@ -181,12 +158,9 @@ std::vector<User> PgMailDB::RetrieveUserInfo(const std::string_view user_name)
 
 std::vector<std::string> PgMailDB::RetrieveEmailContentInfo(const std::string_view content)
 {
-    if (!IsConnected())
-    {
-        throw MailException("Connection with database lost or was manually already closed");
-    }
+    PgConnection conn(m_connection_pool);
 
-    pqxx::nontransaction nontransaction(*m_conn);
+    pqxx::nontransaction nontransaction(*conn);
     pqxx::result content_query_result;
    
     if (content.empty())
@@ -218,22 +192,19 @@ std::vector<std::string> PgMailDB::RetrieveEmailContentInfo(const std::string_vi
     return std::vector<std::string>();
 }
 
-void PgMailDB::InsertEmail(const std::string_view sender, const std::string_view receiver,
-                                const std::string_view subject, const std::string_view body)
+void PgMailDB::InsertEmail(const std::string_view receiver, const std::string_view subject, 
+                           const std::string_view body)
 {
-    if (!IsConnected())
-    {
-        throw MailException("Connection with database lost or was manually already closed");
-    }
-
+    CheckIfUserLoggedIn();
+    PgConnection conn(m_connection_pool);
 
     uint32_t sender_id, receiver_id, body_id;
     {
         try
         {
             {
-                pqxx::nontransaction nontransaction(*m_conn);
-                sender_id = RetriveUserId(sender, nontransaction);
+                pqxx::nontransaction nontransaction(*conn);
+                sender_id = m_user_id;
                 receiver_id = RetriveUserId(receiver, nontransaction);
                 body_id = InsertEmailContent(body, nontransaction);
             }
@@ -245,7 +216,7 @@ void PgMailDB::InsertEmail(const std::string_view sender, const std::string_view
     }
     
     try {
-        pqxx::work transaction(*m_conn);
+        pqxx::work transaction(*conn);
         PerformEmailInsertion(sender_id, receiver_id, subject, body_id, transaction);
         transaction.commit();
     }
@@ -254,12 +225,11 @@ void PgMailDB::InsertEmail(const std::string_view sender, const std::string_view
     }
 }
 
-void PgMailDB::InsertEmail(const std::string_view sender, const std::vector<std::string_view> receivers, const std::string_view subject, const std::string_view body)
+void PgMailDB::InsertEmail(const std::vector<std::string_view> receivers, const std::string_view subject, 
+                           const std::string_view body)
 {
-    if (!IsConnected())
-    {
-        throw MailException("Connection with database lost or was manually already closed");
-    }
+    CheckIfUserLoggedIn();
+    PgConnection conn(m_connection_pool);
 
     uint32_t sender_id, body_id;
     std::vector<uint32_t> receivers_id;
@@ -267,8 +237,8 @@ void PgMailDB::InsertEmail(const std::string_view sender, const std::vector<std:
         try
         {
             {
-                pqxx::nontransaction nontransaction(*m_conn);
-                sender_id = RetriveUserId(sender, nontransaction);
+                pqxx::nontransaction nontransaction(*conn);
+                sender_id = m_user_id;
 
                 for (size_t i = 0; i < receivers.size(); i++) {
                     receivers_id.emplace_back(RetriveUserId(receivers[i], nontransaction));
@@ -284,7 +254,7 @@ void PgMailDB::InsertEmail(const std::string_view sender, const std::vector<std:
     }
 
     try {
-        pqxx::work transaction(*m_conn);
+        pqxx::work transaction(*conn);
         for (size_t i = 0; i < receivers_id.size(); i++) {
             PerformEmailInsertion(sender_id, receivers_id[i], subject, body_id, transaction);
         }
@@ -295,18 +265,20 @@ void PgMailDB::InsertEmail(const std::string_view sender, const std::vector<std:
     }
 }
 
-std::vector<Mail> PgMailDB::RetrieveEmails(const std::string_view user_name, bool should_retrieve_all) const
+std::vector<Mail> PgMailDB::RetrieveEmails(bool should_retrieve_all)
 {
-    pqxx::nontransaction ntx(*m_conn);
+    CheckIfUserLoggedIn();
 
-    uint32_t user_id = RetriveUserId(user_name, ntx);
+    PgConnection conn(m_connection_pool);
+    pqxx::nontransaction ntx(*conn);
 
+    // Retrieves email details for the current user, optionally filtering for unread emails, and orders them by sent time.
     std::string query =
         "WITH filtered_emails AS ( "
         "    SELECT sender_id, subject, mail_body_id, sent_at "
         "    FROM \"emailMessages\" "
         "    WHERE recipient_id = " +
-        ntx.quote(user_id) + 
+        ntx.quote(m_user_id) + 
         (should_retrieve_all ? "": " AND is_received = FALSE")+
         ")"
         "SELECT u.user_name AS sender_name, f.subject, m.body_content "
@@ -319,32 +291,33 @@ std::vector<Mail> PgMailDB::RetrieveEmails(const std::string_view user_name, boo
 
     for (auto& [sender, subject, body] : ntx.query<std::string, std::string, std::string>(query))
     {
-        resutl_mails.emplace_back(user_name, sender, subject, body);
+        resutl_mails.emplace_back(m_user_name, sender, subject, body);
     }
 
     return resutl_mails;
 }
 
-void PgMailDB::MarkEmailsAsReceived(const std::string_view user_name)
+void PgMailDB::MarkEmailsAsReceived()
 {
+    CheckIfUserLoggedIn();
 
-    pqxx::work tx(*m_conn);
-
-    uint32_t user_id = RetriveUserId(user_name, tx);
+    PgConnection conn(m_connection_pool);
+    pqxx::work tx(*conn);
 
     tx.exec_params(
         "UPDATE \"emailMessages\" "
         "SET is_received = TRUE "
         "WHERE recipient_id = $1 "
         "AND is_received = FALSE"
-        , user_id);
+        , m_user_id);
 
     tx.commit();
 }
 
 bool PgMailDB::UserExists(const std::string_view user_name)
 {
-    pqxx::nontransaction ntx(*m_conn);
+    PgConnection conn(m_connection_pool);
+    pqxx::nontransaction ntx(*conn);
     try 
     {
         ntx.exec_params1("SELECT 1 FROM users WHERE host_id = $1 AND user_name = $2", m_host_id, user_name);
@@ -358,15 +331,12 @@ bool PgMailDB::UserExists(const std::string_view user_name)
 
 void PgMailDB::DeleteEmail(const std::string_view user_name)
 {
-    if (!IsConnected())
-    {
-        throw MailException("Connection with database lost or was manually already closed");
-    }
+    PgConnection conn(m_connection_pool);
 
     uint32_t user_info;
     {
         try {
-            pqxx::nontransaction nontransaction(*m_conn);
+            pqxx::nontransaction nontransaction(*conn);
             user_info = RetriveUserId(user_name, nontransaction);
         }
         catch (const std::exception& e)
@@ -377,7 +347,7 @@ void PgMailDB::DeleteEmail(const std::string_view user_name)
 
     try
     {
-        pqxx::work transaction(*m_conn);
+        pqxx::work transaction(*conn);
         transaction.exec_params(
             "DELETE FROM \"emailMessages\" "
             "WHERE sender_id = $1 OR recipient_id = $1"
@@ -393,10 +363,7 @@ void PgMailDB::DeleteEmail(const std::string_view user_name)
 
 void PgMailDB::DeleteUser(const std::string_view user_name, const std::string_view password)
 {
-    if (!IsConnected())
-    {
-        throw MailException("Connection with database lost or was manually already closed");
-    }
+    PgConnection conn(m_connection_pool);
     
     try 
     {
@@ -409,7 +376,7 @@ void PgMailDB::DeleteUser(const std::string_view user_name, const std::string_vi
 
     try
     {
-        pqxx::work transaction(*m_conn);
+        pqxx::work transaction(*conn);
 
         std::string hashed_password = transaction.query_value<std::string>("SELECT password_hash FROM users "
             "WHERE user_name = " + transaction.quote(user_name) 
@@ -431,11 +398,6 @@ void PgMailDB::DeleteUser(const std::string_view user_name, const std::string_vi
 
 uint32_t PgMailDB::InsertEmailContent(const std::string_view content, pqxx::transaction_base& transaction)
 {
-    if (!IsConnected())
-    {
-        throw MailException("Connection with database lost or was manually already closed");
-    }
-
     pqxx::result body_id;
     try {
         body_id = transaction.exec_params(
@@ -479,4 +441,13 @@ void PgMailDB::PerformEmailInsertion(const uint32_t sender_id, const uint32_t re
         throw MailException(e.what());
     }
 }
+
+void PgMailDB::CheckIfUserLoggedIn()
+{
+    if (m_user_id == 0)
+    {
+        throw MailException("There is no logged in user.");
+    }
+}
+
 }

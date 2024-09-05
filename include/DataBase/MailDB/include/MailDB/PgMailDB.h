@@ -5,6 +5,8 @@
 #include <sodium/crypto_pwhash.h>
 
 #include "IMailDB.h"
+#include "ConnectionPool.h"
+#include "ConnectionPoolWrapper.h"
 
 namespace ISXMailDB
 {
@@ -20,13 +22,22 @@ class PgMailDB : public IMailDB
 
 public:
     /**
-     * @brief Constructs a PgMailDB instance with the given host name.
+     * @brief Constructs a PgMailDB instance with the given host name and connection pool.
+     * 
+     * Constructor also inserts host with host_name in database if it doesn't exist 
+     * using InsertHost method
+     * 
      * @param host_name The name of the host for the database connection.
+     * @param connection_pool reference to the connection pool.
+     * @throw MailException If the host name is empty.
      */
-    PgMailDB(std::string_view host_name);
+    PgMailDB(const std::string_view host_name, ConnectionPool<pqxx::connection>& connection_pool);
 
     /**
      * @brief Copy constructor for PgMailDB.
+     * 
+     * Copies other PgMailDB host_name and refers to same connection pool
+     * 
      * @param other The PgMailDB instance to copy.
      */
     PgMailDB(const PgMailDB&);
@@ -37,19 +48,6 @@ public:
     ~PgMailDB() override;
 
     /**
-     * @copydoc IMailDB::Connect
-     */
-    void Connect(const std::string &connection_string) override;
-    /**
-     * @copydoc IMailDB::Disconnect
-     */
-    void Disconnect() override;
-    /**
-     * @copydoc IMailDB::IsConnected
-     */
-    bool IsConnected() const override;
-
-    /**
      * @copydoc IMailDB::SignUp
      */    
     void SignUp(const std::string_view user_name, const std::string_view password) override;
@@ -57,6 +55,11 @@ public:
      * @copydoc IMailDB::Login
      */  
     void Login(const std::string_view user_name, const std::string_view password) override;
+
+    /**
+     * @copydoc IMailDB::Logout
+     */  
+    void Logout() override;
 
     /**
      * @copydoc IMailDB::RetrieveUserInfo
@@ -69,22 +72,22 @@ public:
     /**
      * @copydoc IMailDB::InsertEmail
      */     
-    void InsertEmail(const std::string_view sender, const std::string_view receiver,
-                                const std::string_view subject, const std::string_view body) override;
+    void InsertEmail(const std::string_view receiver, const std::string_view subject,
+                     const std::string_view body) override;
     /**
      * @copydoc IMailDB::InsertEmail
      */      
-    void InsertEmail(const std::string_view sender, const std::vector<std::string_view> receivers,
-                                const std::string_view subject, const std::string_view body) override;
+    void InsertEmail(const std::vector<std::string_view> receivers, const std::string_view subject, 
+                     const std::string_view body) override;
 
     /**
      * @copydoc IMailDB::RetrieveEmails
      */    
-    std::vector<Mail> RetrieveEmails(const std::string_view user_name, bool should_retrieve_all = false) const override;
+    std::vector<Mail> RetrieveEmails(bool should_retrieve_all = false) override;
     /**
      * @copydoc IMailDB::MarkEmailsAsReceived
      */    
-    void MarkEmailsAsReceived(const std::string_view user_name) override;
+    void MarkEmailsAsReceived() override;
     /**
      * @copydoc IMailDB::UserExists
      */    
@@ -161,10 +164,17 @@ protected:
      *         database query.
      */
     void PerformEmailInsertion(const uint32_t sender_id, const uint32_t receiver_id,
-                                const std::string_view subject, const uint32_t body_id, pqxx::transaction_base& transaction);
+                               const std::string_view subject, const uint32_t body_id, pqxx::transaction_base& transaction);
 
-    std::unique_ptr<pqxx::connection> m_conn; ///< The connection to the PostgreSQL database.
+    /**
+     * @brief Check if there is a logged in user.
+     * 
+     * @throws MailException if the user is not logged in.
+     */
+    void CheckIfUserLoggedIn();
 
+
+    ConnectionPool<pqxx::connection>& m_connection_pool; ///< The connection pool of connections to the PostgreSQL database.
 };
 
 }
