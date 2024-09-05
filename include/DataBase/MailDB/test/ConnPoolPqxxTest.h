@@ -134,3 +134,18 @@ TEST_F(ConnPoolPqxxTest, AcquireAndReleaseConnection) {
         m_con_pool->Release(conn);
     }
 }
+
+TEST_F(ConnPoolPqxxTest, AcquireTimeoutTest) 
+{
+    std::vector<std::shared_ptr<pqxx::connection>> conns;
+    for (size_t i = 0; i < POOL_START_SIZE; i++)
+    {
+        conns.push_back(m_con_pool->Acquire());
+    }
+    m_con_pool->set_timeout(std::chrono::seconds(2));
+    EXPECT_THROW(m_con_pool->Acquire(), MailException);
+    for (size_t i = 0; i < POOL_START_SIZE; i++)
+    {
+        m_con_pool->Release(conns[i]);
+    }
+}
