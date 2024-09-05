@@ -93,14 +93,12 @@ void ServerInitializer::InitializeConnectionPool()
 {
     Logger::LogDebug("Entering ServerInitializer::InitializeConnectionPool");
 
-    uint16_t pool_start_size = 1;
-
-    Logger::LogTrace("InitializeConnectionPool params: {pool_start_size: " + std::to_string(pool_start_size) + "}");
+    Logger::LogTrace("InitializeConnectionPool params: {pool_start_size: " + std::to_string(POOL_INITIAL_SIZE) + "}");
 
     try
     {
         m_connection_pool = std::make_unique<ISXMailDB::ConnectionPool<pqxx::connection>>(
-            pool_start_size,
+            POOL_INITIAL_SIZE,
             m_connection_string,
             [] (const std::string& connection_str)
             { 
@@ -116,7 +114,7 @@ void ServerInitializer::InitializeConnectionPool()
     }
 
 
-    Logger::LogTrace("Connection pool initialized with " + std::to_string(pool_start_size) + " connections");
+    Logger::LogTrace("Connection pool initialized with " + std::to_string(POOL_INITIAL_SIZE) + " connections");
     Logger::LogDebug("Exiting ServerInitializer::InitializeConnectionPool");
 }
 

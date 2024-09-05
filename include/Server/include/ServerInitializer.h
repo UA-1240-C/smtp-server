@@ -181,8 +181,11 @@ private:
     uint8_t m_log_level; ///< The log level for the logging system.
 
     std::unique_ptr<ISXMailDB::ConnectionPool<pqxx::connection>> m_connection_pool; ///< Unique pointer to the connection pool.
+    const uint16_t POOL_INITIAL_SIZE = 10;  ///< Initial size of the connection pool
     std::string m_connection_string =
-        "dbname=testuserdb user=testuser password=password hostaddr=127.0.0.1 port=5432";  ///< Data base connection string.
+        "postgresql://postgres.qotrdwfvknwbfrompcji:"
+        "yUf73LWenSqd9Lt4@aws-0-eu-central-1.pooler."
+        "supabase.com:6543/postgres?sslmode=require"; ;  ///< Data base connection string.
 };
 
 }  // namespace ISXSS
