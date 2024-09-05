@@ -11,6 +11,7 @@ ServerInitializer::ServerInitializer(boost::asio::io_context& io_context, boost:
     InitializeAcceptor();
     InitializeTimeout();
     InitializeThreadPool();
+    InitializeConnectionPool();
     SignalHandler::SetupSignalHandlers();
 }
 
@@ -88,6 +89,37 @@ void ServerInitializer::InitializeThreadPool()
     Logger::LogDebug("Exiting ServerInitializer::InitializeThreadPool");
 }
 
+void ServerInitializer::InitializeConnectionPool()
+{
+    Logger::LogDebug("Entering ServerInitializer::InitializeConnectionPool");
+
+    uint16_t pool_start_size = 1;
+
+    Logger::LogTrace("InitializeConnectionPool params: {pool_start_size: " + std::to_string(pool_start_size) + "}");
+
+    try
+    {
+        m_connection_pool = std::make_unique<ISXMailDB::ConnectionPool<pqxx::connection>>(
+            pool_start_size,
+            m_connection_string,
+            [] (const std::string& connection_str)
+            { 
+                return std::make_shared<pqxx::connection>(connection_str);
+            }
+        );
+
+    }
+    catch(const std::exception& e)
+    {
+        Logger::LogError("Exception in InitializeConnectionPool: " + std::string(e.what()));
+        throw;
+    }
+
+
+    Logger::LogTrace("Connection pool initialized with " + std::to_string(pool_start_size) + " connections");
+    Logger::LogDebug("Exiting ServerInitializer::InitializeConnectionPool");
+}
+
 void ServerInitializer::InitializeTimeout()
 {
     Logger::LogDebug("Entering ServerInitializer::InitializeTimeout");
@@ -118,4 +150,6 @@ auto ServerInitializer::get_timeout_seconds() const -> std::chrono::seconds { re
 uint8_t ServerInitializer::get_log_level() const { return m_log_level; }
 
 tcp::acceptor& ServerInitializer::get_acceptor() const { return *m_acceptor; }
+
+ISXMailDB::ConnectionPool<pqxx::connection>& ISXSS::ServerInitializer::get_connection_pool() const { return *m_connection_pool;}
 }  // namespace ISXSS

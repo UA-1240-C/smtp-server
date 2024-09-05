@@ -14,6 +14,8 @@
 #include "ServerConfig.h"
 #include "SignalHandler.h"
 #include "ThreadPool.h"
+#include "MailDB/PgMailDB.h"
+#include "MailDB/ConnectionPool.h"
 
 using boost::asio::ip::tcp;
 using namespace ISXSignalHandler;
@@ -117,6 +119,13 @@ public:
      */
     [[nodiscard]] boost::asio::io_context& get_io_context() const;
 
+    /**
+     * @brief Retrieves the coonection pool of connections to database.
+     *
+     * @return The ConnectionPool.
+     */
+    [[nodiscard]] ISXMailDB::ConnectionPool<pqxx::connection>& get_connection_pool() const;
+
 private:
     /**
      * @brief Initializes the logging system.
@@ -132,6 +141,12 @@ private:
      * Sets up the thread pool for managing concurrent tasks, based on the configuration settings.
      */
     void InitializeThreadPool();
+
+    /**
+     * @brief Initializes the connection pool to database.
+     *
+     */
+    void InitializeConnectionPool();
 
     /**
      * @brief Initializes the network acceptor.
@@ -164,6 +179,10 @@ private:
     size_t m_max_threads; ///< The maximum number of threads configured for the server.
     std::chrono::seconds m_timeout_seconds; ///< The timeout duration for communication in seconds.
     uint8_t m_log_level; ///< The log level for the logging system.
+
+    std::unique_ptr<ISXMailDB::ConnectionPool<pqxx::connection>> m_connection_pool; ///< Unique pointer to the connection pool.
+    std::string m_connection_string =
+        "dbname=testuserdb user=testuser password=password hostaddr=127.0.0.1 port=5432";  ///< Data base connection string.
 };
 
 }  // namespace ISXSS
