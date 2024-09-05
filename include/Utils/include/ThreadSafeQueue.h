@@ -31,9 +31,9 @@ concept IsLocable = requires(Lock&& lock)
  * @brief A thread-safe queue implementation.
  *
  * This class provides a thread-safe implementation of a double-ended queue (deque)
- * that supports adding and removing elements from both the front and the back.
- * It also includes methods for rotating elements and copying the front element
- * to the back of the queue.
+ * that supports adding and removing elements from both the front and the back in
+ * synchronized manner.It also includes methods for rotating elements and copying
+ * the front element to the back of the queue.
  *
  * @tparam T The type of elements stored in the queue.
  * @tparam Lock The type of lock used for synchronization (default is std::mutex).

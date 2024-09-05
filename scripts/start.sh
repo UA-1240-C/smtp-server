@@ -15,8 +15,6 @@ CERT_DIR=/etc/ssl/certs/smtp-server
 KEY_DIR=/etc/ssl/private
 CERT_FILE=$CERT_DIR/server.crt
 KEY_FILE=$KEY_DIR/server.key
-DH_PARAM_FILE="$KEY_DIR/dhparam.pem"
-
 
 # Create and navigate to the build directory in the project root
 echo "Creating build directory in the project root..."
