@@ -157,7 +157,7 @@ void Logger::LogTrace(const std::string& message, const std::source_location& lo
 {
 	s_thread_pool.EnqueueDetach([message, location]()
 		{
-			LogToConsole(message, DEBUG, location);
+			LogToConsole(message, TRACE, location);
 		}
 	);
 }
@@ -166,7 +166,7 @@ void Logger::LogProd(const std::string& message, const std::source_location& loc
 {
 	s_thread_pool.EnqueueDetach([message, location]()
 		{
-			LogToConsole(message, DEBUG, location);
+			LogToConsole(message, PROD, location);
 		}
 	);
 }
@@ -175,7 +175,7 @@ void Logger::LogWarning(const std::string& message, const std::source_location& 
 {
 	s_thread_pool.EnqueueDetach([message, location]()
 		{
-			LogToConsole(message, DEBUG, location);
+			LogToConsole(message, WARNING, location);
 		}
 	);
 }
@@ -184,7 +184,7 @@ void Logger::LogError(const std::string& message, const std::source_location& lo
 {
 	s_thread_pool.EnqueueDetach([message, location]()
 		{
-			LogToConsole(message, DEBUG, location);
+			LogToConsole(message, ERR, location);
 		}
 	);
 }
