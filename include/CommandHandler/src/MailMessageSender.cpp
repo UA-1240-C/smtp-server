@@ -334,12 +334,6 @@ bool MailMessageForwarder::ForwardEmailToClientServer(const ISXMM::MailMessage& 
     return false;
 }*/
 
-#include <MailMessageForwarder.h>
-#include <ares.h>
-#include <boost/asio.hpp>
-#include <boost/asio/ssl.hpp>
-#include <iostream>
-#include <stdexcept>
 
 bool MailMessageForwarder::ForwardEmailToClientServer(const ISXMM::MailMessage& message) {
     // Extract domain from recipient email
@@ -362,7 +356,7 @@ bool MailMessageForwarder::ForwardEmailToClientServer(const ISXMM::MailMessage& 
     ISXSocketWrapper::SocketWrapper socket_wrapper(tcp_socket);
 
     // Connect to the MX server
-    auto connect_future = socket_wrapper.Connect(mx_server_ip, "smtp");
+    auto connect_future = socket_wrapper.Connect(mx_server_ip, "465");
     try {
         connect_future.get();  // Wait for connection to complete
     } catch (const std::exception& e) {
@@ -372,7 +366,7 @@ bool MailMessageForwarder::ForwardEmailToClientServer(const ISXMM::MailMessage& 
 
     // Create SSL context
     boost::asio::ssl::context ssl_context(boost::asio::ssl::context::tlsv12_client);
-
+    ssl_context.set_verify_mode(boost::asio::ssl::verify_none);
     // Perform TLS handshake
     auto tls_future = socket_wrapper.PerformTlsHandshake(ssl_context, boost::asio::ssl::stream_base::client);
     try {

@@ -38,7 +38,7 @@ namespace keywords = boost::log::keywords;
  */
 #define ENABLE_FUNCTION_TRACING BOOST_LOG_FUNC()
 
-inline constexpr uint8_t MAX_THREAD_COUNT = 5;
+inline constexpr uint8_t MAX_THREAD_COUNT = 1;
 
 /**
  * @enum LogLevel

@@ -73,7 +73,7 @@ public:
                          std::string(m_is_tls ? "SslSocket" : "TcpSocket"));
     }
 
-    std::future<void> Connect(const std::string& host, const std::string& port);
+    std::future<void> Connect(const std::string& host, const std::string& service);
     std::future<void> PerformTlsHandshake(boost::asio::ssl::context& context, boost::asio::ssl::stream_base::handshake_type type);
 
 
