@@ -1,4 +1,5 @@
 #include "Logger.h"
+#include "Logger.h"
 
 boost::shared_ptr<sinks::synchronous_sink<sinks::text_ostream_backend>> Logger::s_sink_pointer;
 uint8_t Logger::s_severity_filter;
@@ -26,17 +27,17 @@ void Logger::set_sink_filter()
 	{
 	case PROD_WARN_ERR_LOGS:
 		s_sink_pointer->set_filter(
-			expr::attr<LogLevel>("Severity") <= ERR
+			expr::attr<LogLevel>("Severity") >= PROD
 		);
 		break;
 	case DEBUG_LOGS:
 		s_sink_pointer->set_filter(
-			expr::attr<LogLevel>("Severity") == DEBUG
+			expr::attr<LogLevel>("Severity") >= DEBUG
 		);
 		break;
 	case TRACE_LOGS:
 		s_sink_pointer->set_filter(
-			expr::attr<LogLevel>("Severity") == TRACE
+			expr::attr<LogLevel>("Severity") >= TRACE
 		);
 		break;
 	default:
@@ -71,9 +72,8 @@ void Logger::set_sink_formatter()
 	s_sink_pointer->set_formatter(expr::stream
 		<< logging::expressions::attr<logging::attributes::current_thread_id::value_type>("ThreadID")
 		<< " - " << expr::format_date_time<boost::posix_time::ptime>("TimeStamp", "%d/%m/%Y %H:%M:%S.%f")
-		<< " [" << expr::attr<LogLevel>("Severity")
-		<< "] - ["
-		<< format_named_scope("Scope", keywords::format = "%n", keywords::iteration = expr::reverse) << "] "
+		<< " [" << boost::phoenix::bind(&Logger::SeverityToOutput)
+		<< "] "
 		<< expr::smessage
 	);
 }
@@ -82,7 +82,7 @@ void Logger::Setup(const Config::Logging& logging_config)
 {
 	std::lock_guard<std::mutex> lock(s_logging_mutex);
 	s_log_file = logging_config.filename;
-	s_severity_filter = logging_config.log_level;
+	s_severity_filter = static_cast<SeverityFilter>(logging_config.log_level);
 	s_flush = logging_config.flush;
 
 	s_sink_pointer = set_sink();
@@ -98,10 +98,21 @@ void Logger::Reset()
 	s_sink_pointer.reset();
 }
 
-void Logger::LogToConsole(const std::string& message, const LogLevel& log_level)
+std::string Logger::SeverityToOutput() // maybe needs fixing for presision
+{
+	switch (s_severity_filter)
+	{
+	case NO_LOGS: return "";
+	case PROD_WARN_ERR_LOGS: return "Prod/Warning/Error";
+	case DEBUG_LOGS: return "Debug";
+	case TRACE_LOGS: return "Trace";
+	default: return "";
+	}
+}
+
+void Logger::LogToConsole(const std::string& message, const LogLevel& log_level, const std::source_location& location)
 {
 	BOOST_LOG_SCOPED_THREAD_ATTR("ThreadID", attrs::current_thread_id())
-	std::lock_guard<std::mutex> lock(s_logging_mutex);
 	std::string color{};
 	switch (log_level)
 	{
@@ -122,7 +133,10 @@ void Logger::LogToConsole(const std::string& message, const LogLevel& log_level)
 	}
 	try
 	{
-		BOOST_LOG_SEV(g_slg, log_level) << color << message << Colors::RESET;
+		std::lock_guard<std::mutex> lock(s_logging_mutex);
+
+		BOOST_LOG_SEV(g_slg, log_level) << "[" << location.function_name() << "] "
+		<< color << message << Colors::RESET;
 	}
 	catch (const std::exception& e)
 	{
@@ -130,47 +144,47 @@ void Logger::LogToConsole(const std::string& message, const LogLevel& log_level)
 	}
 }
 
-void Logger::LogDebug(const std::string& message)
+void Logger::LogDebug(const std::string& message, const std::source_location& location)
 {
-	s_thread_pool.EnqueueDetach([message]()
+	s_thread_pool.EnqueueDetach([message, location]()
 		{
-			LogToConsole(message, DEBUG);
+			LogToConsole(message, DEBUG, location);
 		}
 	);
 }
 
-void Logger::LogTrace(const std::string& message)
+void Logger::LogTrace(const std::string& message, const std::source_location& location)
 {
-	s_thread_pool.EnqueueDetach([message]()
+	s_thread_pool.EnqueueDetach([message, location]()
 		{
-			LogToConsole(message, TRACE);
+			LogToConsole(message, DEBUG, location);
 		}
 	);
 }
 
-void Logger::LogProd(const std::string& message)
+void Logger::LogProd(const std::string& message, const std::source_location& location)
 {
-	s_thread_pool.EnqueueDetach([message]()
+	s_thread_pool.EnqueueDetach([message, location]()
 		{
-			LogToConsole(message, PROD);
+			LogToConsole(message, DEBUG, location);
 		}
 	);
 }
 
-void Logger::LogWarning(const std::string& message)
+void Logger::LogWarning(const std::string& message, const std::source_location& location)
 {
-	s_thread_pool.EnqueueDetach([message]()
+	s_thread_pool.EnqueueDetach([message, location]()
 		{
-			LogToConsole(message, WARNING);
+			LogToConsole(message, DEBUG, location);
 		}
 	);
 }
 
-void Logger::LogError(const std::string& message)
+void Logger::LogError(const std::string& message, const std::source_location& location)
 {
-	s_thread_pool.EnqueueDetach([message]()
+	s_thread_pool.EnqueueDetach([message, location]()
 		{
-			LogToConsole(message, ERR);
+			LogToConsole(message, DEBUG, location);
 		}
 	);
 }
