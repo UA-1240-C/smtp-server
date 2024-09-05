@@ -526,16 +526,6 @@ void CommandHandler::HandleAuth(SocketWrapper& socket_wrapper, const std::string
         Logger::LogTrace("Decoded username: " + username);
         Logger::LogTrace("Decoded password: [hidden]");
 
-        // rewrite later
-
-        // Check if the user exists
-        if (!m_data_base->UserExists(username))
-        {
-            Logger::LogWarning("Authentication failed: user does not exist - " + username);
-            socket_wrapper.SendResponseAsync(ToString(SmtpResponseCode::AUTHENTICATION_FAILED)).get();
-            return;
-        }
-
         // Attempt to log in with the provided credentials
         try
         {
@@ -548,6 +538,8 @@ void CommandHandler::HandleAuth(SocketWrapper& socket_wrapper, const std::string
             Logger::LogError("MailException in CommandHandler::HandleAuth: " + std::string(e.what()));
             socket_wrapper.SendResponseAsync(ToString(SmtpResponseCode::AUTHENTICATION_FAILED)).get();
         }
+       
+      
     }
     catch (const std::exception& e)
     {
