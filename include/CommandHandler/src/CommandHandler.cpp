@@ -473,50 +473,50 @@ void CommandHandler::ProcessDataMessage(SocketWrapper& socket_wrapper, std::stri
     }
     Logger::LogDebug("Exiting CommandHandler::ProcessDataMessage");
 }
+
+    void CommandHandler::ForwardToClientMailServer(const std::string& server, int port, const std::string& message) {
+    try {
+        boost::asio::io_context io_context;
+        auto new_socket = std::make_shared<TcpSocket>(io_context);
+        SocketWrapper socket_wrapper(new_socket);
+
+        // Выполните синхронное подключение
+        auto connect_future = socket_wrapper.Connect(server, port);
+
+        std::cout << "Successfully connected to: " << server << " on port " << port << std::endl;
+
+        std::string helo_command = "HELO example.com\r\n";
+        auto send_helo_future = socket_wrapper.SendResponseAsync(helo_command);
+
+        auto read_response_future = socket_wrapper.ReadFromSocketAsync(1024);
+
+        auto send_message_future = socket_wrapper.SendResponseAsync(message);
+
+        auto read_final_response_future = socket_wrapper.ReadFromSocketAsync(1024);
+
+        io_context.run();
+
+        connect_future.get();
+        send_helo_future.get();
+        std::string server_response = read_response_future.get();
+        std::cout << "Server response: " << server_response << std::endl;
+        send_message_future.get();
+        server_response = read_final_response_future.get();
+        std::cout << "Server response after message: " << server_response << std::endl;
+
+    } catch (std::exception& e) {
+        std::cerr << "Error connecting to " << server << ": " << e.what() << std::endl;
+    }
+}
+
 /*
 void CommandHandler::ForwardToClientMailServer(const std::string& server, int port, const std::string& message) {
     try {
         boost::asio::io_context io_context;
         auto new_socket = std::make_shared<TcpSocket>(io_context);
         SocketWrapper socket_wrapper(new_socket);
-
-        // Connect to the server asynchronously
         auto connect_future = socket_wrapper.Connect(server, port);
         connect_future.get(); // Wait for connection to be established
-
-        std::cout << "Successfully connected to: " << server << " on port " << port << std::endl;
-
-        // Send HELO command
-        std::string helo_command = "HELO example.com\r\n";
-        auto send_helo_future = socket_wrapper.SendResponseAsync(helo_command);
-        send_helo_future.get(); // Wait for the HELO command to be sent
-
-        // Read response from server
-        auto read_response_future = socket_wrapper.ReadFromSocketAsync(1024);
-        std::string server_response = read_response_future.get(); // Wait and get the response
-        std::cout << "Server response: " << server_response << std::endl;
-
-        // Send the actual message
-        auto send_message_future = socket_wrapper.SendResponseAsync(message);
-        send_message_future.get(); // Wait for the message to be sent
-
-        // Read final response from server
-        auto read_final_response_future = socket_wrapper.ReadFromSocketAsync(1024);
-        server_response = read_final_response_future.get(); // Wait and get the final response
-        std::cout << "Server response after message: " << server_response << std::endl;
-
-    } catch (std::exception& e) {
-        std::cerr << "Error connecting to " << server << ": " << e.what() << std::endl;
-    }
-}*/
-
-
-void CommandHandler::ForwardToClientMailServer(const std::string& server, int port, const std::string& message) {
-    try {
-        boost::asio::io_context io_context;
-        auto new_socket = std::make_shared<TcpSocket>(io_context);
-        SocketWrapper socket_wrapper(new_socket);
-        socket_wrapper.Connect(server, port);
 
         std::cout << "Successfully connected to: " << server << " on port " << port << std::endl;
 
@@ -539,7 +539,7 @@ void CommandHandler::ForwardToClientMailServer(const std::string& server, int po
     } catch (std::exception& e) {
         std::cerr << "Error connecting to " << server << ": " << e.what() << std::endl;
     }
-}
+}*/
 // to only one(the most prioritized MX-record)
 void CommandHandler::SendMail(const MailMessage& message) {
     MXResolver mx_resolver;
@@ -712,14 +712,6 @@ void CommandHandler::HandleAuth(SocketWrapper& socket_wrapper, const std::string
         Logger::LogTrace("Decoded username: " + username);
         Logger::LogTrace("Decoded password: [hidden]");
 
-        // Check if the user exists
-        if (!m_data_base->UserExists(username))
-        {
-            Logger::LogWarning("Authentication failed: user does not exist - " + username);
-            socket_wrapper.SendResponseAsync(ToString(SmtpResponseCode::AUTHENTICATION_FAILED)).get();
-            return;
-        }
-
         // Attempt to log in with the provided credentials
         try
         {
@@ -754,13 +746,6 @@ void CommandHandler::HandleRegister(SocketWrapper& socket_wrapper, const std::st
         auto [username, password] = DecodeAndSplitPlain(line.substr(9));
         Logger::LogProd("Decoded username: " + username);
         Logger::LogProd("Decoded password: [hidden]");
-
-        if (m_data_base->UserExists(username))
-        {
-            Logger::LogWarning("Registration failed: user " + username + " already exists.");
-            socket_wrapper.SendResponseAsync(ToString(SmtpResponseCode::USER_ALREADY_EXISTS)).get();
-            return;
-        }
 
         m_data_base->SignUp(username, password);
         Logger::LogProd("User registered successfully");
