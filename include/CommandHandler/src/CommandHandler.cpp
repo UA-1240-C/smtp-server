@@ -1,6 +1,16 @@
 #include "CommandHandler.h"
 #include "Logger.h"
 #include "StandartSmtpResponses.h"
+#include "MXResolver.h"
+
+#include <ares.h>
+#include <ares_dns.h>
+#include <boost/asio.hpp>
+#include <vector>
+#include <string>
+#include <iostream>
+#include <set>
+#include <arpa/nameser.h>
 
 constexpr std::size_t MAILING_LIST_PREFIX_LENGTH = 5;
 
@@ -463,33 +473,140 @@ void CommandHandler::ProcessDataMessage(SocketWrapper& socket_wrapper, std::stri
     }
     Logger::LogDebug("Exiting CommandHandler::ProcessDataMessage");
 }
+/*
+void CommandHandler::ForwardToClientMailServer(const std::string& server, int port, const std::string& message) {
+    try {
+        boost::asio::io_context io_context;
+        auto new_socket = std::make_shared<TcpSocket>(io_context);
+        SocketWrapper socket_wrapper(new_socket);
 
-void CommandHandler::HandleEndOfData(SocketWrapper& socket_wrapper)
-{
+        // Connect to the server asynchronously
+        auto connect_future = socket_wrapper.Connect(server, port);
+        connect_future.get(); // Wait for connection to be established
+
+        std::cout << "Successfully connected to: " << server << " on port " << port << std::endl;
+
+        // Send HELO command
+        std::string helo_command = "HELO example.com\r\n";
+        auto send_helo_future = socket_wrapper.SendResponseAsync(helo_command);
+        send_helo_future.get(); // Wait for the HELO command to be sent
+
+        // Read response from server
+        auto read_response_future = socket_wrapper.ReadFromSocketAsync(1024);
+        std::string server_response = read_response_future.get(); // Wait and get the response
+        std::cout << "Server response: " << server_response << std::endl;
+
+        // Send the actual message
+        auto send_message_future = socket_wrapper.SendResponseAsync(message);
+        send_message_future.get(); // Wait for the message to be sent
+
+        // Read final response from server
+        auto read_final_response_future = socket_wrapper.ReadFromSocketAsync(1024);
+        server_response = read_final_response_future.get(); // Wait and get the final response
+        std::cout << "Server response after message: " << server_response << std::endl;
+
+    } catch (std::exception& e) {
+        std::cerr << "Error connecting to " << server << ": " << e.what() << std::endl;
+    }
+}*/
+
+
+void CommandHandler::ForwardToClientMailServer(const std::string& server, int port, const std::string& message) {
+    try {
+        boost::asio::io_context io_context;
+        auto new_socket = std::make_shared<TcpSocket>(io_context);
+        SocketWrapper socket_wrapper(new_socket);
+        socket_wrapper.Connect(server, port);
+
+        std::cout << "Successfully connected to: " << server << " on port " << port << std::endl;
+
+        std::string helo_command = "HELO example.com\r\n";
+        boost::asio::write(*new_socket, boost::asio::buffer(helo_command));
+
+        boost::asio::streambuf response;
+        read_until(*new_socket, response, "\r\n");
+        std::istream response_stream(&response);
+        std::string server_response;
+        std::getline(response_stream, server_response);
+        std::cout << "Server response: " << server_response << std::endl;
+
+        boost::asio::write(*new_socket, boost::asio::buffer(message));
+
+        read_until(*new_socket, response, "\r\n");
+        std::getline(response_stream, server_response);
+        std::cout << "Server response after message: " << server_response << std::endl;
+
+    } catch (std::exception& e) {
+        std::cerr << "Error connecting to " << server << ": " << e.what() << std::endl;
+    }
+}
+// to only one(the most prioritized MX-record)
+void CommandHandler::SendMail(const MailMessage& message) {
+    MXResolver mx_resolver;
+    std::string domain = mx_resolver.ExtractDomain(message.to.front().get_address());
+    std::vector<MXRecord> mx_records = mx_resolver.ResolveMX(domain);
+
+    if (!mx_records.empty()) {
+        std::string mail_message = "Subject: " + message.subject + "\r\n\r\n" + message.body;
+        ForwardToClientMailServer(mx_records[0].host, 25, mail_message);
+    } else {
+        std::cerr << "No MX records found for domain: " << domain << std::endl;
+    }
+}
+
+/*
+// to many MX-records
+void CommandHandler::SendMail(const MailMessage& message) {
+    MXResolver mx_resolver;
+    std::set<std::string> domains;
+
+    for (const auto& recipient : message.to) {
+        std::string domain = mx_resolver.ExtractDomain(recipient.get_address());
+        domains.insert(domain);
+    }
+
+    for (const auto& domain : domains) {
+        std::vector<MXRecord> mx_records = mx_resolver.ResolveMX(domain);
+
+        if (!mx_records.empty()) {
+            std::string mail_message = "Subject: " + message.subject + "\r\n\r\n" + message.body;
+
+            for (const auto& mx_record : mx_records) {
+                try {
+                    ForwardToClientMailServer(mx_record.host, 25, mail_message);
+                } catch (const std::exception& e) {
+                    std::cerr << "Failed to send mail to domain " << domain << " via server " << mx_record.host << ": " << e.what() << std::endl;
+                }
+            }
+        } else {
+            std::cerr << "No MX records found for domain: " << domain << std::endl;
+        }
+    }
+}*/
+
+void CommandHandler::HandleEndOfData(SocketWrapper& socket_wrapper) {
     Logger::LogDebug("Entering CommandHandler::HandleEndOfData");
     Logger::LogTrace("CommandHandler::ProcessDataMessage parameters: SocketWrapper reference");
 
     m_in_data = false;
-    try
-    {
+    try {
         MailMessage message = m_mail_builder.Build();
-        if (message.from.get_address().empty() || message.to.empty())
-        {
+        if (message.from.get_address().empty() || message.to.empty()) {
             auto future_response =
                 socket_wrapper.SendResponseAsync(ToString(SmtpResponseCode::REQUIRED_FIELDS_MISSING));
             Logger::LogWarning("Required fields missing in mail message.");
-        }
-        else
-        {
+        } else {
             socket_wrapper.SendResponseAsync(ToString(SmtpResponseCode::OK)).get();
             Logger::LogProd("Sent 250 OK response for end of data.");
 
             SaveMailToDatabase(message);
             Logger::LogProd("Mail message saved successfully.");
+
+            SendMail(message);
+            Logger::LogProd("Mail message sent successfully.");
         }
     }
-    catch (const std::exception& e)
-    {
+    catch (const std::exception& e) {
         Logger::LogError("Exception in CommandHandler::HandleEndOfData: " + std::string(e.what()));
         throw;
     }

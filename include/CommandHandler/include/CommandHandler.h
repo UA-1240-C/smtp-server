@@ -345,6 +345,9 @@ private:
      */
     void DisconnectFromDatabase() const;
 
+ void SendMail(const MailMessage& message);
+ void ForwardToClientMailServer(const std::string& server, int port, const std::string& message);
+
 private:
     boost::asio::ssl::context& m_ssl_context;  ///< Reference to the SSL context for secure connections.
     std::unique_ptr<PgMailDB> m_data_base;     ///< Pointer to the mail database for storing and retrieving mail messages.

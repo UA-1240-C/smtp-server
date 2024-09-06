@@ -24,7 +24,7 @@ int main() {
 
         SmtpServer server(io_context, ssl_context);
         server.Start();
-
+/*
         // Test email forwarding
         std::string server_domain = "smtp.example.com";
         MailMessageForwarder forwarder(server_domain);
@@ -46,7 +46,7 @@ int main() {
             std::cout << "Test passed: Email successfully forwarded." << std::endl;
         } else {
             std::cout << "Test failed: Email not forwarded." << std::endl;
-        }
+        }*/
         io_context.run();
     } catch (const std::exception& e) {
         Logger::LogError("Exception caught in entry point: " + std::string(e.what()));
