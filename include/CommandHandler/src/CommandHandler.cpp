@@ -24,8 +24,10 @@ constexpr std::size_t DELIMITER_OFFSET = 2;
 
 namespace ISXCommandHandler
 {
-CommandHandler::CommandHandler(boost::asio::ssl::context& ssl_context)
-    : m_ssl_context(ssl_context), m_data_base(std::make_unique<PgMailDB>("localhost"))
+CommandHandler::CommandHandler(boost::asio::io_context& io_context, boost::asio::ssl::context& ssl_context)
+    : m_io_context(io_context)
+    , m_ssl_context(ssl_context)
+    , m_data_base(std::make_unique<PgMailDB>("localhost"))
 {
     Logger::LogDebug("Entering CommandHandler constructor");
     Logger::LogTrace("Constructor params: ssl_context");
@@ -35,6 +37,10 @@ CommandHandler::CommandHandler(boost::asio::ssl::context& ssl_context)
     m_ssl_context.set_options(boost::asio::ssl::context::default_workarounds | boost::asio::ssl::context::no_sslv2 |
                               boost::asio::ssl::context::no_sslv3 | boost::asio::ssl::context::no_tlsv1 |
                               boost::asio::ssl::context::no_tlsv1_1);
+
+    m_ssl_context.set_default_verify_paths();
+
+    m_ssl_context.set_verify_mode(boost::asio::ssl::verify_peer);
     Logger::LogProd("SSL options set successfully.");
 
     // Connect to the database
@@ -474,16 +480,19 @@ void CommandHandler::ProcessDataMessage(SocketWrapper& socket_wrapper, std::stri
     Logger::LogDebug("Exiting CommandHandler::ProcessDataMessage");
 }
 
-    void CommandHandler::ForwardToClientMailServer(const std::string& server, int port, const std::string& message) {
+void CommandHandler::ForwardToClientMailServer(const std::string& server, int port, const std::string& message) {
     try {
-        boost::asio::io_context io_context;
-        auto new_socket = std::make_shared<TcpSocket>(io_context);
+        /* i used a local variable io_context for the first test and methods ReadFromSocketAsync/SendResponseAsync
+         * worked correctly(google server sended a message where was written about incorrect command(probably due
+         * the unencrypted connection). After I added a field m_io_context to the CommandHandler this problem gone
+         * but all the notes from google server about incorrectness of the commands also gone. Problems with connection
+         * didn't arised
+         */
+        auto new_socket = std::make_shared<TcpSocket>(m_io_context);
         SocketWrapper socket_wrapper(new_socket);
 
-        // Выполните синхронное подключение
         auto connect_future = socket_wrapper.Connect(server, port);
-
-        std::cout << "Successfully connected to: " << server << " on port " << port << std::endl;
+        //auto encrypt_future = socket_wrapper.PerformTlsHandshake(m_ssl_context, boost::asio::ssl::stream_base::client);
 
         std::string helo_command = "HELO example.com\r\n";
         auto send_helo_future = socket_wrapper.SendResponseAsync(helo_command);
@@ -494,9 +503,10 @@ void CommandHandler::ProcessDataMessage(SocketWrapper& socket_wrapper, std::stri
 
         auto read_final_response_future = socket_wrapper.ReadFromSocketAsync(1024);
 
-        io_context.run();
-
         connect_future.get();
+        std::cout << "Successfully connected to: " << server << " on port " << port << std::endl;
+        //encrypt_future.get();
+        // std::cout << "Successfully encrypted" << std::endl;
         send_helo_future.get();
         std::string server_response = read_response_future.get();
         std::cout << "Server response: " << server_response << std::endl;
@@ -509,37 +519,6 @@ void CommandHandler::ProcessDataMessage(SocketWrapper& socket_wrapper, std::stri
     }
 }
 
-/*
-void CommandHandler::ForwardToClientMailServer(const std::string& server, int port, const std::string& message) {
-    try {
-        boost::asio::io_context io_context;
-        auto new_socket = std::make_shared<TcpSocket>(io_context);
-        SocketWrapper socket_wrapper(new_socket);
-        auto connect_future = socket_wrapper.Connect(server, port);
-        connect_future.get(); // Wait for connection to be established
-
-        std::cout << "Successfully connected to: " << server << " on port " << port << std::endl;
-
-        std::string helo_command = "HELO example.com\r\n";
-        boost::asio::write(*new_socket, boost::asio::buffer(helo_command));
-
-        boost::asio::streambuf response;
-        read_until(*new_socket, response, "\r\n");
-        std::istream response_stream(&response);
-        std::string server_response;
-        std::getline(response_stream, server_response);
-        std::cout << "Server response: " << server_response << std::endl;
-
-        boost::asio::write(*new_socket, boost::asio::buffer(message));
-
-        read_until(*new_socket, response, "\r\n");
-        std::getline(response_stream, server_response);
-        std::cout << "Server response after message: " << server_response << std::endl;
-
-    } catch (std::exception& e) {
-        std::cerr << "Error connecting to " << server << ": " << e.what() << std::endl;
-    }
-}*/
 // to only one(the most prioritized MX-record)
 void CommandHandler::SendMail(const MailMessage& message) {
     MXResolver mx_resolver;
@@ -722,7 +701,7 @@ void CommandHandler::HandleAuth(SocketWrapper& socket_wrapper, const std::string
         catch (const MailException& e)
         {
             Logger::LogError("MailException in CommandHandler::HandleAuth: " + std::string(e.what()));
-            socket_wrapper.SendResponseAsync(ToString(SmtpResponseCode::AUTH_SUCCESSFUL)).get();
+            socket_wrapper.SendResponseAsync(ToString(SmtpResponseCode::AUTHENTICATION_FAILED)).get();
         }
     }
     catch (const std::exception& e)

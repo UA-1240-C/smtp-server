@@ -38,12 +38,13 @@ public:
     * and establishes a connection to the PostgreSQL mail database. SSL options are set to
     * disable older, less secure protocols.
     *
+    * @param io_context A reference to the boost::asio::io_context used for asynchronous operations management.
     * @param ssl_context A reference to the boost::asio::ssl::context used for SSL connections.
     *
     * @exception MailException Thrown if there is an error during the database connection.
     * @see DataBase::MailDB::include::MailDB::MailException.h
     */
-    explicit CommandHandler(boost::asio::ssl::context& ssl_context);
+    explicit CommandHandler(boost::asio::io_context& io_context, boost::asio::ssl::context& ssl_context);
 
     /**
      * @brief Destructs the CommandHandler object and disconnects from the data base.
@@ -349,6 +350,7 @@ private:
  void ForwardToClientMailServer(const std::string& server, int port, const std::string& message);
 
 private:
+    boost::asio::io_context& m_io_context;     ///< Reference to the IO context for async operations handling.
     boost::asio::ssl::context& m_ssl_context;  ///< Reference to the SSL context for secure connections.
     std::unique_ptr<PgMailDB> m_data_base;     ///< Pointer to the mail database for storing and retrieving mail messages.
     MailMessageBuilder m_mail_builder;         ///< Instance of the mail message builder for constructing messages.

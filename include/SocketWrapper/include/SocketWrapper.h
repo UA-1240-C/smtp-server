@@ -76,7 +76,6 @@ public:
     std::future<void> Connect(const std::string& host, unsigned short port);
     std::future<void> PerformTlsHandshake(boost::asio::ssl::context& context, boost::asio::ssl::stream_base::handshake_type type);
 
-
     /**
      * @brief Asynchronously sends a response message over a socket.
      *
