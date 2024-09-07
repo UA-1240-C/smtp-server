@@ -5,6 +5,7 @@
 #include <ostream>
 #include <string>
 #include <thread>
+#include <memory>
 #include <source_location>
 
 #include <boost/core/null_deleter.hpp>
@@ -23,10 +24,10 @@
 #include <boost/log/support/date_time.hpp>
 #include <boost/log/utility/setup/common_attributes.hpp>
 #include <boost/log/utility/setup/file.hpp>
+#include <boost/lockfree/queue.hpp>
 #include <boost/smart_ptr/shared_ptr.hpp>
 
 #include "ServerConfig.h"
-#include "ThreadPool.h"
 
 namespace logging = boost::log;
 namespace expr = boost::log::expressions;
@@ -34,13 +35,6 @@ namespace sinks = boost::log::sinks;
 namespace attrs = boost::log::attributes;
 namespace src = boost::log::sources;
 namespace keywords = boost::log::keywords;
-
-/**
- * @brief Macro for easier usage and better readability, enables short function signature
- */
-#define ENABLE_FUNCTION_TRACING BOOST_LOG_FUNC()
-
-inline constexpr uint8_t MAX_THREAD_COUNT = 5;
 
 /**
  * @enum LogLevel
@@ -109,15 +103,17 @@ inline src::severity_logger_mt<LogLevel> g_slg;
 class Logger
 {
 	// Boost sink pointer for synchronous operations
-	static boost::shared_ptr<sinks::synchronous_sink<sinks::text_ostream_backend>> s_sink_pointer;
+	static boost::shared_ptr<sinks::asynchronous_sink<sinks::text_ostream_backend>> s_sink_pointer;
 	static uint8_t s_severity_filter; // Severity filter for the sink
 	static std::string s_log_file; // Log file path, in development
 	static uint8_t s_flush; // Auto flushing for console output
-	static std::mutex s_logging_mutex; // STL mutex for thread safety
-	static ISXThreadPool::ThreadPool<> s_thread_pool; // Thread pool for multithreaded logging
+	static std::mutex s_logging_mutex; // Mutex for thread safety
+	static thread_local std::unique_ptr<Logger> s_thread_local_logger; // Thread-local logger instance
 
-
+public:
 	Logger() = default;
+	Logger(const Logger&) = delete;
+	Logger& operator=(const Logger&) = delete;
 
 	/**
 	* @brief Destructor for the Logger class.
@@ -126,15 +122,11 @@ class Logger
 	*/
 	~Logger();
 
-public:
-	Logger(const Logger&) = delete;
-	Logger& operator=(const Logger&) = delete;
-
 	/**
 	* @brief Get current sink pointer from the Logger class
 	* @return Sink pointer from the Logger class; used for testing
 	*/
-	static boost::shared_ptr<sinks::synchronous_sink<sinks::text_ostream_backend>> get_sink_pointer()
+	static boost::shared_ptr<sinks::asynchronous_sink<sinks::text_ostream_backend>> get_sink_pointer()
 	{
 		return s_sink_pointer;
 	}
@@ -161,7 +153,7 @@ public:
 	 * Function sets up the sink as shared pointer to the backend.
 	 * Auto flushing is also being set here (if enabled).
 	 */
-	static boost::shared_ptr<sinks::synchronous_sink<sinks::text_ostream_backend>> set_sink();
+	static boost::shared_ptr<sinks::asynchronous_sink<sinks::text_ostream_backend>> set_sink();
 
 	/**
 	 * @brief Set global attributes for the logger.
