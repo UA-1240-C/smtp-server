@@ -1,12 +1,11 @@
 #include "Logger.h"
-#include "Logger.h"
 
-boost::shared_ptr<sinks::synchronous_sink<sinks::text_ostream_backend>> Logger::s_sink_pointer;
+boost::shared_ptr<sinks::asynchronous_sink<sinks::text_ostream_backend>> Logger::s_sink_pointer;
 uint8_t Logger::s_severity_filter;
 std::string Logger::s_log_file;
 uint8_t Logger::s_flush;
 std::mutex Logger::s_logging_mutex;
-ISXThreadPool::ThreadPool<> Logger::s_thread_pool(MAX_THREAD_COUNT);
+thread_local std::unique_ptr<Logger> Logger::s_thread_local_logger;
 
 const std::string Colors::BLUE = "\033[1;34m";
 const std::string Colors::CYAN = "\033[1;36m";
@@ -45,12 +44,12 @@ void Logger::set_sink_filter()
 	}
 }
 
-boost::shared_ptr<sinks::synchronous_sink<sinks::text_ostream_backend>> Logger::set_sink()
+boost::shared_ptr<sinks::asynchronous_sink<sinks::text_ostream_backend>> Logger::set_sink()
 {
-	boost::shared_ptr<sinks::synchronous_sink<sinks::text_ostream_backend>> sink_point(
-		new sinks::synchronous_sink<sinks::text_ostream_backend>);
+	boost::shared_ptr<sinks::asynchronous_sink<sinks::text_ostream_backend>> sink_point(
+		new sinks::asynchronous_sink<sinks::text_ostream_backend>);
 	{
-		const sinks::synchronous_sink<sinks::text_ostream_backend>::locked_backend_ptr backend_point = sink_point->
+		const sinks::asynchronous_sink<sinks::text_ostream_backend>::locked_backend_ptr backend_point = sink_point->
 			locked_backend();
 		const boost::shared_ptr<std::ostream> stream_point(&std::clog, boost::null_deleter());
 		backend_point->add_stream(stream_point);
@@ -80,7 +79,6 @@ void Logger::set_sink_formatter()
 
 void Logger::Setup(const Config::Logging& logging_config)
 {
-	std::lock_guard<std::mutex> lock(s_logging_mutex);
 	s_log_file = logging_config.filename;
 	s_severity_filter = static_cast<SeverityFilter>(logging_config.log_level);
 	s_flush = logging_config.flush;
@@ -93,7 +91,7 @@ void Logger::Setup(const Config::Logging& logging_config)
 
 void Logger::Reset()
 {
-	s_thread_pool.WaitForTasks();
+	boost::log::core::get()->flush();
 	logging::core::get()->remove_all_sinks();
 	s_sink_pointer.reset();
 }
@@ -134,63 +132,61 @@ void Logger::LogToConsole(const std::string& message, const LogLevel& log_level,
 	try
 	{
 		std::lock_guard<std::mutex> lock(s_logging_mutex);
-
-		BOOST_LOG_SEV(g_slg, log_level) << "[" << location.function_name() << "] "
+		BOOST_LOG_SEV(g_slg, log_level) << "- [" << location.function_name() << "] "
 		<< color << message << Colors::RESET;
 	}
 	catch (const std::exception& e)
 	{
-		std::cerr << e.what() << std::endl;
+		std::cerr << e.what() << '\n';
 	}
 }
 
 void Logger::LogDebug(const std::string& message, const std::source_location& location)
 {
-	s_thread_pool.EnqueueDetach([message, location]()
-		{
-			LogToConsole(message, DEBUG, location);
-		}
-	);
+	if (!s_thread_local_logger)
+	{
+		s_thread_local_logger = std::make_unique<Logger>();
+	}
+	s_thread_local_logger->LogToConsole(message, DEBUG, location);
 }
 
 void Logger::LogTrace(const std::string& message, const std::source_location& location)
 {
-	s_thread_pool.EnqueueDetach([message, location]()
-		{
-			LogToConsole(message, TRACE, location);
-		}
-	);
+	if (!s_thread_local_logger)
+	{
+		s_thread_local_logger = std::make_unique<Logger>();
+	}
+	s_thread_local_logger->LogToConsole(message, TRACE, location);
 }
 
 void Logger::LogProd(const std::string& message, const std::source_location& location)
 {
-	s_thread_pool.EnqueueDetach([message, location]()
-		{
-			LogToConsole(message, PROD, location);
-		}
-	);
+	if (!s_thread_local_logger)
+	{
+		s_thread_local_logger = std::make_unique<Logger>();
+	}
+	s_thread_local_logger->LogToConsole(message, PROD, location);
 }
 
 void Logger::LogWarning(const std::string& message, const std::source_location& location)
 {
-	s_thread_pool.EnqueueDetach([message, location]()
-		{
-			LogToConsole(message, WARNING, location);
-		}
-	);
+	if (!s_thread_local_logger)
+	{
+		s_thread_local_logger = std::make_unique<Logger>();
+	}
+	s_thread_local_logger->LogToConsole(message, WARNING, location);
 }
 
 void Logger::LogError(const std::string& message, const std::source_location& location)
 {
-	s_thread_pool.EnqueueDetach([message, location]()
-		{
-			LogToConsole(message, ERR, location);
-		}
-	);
+	if (!s_thread_local_logger)
+	{
+		s_thread_local_logger = std::make_unique<Logger>();
+	}
+	s_thread_local_logger->LogToConsole(message, ERR, location);
 }
 
 Logger::~Logger()
 {
-	Reset();
-	s_thread_pool.WaitForTasks();
+	boost::log::core::get()->flush();
 }
