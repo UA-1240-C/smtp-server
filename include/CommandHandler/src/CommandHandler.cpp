@@ -16,9 +16,9 @@ namespace ISXCommandHandler
 {
 
 CommandHandler::CommandHandler(boost::asio::ssl::context& ssl_context, 
-                               ISXMailDB::ConnectionPool<pqxx::connection>& connection_pool)
+                               ISXMailDB::PgManager& database_manager)
     : m_ssl_context(ssl_context), 
-      m_data_base(std::make_unique<PgMailDB>("localhost", connection_pool))  
+      m_data_base(std::make_unique<PgMailDB>(database_manager))  
 {
     Logger::LogDebug("Entering CommandHandler constructor");
     Logger::LogTrace("Constructor params: ssl_context");

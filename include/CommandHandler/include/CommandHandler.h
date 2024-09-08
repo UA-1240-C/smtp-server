@@ -10,6 +10,7 @@
 #include "Base64.h"
 #include "MailDB/PgMailDB.h"
 #include "MailDB/ConnectionPool.h"
+#include "MailDB/PgManager.h"
 #include "MailMessageBuilder.h"
 #include "SocketWrapper.h"
 
@@ -45,7 +46,7 @@ public:
     * @see DataBase::MailDB::include::MailDB::MailException.h
     */
     explicit CommandHandler(boost::asio::ssl::context& ssl_context, 
-                            ISXMailDB::ConnectionPool<pqxx::connection>& connection_pool);
+                            ISXMailDB::PgManager& database_manager);
 
     /**
      * @brief Destructs the CommandHandler object and disconnects from the data base.
