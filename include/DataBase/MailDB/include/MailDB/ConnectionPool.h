@@ -5,6 +5,7 @@
 #include <condition_variable>
 #include <memory>
 #include <cstdint>
+#include <functional>
 
 #include "MailException.h"
 
@@ -32,6 +33,9 @@ public:
             throw MailException(e.what());
         }
     }
+
+    ConnectionPool(const ConnectionPool&) = delete;
+    ConnectionPool& operator=(const ConnectionPool&) = delete;
 
     std::shared_ptr<ConnectionType> Acquire() 
     {
