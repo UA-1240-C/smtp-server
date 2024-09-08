@@ -24,7 +24,6 @@
 #include <boost/log/support/date_time.hpp>
 #include <boost/log/utility/setup/common_attributes.hpp>
 #include <boost/log/utility/setup/file.hpp>
-#include <boost/lockfree/queue.hpp>
 #include <boost/smart_ptr/shared_ptr.hpp>
 
 #include "ServerConfig.h"

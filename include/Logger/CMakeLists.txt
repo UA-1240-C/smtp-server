@@ -12,7 +12,6 @@ add_library(Logger STATIC
 target_include_directories(Logger PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${Boost_INCLUDE_DIRS}
-    ${CMAKE_SOURCE_DIR}/include/Utils/include
     ${CMAKE_SOURCE_DIR}/include/Parser/include
 )
 
