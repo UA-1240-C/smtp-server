@@ -29,6 +29,7 @@
 
 #include "ServerConfig.h"
 
+
 namespace logging = boost::log;
 namespace expr = boost::log::expressions;
 namespace sinks = boost::log::sinks;
@@ -83,6 +84,7 @@ struct Colors
 	static const std::string RESET; // Reset for clean overall look.
 };
 
+
 /**
  * Global severity logger instance for multithreaded logging.
  * This logger uses the specified LogLevel for filtering log messages.
@@ -90,6 +92,8 @@ struct Colors
  * @note This instance is thread-safe due to `src::severity_logger_mt`.
  */
 inline src::severity_logger_mt<LogLevel> g_slg;
+
+void Syslog(const std::string& message, const LogLevel& log_level, const std::source_location& location);
 
 /**
  * @class Logger
@@ -207,6 +211,18 @@ public:
 	static void LogToConsole(const std::string& message, const LogLevel& log_level,
 							const std::source_location& location = std::source_location::current());
 
+
+	template <LogLevel log_level>
+	static void Log(const std::string& message, const std::source_location& location = std::source_location::current())
+	{
+		if (!s_thread_local_logger)
+		{
+			s_thread_local_logger = std::make_unique<Logger>();
+		}
+		LogToConsole(message, log_level, location);
+		Syslog(message, log_level, location);
+	}
+
 	/**
 	 * @brief Logs the message with the DEBUG log level.
 	 * @param message User-defined message to log
@@ -242,3 +258,78 @@ public:
 	static void LogError(const std::string& message, const std::source_location& location =
 							std::source_location::current());
 };
+
+
+#if defined (_WIN32) || (_WIN64)
+#include <Windows.h>
+
+inline void Syslog(const std::string& message, const LogLevel& log_level, const std::source_location& location)
+{
+	LPCTSTR lpszStrings[2];
+	DWORD eventType = EVENTLOG_INFORMATION_TYPE;
+	switch (log_level)
+	{
+	case TRACE:
+	case DEBUG:
+		eventType = EVENTLOG_INFORMATION_TYPE;
+		break;
+	case PROD:
+	case WARNING:
+		eventType = EVENTLOG_WARNING_TYPE;
+		break;
+	case ERR:
+		eventType = EVENTLOG_ERROR_TYPE;
+		break;
+	default:
+		eventType = EVENTLOG_INFORMATION_TYPE;
+		break;
+	}
+
+	const HANDLE hEventSource = RegisterEventSource(nullptr, TEXT("Logger"));
+	if (hEventSource != nullptr)
+	{
+		lpszStrings[0] = Logger::SeverityToOutput().c_str();
+		lpszStrings[1] = message.c_str();
+		ReportEvent(hEventSource, // Event log handle
+					eventType, // Event type
+					0, // Event category
+					0, // Event identifier
+					nullptr, // No security identifier
+					2, // Size of lpszStrings array
+					0, // No binary data
+					lpszStrings, // Array of strings
+					nullptr); // No binary data
+		DeregisterEventSource(hEventSource);
+	}
+}
+#else
+#include <syslog.h>
+inline void Syslog(const std::string &message, const LogLevel &log_level, const std::source_location &location)
+{
+	openlog("Logger", LOG_PID, LOG_USER);
+	const uint8_t log_level_int = static_cast<uint8_t>(log_level);
+	switch (log_level_int)
+	{
+	case LogLevel::TRACE:
+		log_level_int = LOG_INFO
+			break;
+	case LogLevel::DEBUG:
+		log_level_int = LOG_DEBUG;
+		break;
+	case LogLevel::PROD:
+	case LogLevel::WARNING:
+	case LogLevel::ERR:
+		log_level_int = LOG_ERR;
+		break;
+	default:
+		log_level_int = LOG_INFO;
+		break;
+	}
+	syslog(log_level_int, "[ %s ] - [ %s ] %s",
+		Logger::SeverityToOutput().c_str(),
+		location.function_name(),
+		message.c_str()
+	);
+	closelog();
+}
+#endif
