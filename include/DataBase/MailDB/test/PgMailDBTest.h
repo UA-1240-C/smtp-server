@@ -9,6 +9,8 @@
 
 #include "MailDB/PgMailDB.h"
 #include "MailDB/MailException.h"
+#include "MailDB/PgManager.h"
+
 
 const char*  CONNECTION_STRING1 = "dbname=testmaildb user=postgres password=password hostaddr=127.0.0.1 port=5432";
 
@@ -93,6 +95,8 @@ protected:
       ExecuteQueryFromFile(tx, DB_TABLE_CREATION_FILE)
     );
 
+    s_database_manager = std::make_unique<PgManager>(CONNECTION_STRING1, "testhost", false);
+
   }
 
   static void TearDownTestSuite() 
@@ -105,7 +109,7 @@ protected:
     s_connection.close();
   }
 
-  PgMailDBTest() : pg("test host", *s_con_pool) {}
+  PgMailDBTest() : pg(*s_database_manager) {}
   ~PgMailDBTest() = default;
 
 
@@ -122,17 +126,12 @@ protected:
   }
 
   PgMailDB pg;
-  static std::shared_ptr<ConnectionPool<pqxx::connection>> s_con_pool;
+  static std::unique_ptr<PgManager> s_database_manager;
   static pqxx::connection s_connection;  
 };
 
 pqxx::connection PgMailDBTest::s_connection{CONNECTION_STRING1};
-std::shared_ptr<ConnectionPool<pqxx::connection>> PgMailDBTest::s_con_pool = std::make_shared<ConnectionPool<pqxx::connection>>(3, CONNECTION_STRING1, 
-    [] (const std::string& connection_str)
-    { 
-        return std::make_shared<pqxx::connection>(connection_str);
-    }
-  );
+std::unique_ptr<PgManager> PgMailDBTest::s_database_manager = nullptr;
 
 TEST_F(PgMailDBTest, SignUpTest)
 {
@@ -327,7 +326,10 @@ TEST_F(PgMailDBTest, CheckMultipleHosts)
   pg.SignUp("user2", "password");
   EXPECT_TRUE(pg.UserExists("user1"));
 
-  PgMailDB pg1("host1", *s_con_pool), pg2("host2", *s_con_pool);
+  PgManager manager1{CONNECTION_STRING1, "host1", false};
+  PgManager manager2{CONNECTION_STRING1, "host2", false};
+
+  PgMailDB pg1(manager1), pg2(manager2);
 
   EXPECT_FALSE(pg1.UserExists("user1"));
   EXPECT_FALSE(pg2.UserExists("user1"));

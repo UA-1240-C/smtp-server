@@ -46,18 +46,14 @@ class DatabaseFixture : public testing::Test
   
     static void SetUpTestCase()
     {
-        s_con_pool = std::make_shared<ConnectionPool<pqxx::connection>>(3, CONNECTION_STRING2, 
-        [] (const std::string& connection_str)
-        { 
-            return std::make_shared<pqxx::connection>(connection_str);
-        }
-  );
-        m_database = std::make_unique<ISXMailDB::PgMailDB>("host", *s_con_pool);
+        s_database_manager = std::make_unique<PgManager>(CONNECTION_STRING2, "host", false);
+        m_database = std::make_unique<ISXMailDB::PgMailDB>(*s_database_manager);
     }
 
   protected:
-      inline static std::unique_ptr<ISXMailDB::PgMailDB> m_database;
-      inline static std::shared_ptr<ConnectionPool<pqxx::connection>> s_con_pool;
+    inline static std::unique_ptr<ISXMailDB::PgMailDB> m_database;
+    inline static std::unique_ptr<PgManager> s_database_manager;
+
 };
 
 
