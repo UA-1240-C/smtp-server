@@ -143,47 +143,27 @@ void Logger::LogToConsole(const std::string& message, const LogLevel& log_level,
 
 void Logger::LogDebug(const std::string& message, const std::source_location& location)
 {
-	if (!s_thread_local_logger)
-	{
-		s_thread_local_logger = std::make_unique<Logger>();
-	}
-	s_thread_local_logger->LogToConsole(message, DEBUG, location);
+	Log<DEBUG>(message, location);
 }
 
 void Logger::LogTrace(const std::string& message, const std::source_location& location)
 {
-	if (!s_thread_local_logger)
-	{
-		s_thread_local_logger = std::make_unique<Logger>();
-	}
-	s_thread_local_logger->LogToConsole(message, TRACE, location);
+	Log<TRACE>(message, location);
 }
 
 void Logger::LogProd(const std::string& message, const std::source_location& location)
 {
-	if (!s_thread_local_logger)
-	{
-		s_thread_local_logger = std::make_unique<Logger>();
-	}
-	s_thread_local_logger->LogToConsole(message, PROD, location);
+	Log<PROD>(message, location);
 }
 
 void Logger::LogWarning(const std::string& message, const std::source_location& location)
 {
-	if (!s_thread_local_logger)
-	{
-		s_thread_local_logger = std::make_unique<Logger>();
-	}
-	s_thread_local_logger->LogToConsole(message, WARNING, location);
+	Log<WARNING>(message, location);
 }
 
 void Logger::LogError(const std::string& message, const std::source_location& location)
 {
-	if (!s_thread_local_logger)
-	{
-		s_thread_local_logger = std::make_unique<Logger>();
-	}
-	s_thread_local_logger->LogToConsole(message, ERR, location);
+	Log<ERR>(message, location);
 }
 
 Logger::~Logger()
