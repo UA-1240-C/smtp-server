@@ -11,7 +11,7 @@ ServerInitializer::ServerInitializer(boost::asio::io_context& io_context, boost:
     InitializeAcceptor();
     InitializeTimeout();
     InitializeThreadPool();
-    InitializeConnectionPool();
+    InitializeDatabaseManager();
     SignalHandler::SetupSignalHandlers();
 }
 
@@ -89,33 +89,25 @@ void ServerInitializer::InitializeThreadPool()
     Logger::LogDebug("Exiting ServerInitializer::InitializeThreadPool");
 }
 
-void ServerInitializer::InitializeConnectionPool()
+void ServerInitializer::InitializeDatabaseManager()
 {
-    Logger::LogDebug("Entering ServerInitializer::InitializeConnectionPool");
-
-    Logger::LogTrace("InitializeConnectionPool params: {pool_start_size: " + std::to_string(POOL_INITIAL_SIZE) + "}");
+    Logger::LogDebug("Entering ServerInitializer::InitializeDatabaseManager");
 
     try
     {
-        m_connection_pool = std::make_unique<ISXMailDB::ConnectionPool<pqxx::connection>>(
-            POOL_INITIAL_SIZE,
-            m_connection_string,
-            [] (const std::string& connection_str)
-            { 
-                return std::make_shared<pqxx::connection>(connection_str);
-            }
+        m_database_manager = std::make_unique<ISXMailDB::PgManager>(
+            CONNECTION_STRING,
+            "localhost",
+            false
         );
-
     }
     catch(const std::exception& e)
     {
-        Logger::LogError("Exception in InitializeConnectionPool: " + std::string(e.what()));
+        Logger::LogError("Exception in InitializeDatabaseManager: " + std::string(e.what()));
         throw;
     }
 
-
-    Logger::LogTrace("Connection pool initialized with " + std::to_string(POOL_INITIAL_SIZE) + " connections");
-    Logger::LogDebug("Exiting ServerInitializer::InitializeConnectionPool");
+    Logger::LogDebug("Exiting ServerInitializer::InitializeDatabaseManager");
 }
 
 void ServerInitializer::InitializeTimeout()
@@ -150,4 +142,6 @@ uint8_t ServerInitializer::get_log_level() const { return m_log_level; }
 tcp::acceptor& ServerInitializer::get_acceptor() const { return *m_acceptor; }
 
 ISXMailDB::ConnectionPool<pqxx::connection>& ISXSS::ServerInitializer::get_connection_pool() const { return *m_connection_pool;}
-}  // namespace ISXSS
+
+ISXMailDB::PgManager& ServerInitializer::get_database_manager() const { return *m_database_manager; }
+} // namespace ISXSS 

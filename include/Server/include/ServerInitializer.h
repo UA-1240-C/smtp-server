@@ -16,6 +16,7 @@
 #include "ThreadPool.h"
 #include "MailDB/PgMailDB.h"
 #include "MailDB/ConnectionPool.h"
+#include "MailDB/PgManager.h"
 
 using boost::asio::ip::tcp;
 using namespace ISXSignalHandler;
@@ -126,6 +127,13 @@ public:
      */
     [[nodiscard]] ISXMailDB::ConnectionPool<pqxx::connection>& get_connection_pool() const;
 
+    /**
+     * @brief Retrieves the manager of database.
+     *
+     * @return The PgManager.
+     */
+    [[nodiscard]] ISXMailDB::PgManager& get_database_manager() const;
+
 private:
     /**
      * @brief Initializes the logging system.
@@ -146,7 +154,7 @@ private:
      * @brief Initializes the connection pool to database.
      *
      */
-    void InitializeConnectionPool();
+    void InitializeDatabaseManager();
 
     /**
      * @brief Initializes the network acceptor.
@@ -180,9 +188,12 @@ private:
     std::chrono::seconds m_timeout_seconds; ///< The timeout duration for communication in seconds.
     uint8_t m_log_level; ///< The log level for the logging system.
 
+
+    std::unique_ptr<ISXMailDB::PgManager> m_database_manager; ///< Unique pointer to the database manager.
+
     std::unique_ptr<ISXMailDB::ConnectionPool<pqxx::connection>> m_connection_pool; ///< Unique pointer to the connection pool.
     const uint16_t POOL_INITIAL_SIZE = 10;  ///< Initial size of the connection pool
-    std::string m_connection_string =
+    const std::string CONNECTION_STRING =
         "postgresql://postgres.qotrdwfvknwbfrompcji:"
         "yUf73LWenSqd9Lt4@aws-0-eu-central-1.pooler."
         "supabase.com:6543/postgres?sslmode=require"; ;  ///< Data base connection string.
