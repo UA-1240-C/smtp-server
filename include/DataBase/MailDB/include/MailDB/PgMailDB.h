@@ -7,9 +7,13 @@
 #include "IMailDB.h"
 #include "ConnectionPool.h"
 #include "ConnectionPoolWrapper.h"
+#include "PgEmailsWriter.h"
+#include "PgManager.h"
+#include "EmailsInstance.h"
 
 namespace ISXMailDB
 {
+
 /**
  * @class PgMailDB
  * @brief Concrete implementation of the IMailDB interface using PostgreSQL as the database backend.
@@ -22,25 +26,11 @@ class PgMailDB : public IMailDB
 
 public:
     /**
-     * @brief Constructs a PgMailDB instance with the given host name and connection pool.
+     * @brief Constructs a PgMailDB.
      * 
-     * Constructor also inserts host with host_name in database if it doesn't exist 
-     * using InsertHost method
-     * 
-     * @param host_name The name of the host for the database connection.
-     * @param connection_pool reference to the connection pool.
-     * @throw MailException If the host name is empty.
+     * @param manager The class that stores data required for initialization.
      */
-    PgMailDB(const std::string_view host_name, ConnectionPool<pqxx::connection>& connection_pool);
-
-    /**
-     * @brief Copy constructor for PgMailDB.
-     * 
-     * Copies other PgMailDB host_name and refers to same connection pool
-     * 
-     * @param other The PgMailDB instance to copy.
-     */
-    PgMailDB(const PgMailDB&);
+    PgMailDB(PgManager& manager);
 
     /**
      * @brief Destructor for PgMailDB.
@@ -173,8 +163,11 @@ protected:
      */
     void CheckIfUserLoggedIn();
 
+    std::string m_host_name; ///< The host name associated with the database.
+    uint32_t m_host_id; ///< The host ID associated with the database.
 
     ConnectionPool<pqxx::connection>& m_connection_pool; ///< The connection pool of connections to the PostgreSQL database.
+    std::shared_ptr<PgEmailsWriter> m_email_writer; ///< The connection pool of connections to the PostgreSQL database
 };
 
 }

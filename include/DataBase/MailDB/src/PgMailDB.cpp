@@ -8,14 +8,13 @@ namespace ISXMailDB
 
 using PgConnection = ConnectionPoolWrapper<pqxx::connection>;
 
-PgMailDB::PgMailDB(std::string_view host_name, ConnectionPool<pqxx::connection>& connection_pool)
-    : IMailDB(host_name), m_connection_pool(connection_pool)
+PgMailDB::PgMailDB(PgManager& manager)
+    : m_connection_pool(manager.get_connection_pool()),
+      m_email_writer(manager.get_emails_writer()),
+      m_host_name(manager.get_host_name()),
+      m_host_id(manager.get_host_id())
 {
     InsertHost(m_host_name);
-}
-
-PgMailDB::PgMailDB(const PgMailDB& other) : IMailDB(other.m_host_name), m_connection_pool(other.m_connection_pool)
-{
 }
 
 PgMailDB::~PgMailDB()
@@ -195,34 +194,7 @@ std::vector<std::string> PgMailDB::RetrieveEmailContentInfo(const std::string_vi
 void PgMailDB::InsertEmail(const std::string_view receiver, const std::string_view subject, 
                            const std::string_view body)
 {
-    CheckIfUserLoggedIn();
-    PgConnection conn(m_connection_pool);
-
-    uint32_t sender_id, receiver_id, body_id;
-    {
-        try
-        {
-            {
-                pqxx::nontransaction nontransaction(*conn);
-                sender_id = m_user_id;
-                receiver_id = RetriveUserId(receiver, nontransaction);
-                body_id = InsertEmailContent(body, nontransaction);
-            }
-        }
-        catch (const std::exception& e)
-        {
-            throw MailException("Given value doesn't exist in database.");
-        }
-    }
-    
-    try {
-        pqxx::work transaction(*conn);
-        PerformEmailInsertion(sender_id, receiver_id, subject, body_id, transaction);
-        transaction.commit();
-    }
-    catch (const std::exception& e) {
-        throw MailException(e.what());
-    }
+    InsertEmail(std::vector<std::string_view>{receiver}, subject, body);
 }
 
 void PgMailDB::InsertEmail(const std::vector<std::string_view> receivers, const std::string_view subject, 
@@ -230,6 +202,11 @@ void PgMailDB::InsertEmail(const std::vector<std::string_view> receivers, const 
 {
     CheckIfUserLoggedIn();
     PgConnection conn(m_connection_pool);
+    // Current logged in user is the sender
+    EmailsInstance emails{{m_user_id, m_user_name},
+                          std::vector<std::string>(receivers.begin(), receivers.end()),
+                          std::string(subject),
+                          std::string(body)};
 
     uint32_t sender_id, body_id;
     std::vector<uint32_t> receivers_id;
@@ -240,7 +217,8 @@ void PgMailDB::InsertEmail(const std::vector<std::string_view> receivers, const 
                 pqxx::nontransaction nontransaction(*conn);
                 sender_id = m_user_id;
 
-                for (size_t i = 0; i < receivers.size(); i++) {
+                for (size_t i = 0; i < receivers.size(); i++)
+                {
                     receivers_id.emplace_back(RetriveUserId(receivers[i], nontransaction));
                 }
                 
