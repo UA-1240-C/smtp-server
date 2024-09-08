@@ -149,3 +149,11 @@ TEST_F(ConnPoolPqxxTest, AcquireTimeoutTest)
         m_con_pool->Release(conns[i]);
     }
 }
+
+TEST_F(ConnPoolPqxxTest, IncorrectConnectionString)
+{
+    EXPECT_THROW(
+    std::make_shared<ConnectionPool<pqxx::connection>>(3, "incorrect connection string", CreateConnection)
+    , std::exception
+    );
+} 
