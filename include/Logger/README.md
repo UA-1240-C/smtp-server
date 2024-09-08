@@ -88,7 +88,7 @@ Logger::Log<LogLevel::DEBUG>("This is a generic debug log.");
 
 The logger's behavior is determined by a configuration file, typically named config.txt or similar. The configuration file defines the severity filter and other settings. The following is an example configuration file:
 
-```json
+```xml
 	<logging>
 		<!--path to log file-->
 		<filename>"serverlog.txt"</filename>
