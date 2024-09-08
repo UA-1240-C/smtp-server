@@ -262,12 +262,6 @@ public:
 
 protected:
     /**
-     * @brief Inserts the host name into the database if does not exist.
-     * @param host_name The host name to insert.
-     */
-    virtual void InsertHost(const std::string_view host_name) = 0;
-
-    /**
      * @brief Hashes a password for secure storage.
      * @param password The password to hash.
      * @return The hashed password.

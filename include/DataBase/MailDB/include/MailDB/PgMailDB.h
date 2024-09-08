@@ -94,11 +94,6 @@ public:
 
 protected:
     /**
-     * @copydoc IMailDB::InsertHost
-     */ 
-    void InsertHost(const std::string_view host_name) override;
-
-    /**
      * @copydoc IMailDB::HashPassword
      */ 
     std::string HashPassword(const std::string& password) override;

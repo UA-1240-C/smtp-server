@@ -14,7 +14,6 @@ PgMailDB::PgMailDB(PgManager& manager)
       m_host_name(manager.get_host_name()),
       m_host_id(manager.get_host_id())
 {
-    InsertHost(m_host_name);
 }
 
 PgMailDB::~PgMailDB()
@@ -39,24 +38,6 @@ void PgMailDB::SignUp(const std::string_view user_name, const std::string_view p
     catch (const pqxx::unexpected_rows& e)
     {
         throw MailException("User already exists");
-    }
-    tx.commit();
-}
-
-void PgMailDB::InsertHost(const std::string_view host_name)
-{
-    PgConnection conn(m_connection_pool);
-    pqxx::work tx(*conn);
-    try
-    {
-        m_host_id = tx.query_value<uint32_t>("SELECT host_id FROM hosts WHERE host_name = " + tx.quote(m_host_name));
-    }
-    catch (pqxx::unexpected_rows& e)
-    {
-        pqxx::result host_id_result = tx.exec_params(
-            "INSERT INTO hosts (host_name) VALUES ( $1 ) RETURNING host_id", m_host_name);
-
-        m_host_id = host_id_result[0][0].as<uint32_t>();
     }
     tx.commit();
 }
