@@ -33,11 +33,6 @@ void ExecuteQueryFromFile(pqxx::work& tx, std::string filename)
 
     tx.exec(sql_commands);
     tx.commit();
-    int a = 5;
-    if (a == 8)
-    {
-      std::cout << "Hoh";
-    }
 }
 
 bool operator==(const std::vector<Mail>& lhs, const std::vector<Mail>& rhs)
@@ -109,6 +104,13 @@ protected:
     s_connection.close();
   }
 
+  void SetUp() override 
+  {
+	pqxx::work tx(s_connection);
+	ASSERT_NO_FATAL_FAILURE(
+		ExecuteQueryFromFile(tx, DB_INSERT_DUMMY_DATA_FILE)
+	);
+  }
   PgMailDBTest() : pg(*s_database_manager) {}
   ~PgMailDBTest() = default;
 
@@ -235,7 +237,6 @@ TEST_F(PgMailDBTest, SignUpWithLoginTest)
   }
 }
 
-
 TEST_F(PgMailDBTest, MarkEmailsAsReceived)
 {
   EXPECT_THROW(pg.MarkEmailsAsReceived(), MailException);
@@ -285,17 +286,10 @@ TEST_F(PgMailDBTest, RetrieveEmailsTest)
   EXPECT_TRUE(expected_result==result);
 }
 
-
 TEST_F(PgMailDBTest, CheckUserExists)
 {
-  EXPECT_FALSE(pg.UserExists("user1"));
-  EXPECT_FALSE(pg.UserExists("user2"));
-
-  pqxx::work tx(s_connection);
-  
-  ASSERT_NO_FATAL_FAILURE(
-    ExecuteQueryFromFile(tx, DB_INSERT_DUMMY_DATA_FILE)
-  );
+  EXPECT_FALSE(pg.UserExists("non-existing-user1"));
+  EXPECT_FALSE(pg.UserExists("non-existing-user2"));
 
   EXPECT_TRUE(pg.UserExists("user1"));
   EXPECT_TRUE(pg.UserExists("user2"));
@@ -306,41 +300,41 @@ TEST_F(PgMailDBTest, CheckUserExists)
 
 TEST_F(PgMailDBTest, CheckUserExistsWithSignUp)
 {
-  EXPECT_FALSE(pg.UserExists("user1"));
-  EXPECT_FALSE(pg.UserExists("user2"));
+  EXPECT_FALSE(pg.UserExists("fake user1"));
+  EXPECT_FALSE(pg.UserExists("fake user2"));
 
-  pg.SignUp("user1", "password");
-  pg.SignUp("user2", "password");
-  pg.SignUp("user3", "password");
+  pg.SignUp("test_user1", "password");
+  pg.SignUp("test_user2", "password");
+  pg.SignUp("test_user3", "password");
 
-  EXPECT_TRUE(pg.UserExists("user1"));
-  EXPECT_TRUE(pg.UserExists("user2"));
-  EXPECT_TRUE(pg.UserExists("user3"));
+  EXPECT_TRUE(pg.UserExists("test_user1"));
+  EXPECT_TRUE(pg.UserExists("test_user2"));
+  EXPECT_TRUE(pg.UserExists("test_user3"));
 
   EXPECT_FALSE(pg.UserExists("user4"));
 }
 
 TEST_F(PgMailDBTest, CheckMultipleHosts)
 {
-  pg.SignUp("user1", "password");
-  pg.SignUp("user2", "password");
+  pg.SignUp("test_user1", "password");
+  pg.SignUp("test_user2", "password");
   EXPECT_TRUE(pg.UserExists("user1"));
 
-  PgManager manager1{CONNECTION_STRING1, "host1", false};
-  PgManager manager2{CONNECTION_STRING1, "host2", false};
+  PgManager manager1{CONNECTION_STRING1, "testhost1", false};
+  PgManager manager2{CONNECTION_STRING1, "testhost2", false};
 
   PgMailDB pg1(manager1), pg2(manager2);
 
-  EXPECT_FALSE(pg1.UserExists("user1"));
-  EXPECT_FALSE(pg2.UserExists("user1"));
+  EXPECT_FALSE(pg1.UserExists("test_user1"));
+  EXPECT_FALSE(pg2.UserExists("test_user1"));
 
-  pg1.SignUp("user1", "password");
-  pg2.SignUp("user1", "password");
+  pg1.SignUp("test_user1", "password");
+  pg2.SignUp("test_user1", "password");
 
-  EXPECT_TRUE(pg1.UserExists("user1"));
-  EXPECT_TRUE(pg2.UserExists("user1"));
+  EXPECT_TRUE(pg1.UserExists("test_user1"));
+  EXPECT_TRUE(pg2.UserExists("test_user1"));
 
-  EXPECT_FALSE(pg1.UserExists("user2"));
-  EXPECT_FALSE(pg2.UserExists("user2"));
+  EXPECT_FALSE(pg1.UserExists("test_user2"));
+  EXPECT_FALSE(pg2.UserExists("test_user2"));
 
 }
