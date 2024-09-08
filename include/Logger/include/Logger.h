@@ -84,15 +84,20 @@ struct Colors
 	static const std::string RESET; // Reset for clean overall look.
 };
 
-
 /**
- * Global severity logger instance for multithreaded logging.
- * This logger uses the specified LogLevel for filtering log messages.
+ * @brief Global severity logger instance for multithreaded logging. This logger uses the specified LogLevel for filtering log messages.
  *
  * @note This instance is thread-safe due to `src::severity_logger_mt`.
  */
 inline src::severity_logger_mt<LogLevel> g_slg;
 
+/**
+ * @brief Logs a message to the system log with the specified log level.
+ *
+ * @param message The message to be logged to the syslog.
+ * @param log_level The severity level of the log, represented by the LogLevel enum.
+ * @param location The source location where the log was invoked. Defaults to the current location.
+ */
 void Syslog(const std::string& message, const LogLevel& log_level, const std::source_location& location);
 
 /**
@@ -115,9 +120,9 @@ class Logger
 	static thread_local std::unique_ptr<Logger> s_thread_local_logger; // Thread-local logger instance
 
 public:
-	Logger() = default;
-	Logger(const Logger&) = delete;
-	Logger& operator=(const Logger&) = delete;
+	Logger() = default; // Default constructor for the Logger class
+	Logger(const Logger&) = delete; // Deleted copy constructor
+	Logger& operator=(const Logger&) = delete; // Deleted assignment operator
 
 	/**
 	* @brief Destructor for the Logger class.
@@ -180,7 +185,7 @@ public:
 	 * @brief Set sink formatter for the logger.
 	 *
 	 * Sets the formatter for the sink as following:
-	 * Thread ID - dd/mm/yyyy hh:mm:ss:mmm [LogLevel] � [Function/Method name] Log message.
+	 * Thread ID - dd/mm/yyyy hh:mm:ss:mmm [LogLevel] - [Function/Method name] Log message.
 	 */
 	static void set_sink_formatter();
 
@@ -193,7 +198,7 @@ public:
 	/**
 	 * @brief Resets the logger.
 	 *
-	 * Waits for all the ongoing logs to end, then removes all the sinks and resets the logger.
+	 * Performs flushing to ensure that all logs are written, then removes all the sinks and resets the logger.
 	 */
 	static void Reset();
 
@@ -207,11 +212,22 @@ public:
 	 *
 	 * @param message User-defined message to log
 	 * @param log_level Log level of the message, one from LogLevel enum
+	 * @param location The source location where the log was invoked. Defaults to the current location.
 	 */
 	static void LogToConsole(const std::string& message, const LogLevel& log_level,
 							const std::source_location& location = std::source_location::current());
 
-
+	/**
+	 * @brief Logs a message with the specified log level, both to the console and the system log.
+	 *
+	 * This template function logs a message to the console and the syslog. It automatically associates the message
+	 * with the provided log level and captures the location in the source code where the log was invoked.
+	 * A thread-local instance of the logger is created if it does not already exist.
+	 *
+	 * @tparam log_level The severity level of the log, specified as a LogLevel enum.
+	 * @param message The message to be logged.
+	 * @param location The source location where the log was invoked. Defaults to the current location.
+	 */
 	template <LogLevel log_level>
 	static void Log(const std::string& message, const std::source_location& location = std::source_location::current())
 	{
@@ -226,6 +242,7 @@ public:
 	/**
 	 * @brief Logs the message with the DEBUG log level.
 	 * @param message User-defined message to log
+	 * @param location The source location where the log was invoked. Defaults to the current location.
 	 */
 	static void LogDebug(const std::string& message, const std::source_location& location =
 							std::source_location::current());
@@ -233,6 +250,7 @@ public:
 	/**
 	 * @brief Logs the message with the TRACE log level.
 	 * @param message User-defined message to log
+	 * @param location The source location where the log was invoked. Defaults to the current location.
 	 */
 	static void LogTrace(const std::string& message, const std::source_location& location =
 							std::source_location::current());
@@ -240,6 +258,7 @@ public:
 	/**
 	* @brief Logs the message with the PRODUCTION log level.
 	* @param message User-defined message to log
+	* @param location The source location where the log was invoked. Defaults to the current location.
 	*/
 	static void LogProd(const std::string& message, const std::source_location& location =
 							std::source_location::current());
@@ -247,6 +266,7 @@ public:
 	/**
 	* @brief Logs the message with the WARNING log level.
 	* @param message User-defined message to log
+	* @param location The source location where the log was invoked. Defaults to the current location.
 	*/
 	static void LogWarning(const std::string& message, const std::source_location& location =
 								std::source_location::current());
@@ -254,6 +274,7 @@ public:
 	/**
 	* @brief Logs the message with the ERROR log level.
 	* @param message User-defined message to log
+	* @param location The source location where the log was invoked. Defaults to the current location.
 	*/
 	static void LogError(const std::string& message, const std::source_location& location =
 							std::source_location::current());
@@ -265,67 +286,75 @@ public:
 
 inline void Syslog(const std::string& message, const LogLevel& log_level, const std::source_location& location)
 {
-	LPCTSTR lpszStrings[2];
-	DWORD eventType = EVENTLOG_INFORMATION_TYPE;
+	DWORD event_type = EVENTLOG_INFORMATION_TYPE;
+
+	// Set the event type based on the log level
 	switch (log_level)
 	{
 	case TRACE:
 	case DEBUG:
-		eventType = EVENTLOG_INFORMATION_TYPE;
+		event_type = EVENTLOG_INFORMATION_TYPE;
 		break;
 	case PROD:
 	case WARNING:
-		eventType = EVENTLOG_WARNING_TYPE;
+		event_type = EVENTLOG_WARNING_TYPE;
 		break;
 	case ERR:
-		eventType = EVENTLOG_ERROR_TYPE;
+		event_type = EVENTLOG_ERROR_TYPE;
 		break;
 	default:
-		eventType = EVENTLOG_INFORMATION_TYPE;
+		event_type = EVENTLOG_INFORMATION_TYPE;
 		break;
 	}
 
-	const HANDLE hEventSource = RegisterEventSource(nullptr, TEXT("Logger"));
-	if (hEventSource != nullptr)
+	const HANDLE event_source = RegisterEventSource(nullptr, TEXT("Logger"));
+	if (event_source != nullptr)
 	{
-		lpszStrings[0] = Logger::SeverityToOutput().c_str();
-		lpszStrings[1] = message.c_str();
-		ReportEvent(hEventSource, // Event log handle
-					eventType, // Event type
+		LPCTSTR lpsz_strings[2];
+		lpsz_strings[0] = Logger::SeverityToOutput().c_str();
+		lpsz_strings[1] = message.c_str();
+		ReportEvent(event_source, // Event log handle
+					event_type, // Event type
 					0, // Event category
 					0, // Event identifier
 					nullptr, // No security identifier
-					2, // Size of lpszStrings array
+					2, // Size of lpsz_strings array
 					0, // No binary data
-					lpszStrings, // Array of strings
+					lpsz_strings, // Array of strings
 					nullptr); // No binary data
-		DeregisterEventSource(hEventSource);
+		DeregisterEventSource(event_source);
 	}
 }
 #else
 #include <syslog.h>
 inline void Syslog(const std::string &message, const LogLevel &log_level, const std::source_location &location)
 {
+	// Open the syslog
 	openlog("Logger", LOG_PID, LOG_USER);
-	const uint8_t log_level_int = static_cast<uint8_t>(log_level);
-	switch (log_level_int)
+	const uint8_t syslog_level = static_cast<uint8_t>(log_level);
+
+	// Set the syslog level based on the log level
+	switch (syslog_level)
 	{
 	case LogLevel::TRACE:
-		log_level_int = LOG_INFO
+		syslog_level = LOG_INFO
 			break;
 	case LogLevel::DEBUG:
-		log_level_int = LOG_DEBUG;
+		syslog_level = LOG_DEBUG;
 		break;
 	case LogLevel::PROD:
 	case LogLevel::WARNING:
 	case LogLevel::ERR:
-		log_level_int = LOG_ERR;
+		syslog_level = LOG_ERR;
 		break;
 	default:
-		log_level_int = LOG_INFO;
+		syslog_level = LOG_INFO;
 		break;
 	}
-	syslog(log_level_int, "[ %s ] - [ %s ] %s",
+
+	// Log the message to the syslog using following formatting:
+	// [LogLevel] - [Function/Method name] Log message
+	syslog(syslog_level, "[ %s ] - [ %s ] %s",
 		Logger::SeverityToOutput().c_str(),
 		location.function_name(),
 		message.c_str()
