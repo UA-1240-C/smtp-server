@@ -73,28 +73,22 @@ class IMailDB
 {
 public:
     /**
-     * @brief Constructs an IMailDB object with the given host name.
-     * @param host_name The host name associated with the mail database.
-     * @throw MailException If the host name is empty.
+     * @brief Constructs an IMailDB object.
      */
-    IMailDB(const std::string_view host_name) : m_user_name(), m_user_id(0)
+    IMailDB() : m_user_id(0)
     {
-        if (host_name.empty())
-        {
-            throw MailException("Host name couldn't be empty"); // change
-        }
-        m_host_name = host_name;
     }
+
+    /**
+     * @brief Copy constructor is deletd.
+     */
+    IMailDB(const IMailDB&) = delete;
+
     /**
      * @brief Virtual destructor.
      */
     virtual ~IMailDB() = default;
 
-    /**
-    * @brief Copy constructor.
-    * Constructs an IMailDB object with the other.m_host_name host name.
-    */
-    IMailDB(const IMailDB&);
     /**
      * @brief Deleted copy assignment operator.
      */
@@ -287,9 +281,6 @@ protected:
      * @return True if the password matches the hashed password, otherwise false.
      */
     virtual bool VerifyPassword(const std::string& password, const std::string& hashed_password) = 0;
-
-    std::string m_host_name; ///< The host name associated with the database.
-    uint32_t m_host_id; ///< The host ID associated with the database.
 
     std::string m_user_name; ///< The name of current logged in user.
     uint32_t m_user_id; ///< The ID of current logged in user.
