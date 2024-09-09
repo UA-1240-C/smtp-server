@@ -4,6 +4,7 @@
 #include "DatabaseFixture.h"
 #include "PgMailDBTest.h"
 #include "ConnPoolPqxxTest.h"
+#include "CacheTest.h"
 
 #include "MailDB/ConnectionPool.h"
 
