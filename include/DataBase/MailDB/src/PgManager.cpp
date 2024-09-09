@@ -29,6 +29,7 @@ void PgManager::InitEmaisWriter()
         }
         m_emails_writer = std::make_shared<PgEmailsWriter>(
             CONNECTION_STRING,
+            m_host_id,
             MAX_WRITER_QUEUE_SIZE, 
             WRITER_TIMEOUT
         );
