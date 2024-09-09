@@ -158,8 +158,8 @@ protected:
      */
     void CheckIfUserLoggedIn();
 
-    std::string m_host_name; ///< The host name associated with the database.
-    uint32_t m_host_id; ///< The host ID associated with the database.
+    const std::string HOST_NAME; ///< The host name associated with the database.
+    const uint32_t HOST_ID; ///< The host ID associated with the database.
 
     ConnectionPool<pqxx::connection>& m_connection_pool; ///< The connection pool of connections to the PostgreSQL database.
     std::shared_ptr<PgEmailsWriter> m_email_writer; ///< The connection pool of connections to the PostgreSQL database

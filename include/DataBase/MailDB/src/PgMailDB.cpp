@@ -1,4 +1,5 @@
 #include <memory>
+#include <iostream>
 
 #include "MailException.h"
 #include "PgMailDB.h"
@@ -11,8 +12,8 @@ using PgConnection = ConnectionPoolWrapper<pqxx::connection>;
 PgMailDB::PgMailDB(PgManager& manager)
     : m_connection_pool(manager.get_connection_pool()),
       m_email_writer(manager.get_emails_writer()),
-      m_host_name(manager.get_host_name()),
-      m_host_id(manager.get_host_id())
+      HOST_NAME(manager.get_host_name()),
+      HOST_ID(manager.get_host_id())
 {
 }
 
@@ -26,14 +27,14 @@ void PgMailDB::SignUp(const std::string_view user_name, const std::string_view p
     pqxx::work tx(*conn);
     try
     {
-        tx.exec_params0("SELECT 1 FROM users WHERE host_id = $1 AND user_name = $2", m_host_id, user_name);
+        tx.exec_params0("SELECT 1 FROM users WHERE host_id = $1 AND user_name = $2", HOST_ID, user_name);
 
         std::string hashed_password = HashPassword(std::string(password));
 
         tx.exec_params(
             "INSERT INTO users (host_id, user_name, password_hash)"
             "VALUES ($1, $2, $3)",
-            m_host_id, user_name, hashed_password);
+            HOST_ID, user_name, hashed_password);
     }
     catch (const pqxx::unexpected_rows& e)
     {
@@ -73,7 +74,7 @@ void PgMailDB::Login(const std::string_view user_name, const std::string_view pa
         auto [hashed_password, user_id] = ntx.query1<std::string, uint32_t>
         ("SELECT password_hash, user_id FROM users "
             "WHERE user_name = " + ntx.quote(user_name) 
-            +  " AND host_id = " + ntx.quote(m_host_id)
+            +  " AND host_id = " + ntx.quote(HOST_ID)
             );
         
         if (!VerifyPassword(std::string(password), hashed_password))
@@ -182,13 +183,19 @@ void PgMailDB::InsertEmail(const std::vector<std::string_view> receivers, const 
                            const std::string_view body)
 {
     CheckIfUserLoggedIn();
-    PgConnection conn(m_connection_pool);
-    // Current logged in user is the sender
-    EmailsInstance emails{{m_user_id, m_user_name},
-                          std::vector<std::string>(receivers.begin(), receivers.end()),
-                          std::string(subject),
-                          std::string(body)};
+    if(m_email_writer)
+    {
+        // Current logged in user is the sender
+        EmailsInstance emails{{m_user_id, m_user_name},
+            std::vector<std::string>(receivers.begin(), receivers.end()),
+            std::string(subject),
+            std::string(body)
+        };
+        m_email_writer->AddEmails(std::move(emails));
+        return;
+    }
 
+    PgConnection conn(m_connection_pool);
     uint32_t sender_id, body_id;
     std::vector<uint32_t> receivers_id;
     {
@@ -279,7 +286,7 @@ bool PgMailDB::UserExists(const std::string_view user_name)
     pqxx::nontransaction ntx(*conn);
     try 
     {
-        ntx.exec_params1("SELECT 1 FROM users WHERE host_id = $1 AND user_name = $2", m_host_id, user_name);
+        ntx.exec_params1("SELECT 1 FROM users WHERE host_id = $1 AND user_name = $2", HOST_ID, user_name);
         return true;
     }
     catch(pqxx::unexpected_rows &e)
@@ -339,13 +346,13 @@ void PgMailDB::DeleteUser(const std::string_view user_name, const std::string_vi
 
         std::string hashed_password = transaction.query_value<std::string>("SELECT password_hash FROM users "
             "WHERE user_name = " + transaction.quote(user_name) 
-            +  " AND host_id = " + transaction.quote(m_host_id)
+            +  " AND host_id = " + transaction.quote(HOST_ID)
             );
 
         transaction.exec_params(
             "DELETE FROM users "
             "WHERE user_name = $1 AND password_hash = $2 AND host_id = $3"
-            , transaction.esc(user_name), transaction.esc(hashed_password), m_host_id
+            , transaction.esc(user_name), transaction.esc(hashed_password), HOST_ID
         );
         transaction.commit();
     }
@@ -377,7 +384,7 @@ uint32_t PgMailDB::RetriveUserId(const std::string_view user_name, pqxx::transac
     try
     {
         return ntx.query_value<uint32_t>("SELECT user_id FROM users WHERE user_name = " + ntx.quote(user_name) 
-                                         + "  AND host_id = " + ntx.quote(m_host_id));
+                                         + "  AND host_id = " + ntx.quote(HOST_ID));
     }
     catch (pqxx::unexpected_rows &e)
     {
