@@ -23,7 +23,7 @@ PgMailDB::~PgMailDB()
 
 void PgMailDB::SignUp(const std::string_view user_name, const std::string_view password)
 {
-    PgConnection conn(m_connection_pool);
+    PgConnection conn(*m_connection_pool);
     pqxx::work tx(*conn);
     try
     {
@@ -67,7 +67,7 @@ bool PgMailDB::VerifyPassword(const std::string& password, const std::string& ha
 
 void PgMailDB::Login(const std::string_view user_name, const std::string_view password)
 {
-    PgConnection conn(m_connection_pool);
+    PgConnection conn(*m_connection_pool);
     pqxx::nontransaction ntx(*conn);
     try
     {
@@ -99,7 +99,7 @@ void PgMailDB::Logout()
 
 std::vector<User> PgMailDB::RetrieveUserInfo(const std::string_view user_name)
     {
-        PgConnection conn(m_connection_pool);
+        PgConnection conn(*m_connection_pool);
 
         pqxx::nontransaction nontransaction(*conn);
         pqxx::result user_query_result;
@@ -139,7 +139,7 @@ std::vector<User> PgMailDB::RetrieveUserInfo(const std::string_view user_name)
 
 std::vector<std::string> PgMailDB::RetrieveEmailContentInfo(const std::string_view content)
 {
-    PgConnection conn(m_connection_pool);
+    PgConnection conn(*m_connection_pool);
 
     pqxx::nontransaction nontransaction(*conn);
     pqxx::result content_query_result;
@@ -195,7 +195,7 @@ void PgMailDB::InsertEmail(const std::vector<std::string_view> receivers, const 
         return;
     }
 
-    PgConnection conn(m_connection_pool);
+    PgConnection conn(*m_connection_pool);
     uint32_t sender_id, body_id;
     std::vector<uint32_t> receivers_id;
     {
@@ -235,7 +235,7 @@ std::vector<Mail> PgMailDB::RetrieveEmails(bool should_retrieve_all)
 {
     CheckIfUserLoggedIn();
 
-    PgConnection conn(m_connection_pool);
+    PgConnection conn(*m_connection_pool);
     pqxx::nontransaction ntx(*conn);
 
     // Retrieves email details for the current user, optionally filtering for unread emails, and orders them by sent time.
@@ -267,7 +267,7 @@ void PgMailDB::MarkEmailsAsReceived()
 {
     CheckIfUserLoggedIn();
 
-    PgConnection conn(m_connection_pool);
+    PgConnection conn(*m_connection_pool);
     pqxx::work tx(*conn);
 
     tx.exec_params(
@@ -282,7 +282,7 @@ void PgMailDB::MarkEmailsAsReceived()
 
 bool PgMailDB::UserExists(const std::string_view user_name)
 {
-    PgConnection conn(m_connection_pool);
+    PgConnection conn(*m_connection_pool);
     pqxx::nontransaction ntx(*conn);
     try 
     {
@@ -297,7 +297,7 @@ bool PgMailDB::UserExists(const std::string_view user_name)
 
 void PgMailDB::DeleteEmail(const std::string_view user_name)
 {
-    PgConnection conn(m_connection_pool);
+    PgConnection conn(*m_connection_pool);
 
     uint32_t user_info;
     {
@@ -329,7 +329,7 @@ void PgMailDB::DeleteEmail(const std::string_view user_name)
 
 void PgMailDB::DeleteUser(const std::string_view user_name, const std::string_view password)
 {
-    PgConnection conn(m_connection_pool);
+    PgConnection conn(*m_connection_pool);
     
     try 
     {

@@ -45,7 +45,7 @@ void PgManager::InitConnectionPool()
 {
     try
     {
-        m_connection_pool = std::make_unique<ISXMailDB::ConnectionPool<pqxx::connection>>(
+        m_connection_pool = std::make_shared<ISXMailDB::ConnectionPool<pqxx::connection>>(
             POOL_INITIAL_SIZE,
             CONNECTION_STRING,
             [] (const std::string& connection_str)

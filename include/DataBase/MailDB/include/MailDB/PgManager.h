@@ -13,7 +13,7 @@ class PgManager
 public:
     PgManager(const std::string_view connection_string, const std::string_view host_name, bool should_cache_emails);
 
-    ConnectionPool<pqxx::connection>& get_connection_pool() { return *m_connection_pool; }
+    std::shared_ptr<ConnectionPool<pqxx::connection>> get_connection_pool() { return m_connection_pool; }
     std::shared_ptr<PgEmailsWriter> get_emails_writer () {return m_emails_writer; }
 
     std::string get_host_name() const { return HOST_NAME; }
@@ -39,7 +39,7 @@ private:
     const std::chrono::milliseconds WRITER_TIMEOUT{1000};
 
     const std::string CONNECTION_STRING;
-    std::unique_ptr<ConnectionPool<pqxx::connection>> m_connection_pool;
+    std::shared_ptr<ConnectionPool<pqxx::connection>> m_connection_pool;
     const uint16_t POOL_INITIAL_SIZE = 10;
     
     const std::string HOST_NAME;

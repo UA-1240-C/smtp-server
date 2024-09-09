@@ -161,8 +161,8 @@ protected:
     const std::string HOST_NAME; ///< The host name associated with the database.
     const uint32_t HOST_ID; ///< The host ID associated with the database.
 
-    ConnectionPool<pqxx::connection>& m_connection_pool; ///< The connection pool of connections to the PostgreSQL database.
-    std::shared_ptr<PgEmailsWriter> m_email_writer; ///< The connection pool of connections to the PostgreSQL database
+    std::shared_ptr<ConnectionPool<pqxx::connection>> m_connection_pool; ///< The connection pool of connections to the PostgreSQL database.
+    std::shared_ptr<PgEmailsWriter> m_email_writer; ///< The object that is responsible for caching emails
 };
 
 }
