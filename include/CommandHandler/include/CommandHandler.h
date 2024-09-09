@@ -256,8 +256,11 @@ private:
      * @see SaveMailToDatabase(const MailMessage& message)
      */
     void HandleEndOfData(SocketWrapper& socket_wrapper);
+   void SendMail(const MailMessage& message, const std::string& oauth2_token);
+   std::string ReadSmtpResponse(boost::asio::ip::tcp::socket& socket);
+   std::string ReadSmtpResponse(boost::asio::ssl::stream<boost::asio::ip::tcp::socket>& ssl_socket);
 
-    /**
+   /**
      * @brief Handles the QUIT command.
      *
      * The QUIT command send the request to terminate the SMTP session. Once
@@ -346,8 +349,8 @@ private:
      */
     void DisconnectFromDatabase() const;
 
- void SendMail(const MailMessage& message);
- void ForwardToClientMailServer(const std::string& server, int port, const std::string& message);
+ //void SendMail(const MailMessage& message);
+ //void ForwardToClientMailServer(const std::string& server, int port, const std::string& message);
 
 private:
     boost::asio::io_context& m_io_context;     ///< Reference to the IO context for async operations handling.

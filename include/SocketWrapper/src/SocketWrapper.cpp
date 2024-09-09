@@ -31,6 +31,11 @@ SocketWrapper::SocketWrapper(SslSocketPtr ssl_socket)
     return m_is_tls;
 }
 
+std::variant<TcpSocketPtr, SslSocketPtr> SocketWrapper::GetSocket() const
+{
+    return m_socket;
+}
+
 std::future<void> SocketWrapper::Connect(const std::string& host, unsigned short port)
 {
     Logger::LogDebug("Entering SocketWrapper::Connect");
@@ -41,28 +46,38 @@ std::future<void> SocketWrapper::Connect(const std::string& host, unsigned short
 
     if (auto* tcp_socket = std::get_if<TcpSocketPtr>(&m_socket))
     {
-        // auto& io_context = static_cast<boost::asio::io_context&>((*tcp_socket)->get_executor().context());
-        auto resolver = std::make_shared<boost::asio::ip::tcp::resolver>((*tcp_socket)->get_executor());
-        auto endpoints = resolver->resolve(host, std::to_string(port));
+        auto executor = (*tcp_socket)->get_executor();
+        auto resolver = std::make_shared<boost::asio::ip::tcp::resolver>(executor);
 
-        async_connect(**tcp_socket, endpoints,
-            [promise](const boost::system::error_code& error, const boost::asio::ip::tcp::endpoint&) {
+        resolver->async_resolve(host, std::to_string(port),
+            [tcp_socket, promise](const boost::system::error_code& error, boost::asio::ip::tcp::resolver::results_type endpoints) {
                 if (error)
                 {
-                    Logger::LogError("Error in async_connect: " + error.message());
+                    Logger::LogDebug("Error in resolve: " + error.message());
                     promise->set_exception(std::make_exception_ptr(std::runtime_error(error.message())));
+                    return;
                 }
-                else
-                {
-                    Logger::LogProd("Connected successfully.");
-                    promise->set_value();
-                }
+
+                Logger::LogDebug("Resolved endpoints. Starting async_connect.");
+                async_connect(**tcp_socket, endpoints,
+                    [promise](const boost::system::error_code& error, const boost::asio::ip::tcp::endpoint&) {
+                        if (error)
+                        {
+                            Logger::LogDebug("Error in async_connect: " + error.message());
+                            promise->set_exception(std::make_exception_ptr(std::runtime_error(error.message())));
+                        }
+                        else
+                        {
+                            Logger::LogDebug("Connected successfully.");
+                            promise->set_value();
+                        }
+                    });
             });
     }
     else
     {
         const std::string error_message = "No valid TCP socket available for connection.";
-        Logger::LogError(error_message);
+        Logger::LogDebug(error_message);
         promise->set_exception(std::make_exception_ptr(std::runtime_error(error_message)));
     }
 

@@ -49,6 +49,7 @@ public:
      * @return True if the socket is an SSL/TLS socket, false otherwise.
      */
     [[nodiscard]] bool IsTls() const;
+    std::variant<TcpSocketPtr, SslSocketPtr> GetSocket() const;
 
     /**
      * @brief Sets the socket for the `SocketWrapper` and determines if it is an SSL socket.

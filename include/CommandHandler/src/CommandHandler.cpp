@@ -479,7 +479,7 @@ void CommandHandler::ProcessDataMessage(SocketWrapper& socket_wrapper, std::stri
     }
     Logger::LogDebug("Exiting CommandHandler::ProcessDataMessage");
 }
-
+/*
 void CommandHandler::ForwardToClientMailServer(const std::string& server, int port, const std::string& message) {
     try {
         /* i used a local variable io_context for the first test and methods ReadFromSocketAsync/SendResponseAsync
@@ -487,11 +487,17 @@ void CommandHandler::ForwardToClientMailServer(const std::string& server, int po
          * the unencrypted connection). After I added a field m_io_context to the CommandHandler this problem gone
          * but all the notes from google server about incorrectness of the commands also gone. Problems with connection
          * didn't arised
-         */
+
         auto new_socket = std::make_shared<TcpSocket>(m_io_context);
+
+        Logger::LogDebug(m_io_context.stopped() ? "stopped" : "running");
         SocketWrapper socket_wrapper(new_socket);
 
         auto connect_future = socket_wrapper.Connect(server, port);
+        if (!socket_wrapper.IsOpen())
+        {
+            Logger::LogDebug("Isn't open");
+        }
         //auto encrypt_future = socket_wrapper.PerformTlsHandshake(m_ssl_context, boost::asio::ssl::stream_base::client);
 
         std::string helo_command = "HELO example.com\r\n";
@@ -527,13 +533,13 @@ void CommandHandler::SendMail(const MailMessage& message) {
 
     if (!mx_records.empty()) {
         std::string mail_message = "Subject: " + message.subject + "\r\n\r\n" + message.body;
-        ForwardToClientMailServer(mx_records[0].host, 25, mail_message);
+        ForwardToClientMailServer("smtp.gmail.com", 465, mail_message);
     } else {
         std::cerr << "No MX records found for domain: " << domain << std::endl;
     }
 }
 
-/*
+
 // to many MX-records
 void CommandHandler::SendMail(const MailMessage& message) {
     MXResolver mx_resolver;
@@ -581,7 +587,8 @@ void CommandHandler::HandleEndOfData(SocketWrapper& socket_wrapper) {
             SaveMailToDatabase(message);
             Logger::LogProd("Mail message saved successfully.");
 
-            SendMail(message);
+            auto str = "user=egorchampion235@gmail.com\x01auth=Bearer 4/0AQlEd8zqIPgYjGPlm8Lw4kj6o7UigzDWY5chkVSR9MsAXI0Gib42-VZYdQi2gJNvtQc8eg\x01\x01";
+            SendMail(message, str);
             Logger::LogProd("Mail message sent successfully.");
         }
     }
@@ -594,6 +601,102 @@ void CommandHandler::HandleEndOfData(SocketWrapper& socket_wrapper) {
     Logger::LogProd("MailBuilder reset after handling end of data.");
 
     Logger::LogDebug("Exiting CommandHandler::HandleEndOfData");
+}
+
+void CommandHandler::SendMail(const MailMessage& message, const std::string& oauth2_token) {
+    Logger::LogDebug("Entering CommandHandler::SendMail");
+
+    try {
+        boost::asio::io_context io_context;
+        boost::asio::ip::tcp::resolver resolver(io_context);
+        boost::asio::ip::tcp::resolver::results_type endpoints = resolver.resolve("smtp.gmail.com", "587");
+        boost::asio::ip::tcp::socket socket(io_context);
+        boost::asio::connect(socket, endpoints);
+        Logger::LogProd("Connected to smtp.gmail.com on port 587");
+
+        std::string response = ReadSmtpResponse(socket);
+        std::cout << "Server response: " << response << std::endl;
+
+        std::string helo_command = "HELO example.com\r\n";
+        boost::asio::write(socket, boost::asio::buffer(helo_command));
+        response = ReadSmtpResponse(socket);
+        std::cout << "Server response: " << response << std::endl;
+
+        std::string starttls_command = "STARTTLS\r\n";
+        boost::asio::write(socket, boost::asio::buffer(starttls_command));
+        response = ReadSmtpResponse(socket);
+        std::cout << "Server response: " << response << std::endl;
+
+        boost::asio::ssl::context ctx(boost::asio::ssl::context::tlsv12_client);
+        ctx.set_default_verify_paths();
+        boost::asio::ssl::stream<boost::asio::ip::tcp::socket> ssl_socket(io_context, ctx);
+        ssl_socket.lowest_layer() = std::move(socket);
+        ssl_socket.handshake(boost::asio::ssl::stream_base::client);
+        Logger::LogProd("TLS handshake completed");
+
+        std::string auth_command = "AUTH XOAUTH2 " + Base64Encode(oauth2_token) + "\r\n";
+        boost::asio::write(ssl_socket, boost::asio::buffer(auth_command));
+        response = ReadSmtpResponse(ssl_socket);
+        std::cout << "Server response: " << response << std::endl;
+/*
+        std::string auth_token = Base64Encode(oauth2_token) + "\r\n";
+        boost::asio::write(ssl_socket, boost::asio::buffer(auth_token));
+        response = ReadSmtpResponse(ssl_socket);
+        std::cout << "Server response: " << response << std::endl;
+*/
+        if (response.substr(0, 3) == "235") {  // 235 = Authentication successful
+            std::string mail_from = "MAIL FROM:<" + message.from.get_address() + ">\r\n";
+            boost::asio::write(ssl_socket, boost::asio::buffer(mail_from));
+            response = ReadSmtpResponse(ssl_socket);
+            std::cout << "Server response: " << response << std::endl;
+
+            for (const auto& recipient : message.to) {
+                std::string rcpt_to = "RCPT TO:<" + recipient.get_address() + ">\r\n";
+                boost::asio::write(ssl_socket, boost::asio::buffer(rcpt_to));
+                response = ReadSmtpResponse(ssl_socket);
+                std::cout << "Server response: " << response << std::endl;
+            }
+
+            std::string data_command = "DATA\r\n";
+            boost::asio::write(ssl_socket, boost::asio::buffer(data_command));
+            response = ReadSmtpResponse(ssl_socket);
+            std::cout << "Server response: " << response << std::endl;
+
+            std::string email_data = "Subject: " + message.subject + "\r\n" + message.body + "\r\n.\r\n";
+            boost::asio::write(ssl_socket, boost::asio::buffer(email_data));
+            response = ReadSmtpResponse(ssl_socket);
+            std::cout << "Server response: " << response << std::endl;
+
+            std::string quit_command = "QUIT\r\n";
+            boost::asio::write(ssl_socket, boost::asio::buffer(quit_command));
+            response = ReadSmtpResponse(ssl_socket);
+            std::cout << "Server response: " << response << std::endl;
+        }
+
+    } catch (const std::exception& e) {
+        Logger::LogError("Exception in CommandHandler::SendMail: " + std::string(e.what()));
+        throw;
+    }
+
+    Logger::LogDebug("Exiting CommandHandler::SendMail");
+}
+
+std::string CommandHandler::ReadSmtpResponse(boost::asio::ip::tcp::socket& socket) {
+    boost::asio::streambuf response_buffer;
+    read_until(socket, response_buffer, "\r\n");
+    std::istream response_stream(&response_buffer);
+    std::string response;
+    std::getline(response_stream, response);
+    return response;
+}
+
+std::string CommandHandler::ReadSmtpResponse(boost::asio::ssl::stream<boost::asio::ip::tcp::socket>& ssl_socket) {
+    boost::asio::streambuf response_buffer;
+    boost::asio::read_until(ssl_socket, response_buffer, "\r\n");
+    std::istream response_stream(&response_buffer);
+    std::string response;
+    std::getline(response_stream, response);
+    return response;
 }
 
 void CommandHandler::SaveMailToDatabase(const MailMessage& message)
