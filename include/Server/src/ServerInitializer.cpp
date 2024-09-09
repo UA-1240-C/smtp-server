@@ -98,7 +98,7 @@ void ServerInitializer::InitializeDatabaseManager()
         m_database_manager = std::make_unique<ISXMailDB::PgManager>(
             CONNECTION_STRING,
             "localhost",
-            false
+            true
         );
     }
     catch(const std::exception& e)
