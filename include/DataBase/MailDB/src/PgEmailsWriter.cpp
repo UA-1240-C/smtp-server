@@ -1,16 +1,18 @@
 #include "PgEmailsWriter.h"
 #include "MailException.h"
 
+#include <iostream>
+
 namespace ISXMailDB
 {
 
-PgEmailsWriter::PgEmailsWriter(const std::string& connection_string,
+PgEmailsWriter::PgEmailsWriter(const std::string_view connection_string, uint32_t host_id,
                                const uint16_t max_queue_size = 100, 
                                const std::chrono::milliseconds& thread_sleep_interval = std::chrono::milliseconds(2000)) 
-    : m_max_queue_size(max_queue_size), m_thread_sleep_interval(thread_sleep_interval), 
-    m_stop_thread(false) 
+    : m_max_queue_size(max_queue_size), m_tread_sleep_interval(thread_sleep_interval), 
+      m_stop_thread(false) , HOST_ID(host_id)
 {
-    m_conn =  std::make_unique<pqxx::connection>(connection_string);
+    m_conn =  std::make_unique<pqxx::connection>(std::string(connection_string));
     m_worker_thread = std::thread(&PgEmailsWriter::ProcessQueue, this);
 }
 
@@ -27,13 +29,15 @@ void PgEmailsWriter::AddEmails(EmailsInstance &&emails)
     {
         throw MailException("Too many mails in queue");
     }
+    m_queue.push(emails);
 }
 
 void PgEmailsWriter::ProcessQueue()
 {
+    bool should_commit_transaction = true;
     while (true) 
-    {
-        std::this_thread::sleep_for(m_thread_sleep_interval);
+    {   
+        std::this_thread::sleep_for(m_tread_sleep_interval);
 
         if (m_stop_thread)
             break;
@@ -43,27 +47,21 @@ void PgEmailsWriter::ProcessQueue()
             continue;
 
         pqxx::work txn(*m_conn);
-        // while(!m_queue.empty())
-        // {
-
-        // }
-//         // Process queue if not empty
-//         std::vector<std::string> dataBatch;
-//         while (!queue.empty()) {
-//             dataBatch.push_back(queue.front());
-//             queue.pop();
-//         }
-
-//         lock.unlock();
-
-//         if (!dataBatch.empty()) {
-//             writeToDatabase(dataBatch);  // Write all collected data in one batch
-//         }
-// }
+        while(!m_queue.empty())
+        {
+            EmailsInstance emails = m_queue.front();
+            m_queue.pop();
+            if(!InsertEmail(emails, txn))
+            {
+                should_commit_transaction = false;
+            }
+        }
+        should_commit_transaction ? txn.commit() : txn.abort();     
+        should_commit_transaction = true;
     }
 }
 
-void PgEmailsWriter::InsertEmail(const EmailsInstance &emails, pqxx::work &work)
+bool PgEmailsWriter::InsertEmail(const EmailsInstance &emails, pqxx::work &work)
 {
     uint32_t sender_id = emails.sender.sender_id, body_id;
     std::vector<uint32_t> receivers_id;
@@ -79,34 +77,60 @@ void PgEmailsWriter::InsertEmail(const EmailsInstance &emails, pqxx::work &work)
         for (size_t i = 0; i < receivers_id.size(); i++) {
             PerformEmailInsertion(sender_id, receivers_id[i], emails.subject, body_id, work);
         }
+        return true;
     }
     catch (const std::exception& e)
     {
-        throw MailException(e.what());
+        std::cout << e.what();
+        return false;
     }
 }
 
 uint32_t PgEmailsWriter::RetriveUserId(const std::string_view user_name, pqxx::transaction_base &ntx)
 {
-    // try
-    // {
-    //     return ntx.query_value<uint32_t>("SELECT user_id FROM users WHERE user_name = " + ntx.quote(user_name) 
-    //                                      + "  AND host_id = " + ntx.quote(m_host_id));
-    // }
-    // catch (pqxx::unexpected_rows &e)
-    // {
-    //     throw MailException("User doesn't exist");
-    // };
+    try
+    {
+        return ntx.query_value<uint32_t>("SELECT user_id FROM users WHERE user_name = " + ntx.quote(user_name) 
+                                         + "  AND host_id = " + ntx.quote(HOST_ID));
+    }
+    catch (pqxx::unexpected_rows &e)
+    {
+        throw MailException("User doesn't exist");
+    };
     return 0;
 }
 
 uint32_t PgEmailsWriter::InsertEmailBody(const std::string_view content, pqxx::transaction_base &transaction)
 {
-    return 0;
+    pqxx::result body_id;
+    try 
+    {
+        body_id = transaction.exec_params(
+            "INSERT INTO \"mailBodies\" (body_content)VALUES($1) RETURNING mail_body_id"
+            , content
+        );
+        return body_id[0].at("mail_body_id").as<uint32_t>();
+    }
+    catch (const std::exception& e) 
+    {
+        throw MailException(e.what());
+    }
 }
 
 void PgEmailsWriter::PerformEmailInsertion(const uint32_t sender_id, const uint32_t receiver_id, const std::string_view subject, const uint32_t body_id, pqxx::transaction_base &transaction)
 {
-
+    try 
+    {
+        transaction.exec_params(
+            "INSERT INTO \"emailMessages\" (sender_id, recipient_id, subject, mail_body_id, is_received) "
+            "VALUES ($1, $2, $3, $4, false) "
+            , sender_id, receiver_id,
+            subject, body_id
+        );
+    }
+    catch (const std::exception& e) 
+    {
+        throw MailException(e.what());
+    }
 }
 }
