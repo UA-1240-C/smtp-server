@@ -1,11 +1,11 @@
 #include "Logger.h"
 
-boost::shared_ptr<sinks::synchronous_sink<sinks::text_ostream_backend>> Logger::s_sink_pointer;
+boost::shared_ptr<sinks::asynchronous_sink<sinks::text_ostream_backend>> Logger::s_sink_pointer;
 uint8_t Logger::s_severity_filter;
 std::string Logger::s_log_file;
 uint8_t Logger::s_flush;
 std::mutex Logger::s_logging_mutex;
-ISXThreadPool::ThreadPool<> Logger::s_thread_pool(MAX_THREAD_COUNT);
+thread_local std::unique_ptr<Logger> Logger::s_thread_local_logger;
 
 const std::string Colors::BLUE = "\033[1;34m";
 const std::string Colors::CYAN = "\033[1;36m";
@@ -26,17 +26,17 @@ void Logger::set_sink_filter()
 	{
 	case PROD_WARN_ERR_LOGS:
 		s_sink_pointer->set_filter(
-			expr::attr<LogLevel>("Severity") <= ERR
+			expr::attr<LogLevel>("Severity") >= PROD
 		);
 		break;
 	case DEBUG_LOGS:
 		s_sink_pointer->set_filter(
-			expr::attr<LogLevel>("Severity") == DEBUG
+			expr::attr<LogLevel>("Severity") >= DEBUG
 		);
 		break;
 	case TRACE_LOGS:
 		s_sink_pointer->set_filter(
-			expr::attr<LogLevel>("Severity") == TRACE
+			expr::attr<LogLevel>("Severity") >= TRACE
 		);
 		break;
 	default:
@@ -44,12 +44,12 @@ void Logger::set_sink_filter()
 	}
 }
 
-boost::shared_ptr<sinks::synchronous_sink<sinks::text_ostream_backend>> Logger::set_sink()
+boost::shared_ptr<sinks::asynchronous_sink<sinks::text_ostream_backend>> Logger::set_sink()
 {
-	boost::shared_ptr<sinks::synchronous_sink<sinks::text_ostream_backend>> sink_point(
-		new sinks::synchronous_sink<sinks::text_ostream_backend>);
+	boost::shared_ptr<sinks::asynchronous_sink<sinks::text_ostream_backend>> sink_point(
+		new sinks::asynchronous_sink<sinks::text_ostream_backend>);
 	{
-		const sinks::synchronous_sink<sinks::text_ostream_backend>::locked_backend_ptr backend_point = sink_point->
+		const sinks::asynchronous_sink<sinks::text_ostream_backend>::locked_backend_ptr backend_point = sink_point->
 			locked_backend();
 		const boost::shared_ptr<std::ostream> stream_point(&std::clog, boost::null_deleter());
 		backend_point->add_stream(stream_point);
@@ -71,18 +71,16 @@ void Logger::set_sink_formatter()
 	s_sink_pointer->set_formatter(expr::stream
 		<< logging::expressions::attr<logging::attributes::current_thread_id::value_type>("ThreadID")
 		<< " - " << expr::format_date_time<boost::posix_time::ptime>("TimeStamp", "%d/%m/%Y %H:%M:%S.%f")
-		<< " [" << expr::attr<LogLevel>("Severity")
-		<< "] - ["
-		<< format_named_scope("Scope", keywords::format = "%n", keywords::iteration = expr::reverse) << "] "
+		<< " [" << boost::phoenix::bind(&Logger::SeverityToOutput)
+		<< "] "
 		<< expr::smessage
 	);
 }
 
 void Logger::Setup(const Config::Logging& logging_config)
 {
-	std::lock_guard<std::mutex> lock(s_logging_mutex);
 	s_log_file = logging_config.filename;
-	s_severity_filter = logging_config.log_level;
+	s_severity_filter = static_cast<SeverityFilter>(logging_config.log_level);
 	s_flush = logging_config.flush;
 
 	s_sink_pointer = set_sink();
@@ -93,15 +91,26 @@ void Logger::Setup(const Config::Logging& logging_config)
 
 void Logger::Reset()
 {
-	s_thread_pool.WaitForTasks();
+	boost::log::core::get()->flush();
 	logging::core::get()->remove_all_sinks();
 	s_sink_pointer.reset();
 }
 
-void Logger::LogToConsole(const std::string& message, const LogLevel& log_level)
+std::string Logger::SeverityToOutput() // maybe needs fixing for presision
+{
+	switch (s_severity_filter)
+	{
+	case NO_LOGS: return "";
+	case PROD_WARN_ERR_LOGS: return "Prod/Warning/Error";
+	case DEBUG_LOGS: return "Debug";
+	case TRACE_LOGS: return "Trace";
+	default: return "";
+	}
+}
+
+void Logger::LogToConsole(const std::string& message, const LogLevel& log_level, const std::source_location& location)
 {
 	BOOST_LOG_SCOPED_THREAD_ATTR("ThreadID", attrs::current_thread_id())
-	std::lock_guard<std::mutex> lock(s_logging_mutex);
 	std::string color{};
 	switch (log_level)
 	{
@@ -122,61 +131,42 @@ void Logger::LogToConsole(const std::string& message, const LogLevel& log_level)
 	}
 	try
 	{
-		BOOST_LOG_SEV(g_slg, log_level) << color << message << Colors::RESET;
+		std::lock_guard<std::mutex> lock(s_logging_mutex);
+		BOOST_LOG_SEV(g_slg, log_level) << "- [" << location.function_name() << "] "
+		<< color << message << Colors::RESET;
 	}
 	catch (const std::exception& e)
 	{
-		std::cerr << e.what() << std::endl;
+		std::cerr << e.what() << '\n';
 	}
 }
 
-void Logger::LogDebug(const std::string& message)
+void Logger::LogDebug(const std::string& message, const std::source_location& location)
 {
-	s_thread_pool.EnqueueDetach([message]()
-		{
-			LogToConsole(message, DEBUG);
-		}
-	);
+	Log<DEBUG>(message, location);
 }
 
-void Logger::LogTrace(const std::string& message)
+void Logger::LogTrace(const std::string& message, const std::source_location& location)
 {
-	s_thread_pool.EnqueueDetach([message]()
-		{
-			LogToConsole(message, TRACE);
-		}
-	);
+	Log<TRACE>(message, location);
 }
 
-void Logger::LogProd(const std::string& message)
+void Logger::LogProd(const std::string& message, const std::source_location& location)
 {
-	s_thread_pool.EnqueueDetach([message]()
-		{
-			LogToConsole(message, PROD);
-		}
-	);
+	Log<PROD>(message, location);
 }
 
-void Logger::LogWarning(const std::string& message)
+void Logger::LogWarning(const std::string& message, const std::source_location& location)
 {
-	s_thread_pool.EnqueueDetach([message]()
-		{
-			LogToConsole(message, WARNING);
-		}
-	);
+	Log<WARNING>(message, location);
 }
 
-void Logger::LogError(const std::string& message)
+void Logger::LogError(const std::string& message, const std::source_location& location)
 {
-	s_thread_pool.EnqueueDetach([message]()
-		{
-			LogToConsole(message, ERR);
-		}
-	);
+	Log<ERR>(message, location);
 }
 
 Logger::~Logger()
 {
-	Reset();
-	s_thread_pool.WaitForTasks();
+	boost::log::core::get()->flush();
 }
