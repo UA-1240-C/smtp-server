@@ -22,3 +22,5 @@ target_link_libraries(Logger PUBLIC
     Boost::thread 
     Threads::Threads
 )
+
+add_subdirectory(tests)

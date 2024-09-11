@@ -344,9 +344,31 @@ TEST_F(LoggerTest, ColorLogging)
 	EXPECT_NE(file_content.find(Colors::RED + "Error message" + Colors::RESET), std::string::npos);
 }
 
+TEST_F(LoggerTest, LogToServerlog)
+{
+	Config::Logging config;
+	config.filename = "serverlog.log";
+	config.log_level = DEBUG_LOGS;
+	config.flush = true;
+	Logger::Setup(config);
+
+	Logger::LogDebug("Test serverlog write");
+
+	// Verify that the log file contains the expected message
+	std::ifstream log_file("serverlog.log");
+	std::string file_content((std::istreambuf_iterator<char>(log_file)),
+							std::istreambuf_iterator<char>());
+	EXPECT_NE(file_content.find("Test serverlog write"), std::string::npos);
+}
+
 // Main function to run all the tests
 int main(int argc, char** argv)
 {
+	{
+		Config::Logging c;
+		Logger::Setup(c);
+		Logger::LogDebug("Test serverlog write");
+	}
 	testing::InitGoogleTest(&argc, argv);
 	return RUN_ALL_TESTS();
 }
