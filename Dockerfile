@@ -18,8 +18,12 @@ WORKDIR /smtp-server
 COPY . .
 
 RUN chmod +x scripts/build.sh
-RUN scripts/build.sh
+
+RUN ./scripts/build.sh
+
+
 
 EXPOSE 2525
 
-ENTRYPOINT ["/bin/bash", "-c", "cd build && ./SMTP_server"]
+ENTRYPOINT ["./build/SMTP_server"]
+# CMD ["ls"]

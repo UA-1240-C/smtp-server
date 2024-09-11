@@ -1,1 +1,7 @@
 /build
+
+.git*
+.vscode
+
+Doxyfile
+README.md
