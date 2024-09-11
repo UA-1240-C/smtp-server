@@ -6,6 +6,7 @@ cmake-build-debug/
 server.crt
 server.key
 server.csr
+config.txt
 
 html
 latex
