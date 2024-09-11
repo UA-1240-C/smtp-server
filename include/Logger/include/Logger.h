@@ -348,13 +348,15 @@ inline void Syslog(const std::string &message, const LogLevel &log_level, const 
 	switch (log_level)
 	{
 	case LogLevel::TRACE:
-		syslog_level = LOG_INFO
+		syslog_level = LOG_INFO;
 			break;
 	case LogLevel::DEBUG:
 		syslog_level = LOG_DEBUG;
 		break;
 	case LogLevel::PROD:
 	case LogLevel::WARNING:
+		syslog_level = LOG_WARNING;
+		break;
 	case LogLevel::ERR:
 		syslog_level = LOG_ERR;
 		break;
