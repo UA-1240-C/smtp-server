@@ -2,7 +2,7 @@
 
 #include <filesystem>
 #include <fstream>
-#include <ostream>
+#include <iostream>
 #include <string>
 #include <thread>
 #include <memory>
@@ -112,8 +112,10 @@ class Logger
 {
 	// Boost sink pointer for synchronous operations
 	static boost::shared_ptr<sinks::asynchronous_sink<sinks::text_ostream_backend>> s_sink_pointer;
+	static logging::formatter s_sink_formatter; // Formatter for the sinks
 	static uint8_t s_severity_filter; // Severity filter for the sink
-	static std::string s_log_file; // Log file path, in development
+	static std::string s_log_filename; // Log file name
+	static std::ofstream s_log_file; // Log file path, in development
 	static uint8_t s_flush; // Auto flushing for console output
 	static std::mutex s_logging_mutex; // Mutex for thread safety
 	static thread_local std::unique_ptr<Logger> s_thread_local_logger; // Thread-local logger instance
@@ -148,7 +150,7 @@ public:
 	 * @brief Get current log file from the Logger class
 	 * @return Log file from the Logger class; used for testing
 	 */
-	static std::string get_log_file() { return s_log_file; }
+	static std::string get_log_filename() { return s_log_filename; }
 	/**
 	* @brief Get current flush setting from the Logger class
 	* @return Flush setting from the Logger class; used for testing
@@ -208,13 +210,22 @@ public:
 	static std::string SeverityToOutput();
 
 	/**
-	 *
+	 * @brief Logs a message to the console with the specified log level.
 	 * @param message User-defined message to log
 	 * @param log_level Log level of the message, one from LogLevel enum
 	 * @param location The source location where the log was invoked. Defaults to the current location.
 	 */
 	static void LogToConsole(const std::string& message, const LogLevel& log_level,
 							const std::source_location& location = std::source_location::current());
+
+	/**
+	 * @brief Logs a message to the file with the specified log level.
+	 * @param message The log message to be written to the file.
+	 * @param log_level The severity level of the log message.
+	 * @param location The source location where the log was invoked. Defaults to the current location.
+	 */
+	static void LogToFile(const std::string& message, const LogLevel& log_level,
+						const std::source_location& location = std::source_location::current());
 
 	/**
 	 * @brief Logs a message with the specified log level, both to the console and the system log.
@@ -235,6 +246,7 @@ public:
 			s_thread_local_logger = std::make_unique<Logger>();
 		}
 		LogToConsole(message, log_level, location);
+		LogToFile(message, log_level, location);
 		Syslog(message, log_level, location);
 	}
 
@@ -330,10 +342,10 @@ inline void Syslog(const std::string &message, const LogLevel &log_level, const 
 {
 	// Open the syslog
 	openlog("Logger", LOG_PID, LOG_USER);
-	const uint8_t syslog_level = static_cast<uint8_t>(log_level);
+	uint8_t syslog_level = LOG_INFO;
 
 	// Set the syslog level based on the log level
-	switch (syslog_level)
+	switch (log_level)
 	{
 	case LogLevel::TRACE:
 		syslog_level = LOG_INFO

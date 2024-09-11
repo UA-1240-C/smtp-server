@@ -1,8 +1,10 @@
 #include "Logger.h"
 
 boost::shared_ptr<sinks::asynchronous_sink<sinks::text_ostream_backend>> Logger::s_sink_pointer;
+logging::formatter Logger::s_sink_formatter;
 uint8_t Logger::s_severity_filter;
-std::string Logger::s_log_file;
+std::string Logger::s_log_filename;
+std::ofstream Logger::s_log_file;
 uint8_t Logger::s_flush;
 std::mutex Logger::s_logging_mutex;
 thread_local std::unique_ptr<Logger> Logger::s_thread_local_logger;
@@ -46,40 +48,36 @@ void Logger::set_sink_filter()
 
 boost::shared_ptr<sinks::asynchronous_sink<sinks::text_ostream_backend>> Logger::set_sink()
 {
-	boost::shared_ptr<sinks::asynchronous_sink<sinks::text_ostream_backend>> sink_point(
+	boost::shared_ptr<sinks::asynchronous_sink<sinks::text_ostream_backend>> console_sink_point(
 		new sinks::asynchronous_sink<sinks::text_ostream_backend>);
-	{
-		const sinks::asynchronous_sink<sinks::text_ostream_backend>::locked_backend_ptr backend_point = sink_point->
-			locked_backend();
-		const boost::shared_ptr<std::ostream> stream_point(&std::clog, boost::null_deleter());
-		backend_point->add_stream(stream_point);
+	const sinks::asynchronous_sink<sinks::text_ostream_backend>::locked_backend_ptr console_backend_point =
+		console_sink_point->
+		locked_backend();
+	const boost::shared_ptr<std::ostream> stream_point(&std::clog, boost::null_deleter());
+	console_backend_point->add_stream(stream_point);
+	console_backend_point->auto_flush(s_flush);
 
-		// TODO: configure file logging properly
-		boost::shared_ptr<std::ofstream> file_stream(new std::ofstream(s_log_file));
-		backend_point->add_stream(file_stream);
-
-		s_flush
-			? backend_point->auto_flush(true)
-			: backend_point->auto_flush(false);
-	}
-	logging::core::get()->add_sink(sink_point);
-	return sink_point;
+	console_sink_point->set_formatter
+	(
+		s_sink_formatter
+	);
+	logging::core::get()->add_sink(console_sink_point);
+	return console_sink_point;
 }
 
 void Logger::set_sink_formatter()
 {
-	s_sink_pointer->set_formatter(expr::stream
+	s_sink_formatter = expr::stream
 		<< logging::expressions::attr<logging::attributes::current_thread_id::value_type>("ThreadID")
 		<< " - " << expr::format_date_time<boost::posix_time::ptime>("TimeStamp", "%d/%m/%Y %H:%M:%S.%f")
 		<< " [" << boost::phoenix::bind(&Logger::SeverityToOutput)
 		<< "] "
-		<< expr::smessage
-	);
+		<< expr::smessage;
 }
 
 void Logger::Setup(const Config::Logging& logging_config)
 {
-	s_log_file = logging_config.filename;
+	s_log_filename = logging_config.filename;
 	s_severity_filter = static_cast<SeverityFilter>(logging_config.log_level);
 	s_flush = logging_config.flush;
 
@@ -138,6 +136,52 @@ void Logger::LogToConsole(const std::string& message, const LogLevel& log_level,
 	catch (const std::exception& e)
 	{
 		std::cerr << e.what() << '\n';
+	}
+}
+
+void Logger::LogToFile(const std::string& message, const LogLevel& log_level, const std::source_location& location)
+{
+	if (s_log_file.is_open())
+	{
+		const std::thread::id thread_id = std::this_thread::get_id();
+		const std::string sev_level = SeverityToOutput();
+		std::lock_guard<std::mutex> lock(s_logging_mutex);
+		if (!s_log_file)
+		{
+			std::cerr << "Error opening file" << std::endl; // check
+		}
+
+		s_log_file <<
+			thread_id <<
+			" - " << boost::posix_time::second_clock::local_time() <<
+			" [" << sev_level <<
+			"] - [" << location.function_name() <<
+			"] " << message;
+		if (s_flush)
+		{
+			s_log_file.flush();
+		}
+		if (s_log_file.bad())
+		{
+			std::cerr << "I/O operation failed" << std::endl; // check
+		}
+		else if (s_log_file.fail())
+		{
+			std::cerr << "Logical error on i/o operation" << std::endl;
+		}
+		else if (s_log_file.eof())
+		{
+			std::cerr << "End of file reached" << std::endl;
+		}
+
+		if (s_log_file.fail())
+		{
+			std::cerr << "Error writing to file" << std::endl; // check
+		}
+	}
+	else
+	{
+		std::cerr << "Log file is not open" << std::endl;
 	}
 }
 
