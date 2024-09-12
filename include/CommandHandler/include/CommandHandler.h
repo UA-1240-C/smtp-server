@@ -260,6 +260,7 @@ private:
    std::string ReadSmtpResponse(boost::asio::ip::tcp::socket& socket);
    std::string ReadSmtpResponse(boost::asio::ssl::stream<boost::asio::ip::tcp::socket>& ssl_socket);
 
+
    /**
      * @brief Handles the QUIT command.
      *

@@ -63,7 +63,7 @@ void SmtpServer::HandleClient(SocketWrapper socket_wrapper)
     Logger::LogDebug("Entering SmtpServer::HandleClient");
     Logger::LogTrace("SmtpServer::HandleClient parameters: SocketWrapper");
 
-    socket_wrapper.SendResponseAsync(ToString(SmtpResponseCode::SERVER_READY)).get();
+    socket_wrapper.WriteAsync(ToString(SmtpResponseCode::SERVER_READY)).get();
 
     try
     {
@@ -77,7 +77,7 @@ void SmtpServer::HandleClient(SocketWrapper socket_wrapper)
 
             Logger::LogProd("Reading data from socket.");
 
-            auto future_data = socket_wrapper.ReadFromSocketAsync(MAX_LENGTH);
+            auto future_data = socket_wrapper.ReadAsync(MAX_LENGTH);
 
             try
             {

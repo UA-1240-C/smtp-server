@@ -178,7 +178,7 @@ void CommandHandler::ProcessLine(const std::string& line, SocketWrapper& socket_
     {
         try
         {
-            socket_wrapper.SendResponseAsync(ToString(SmtpResponseCode::SYNTAX_ERROR)).get();
+            socket_wrapper.WriteAsync(ToString(SmtpResponseCode::SYNTAX_ERROR)).get();
         }
         catch (const std::invalid_argument& e)
         {
@@ -198,7 +198,7 @@ void CommandHandler::HandleEhlo(SocketWrapper& socket_wrapper)
 
     try
     {
-        socket_wrapper.SendResponseAsync(ToString(SmtpResponseCode::OK)).get();
+        socket_wrapper.WriteAsync(ToString(SmtpResponseCode::OK)).get();
         Logger::LogProd("CommandHandler::HandleEhlo: Successfully sent EHLO response to client.");
     }
     catch (const std::exception& e)
@@ -217,7 +217,7 @@ void CommandHandler::HandleNoop(SocketWrapper& socket_wrapper)
 
     try
     {
-        socket_wrapper.SendResponseAsync(ToString(SmtpResponseCode::OK)).get();
+        socket_wrapper.WriteAsync(ToString(SmtpResponseCode::OK)).get();
         Logger::LogProd("CommandHandler::HandleNoop: Successfully sent NOOP response to client.");
     }
     catch (const std::exception& e)
@@ -237,7 +237,7 @@ void CommandHandler::HandleRset(SocketWrapper& socket_wrapper)
 
     try
     {
-        socket_wrapper.SendResponseAsync(ToString(SmtpResponseCode::OK)).get();
+        socket_wrapper.WriteAsync(ToString(SmtpResponseCode::OK)).get();
         Logger::LogProd("CommandHandler::HandleRset: Successfully sent RSET response to client.");
     }
     catch (const std::exception& e)
@@ -259,7 +259,7 @@ void CommandHandler::HandleHelp(SocketWrapper& socket_wrapper)
         "STARTTLS, AUTH PLAIN, REGISTER\r\n";
     try
     {
-        socket_wrapper.SendResponseAsync(ToString(SmtpResponseCode::HELP_MESSAGE) + " :" + supported_commands).get();
+        socket_wrapper.WriteAsync(ToString(SmtpResponseCode::HELP_MESSAGE) + " :" + supported_commands).get();
         Logger::LogProd("CommandHandler::HandleHelp: Successfully sent HELP response to client.");
     }
     catch (const std::exception& e)
@@ -277,7 +277,7 @@ void CommandHandler::HandleQuit(SocketWrapper& socket_wrapper)
 
     try
     {
-        socket_wrapper.SendResponseAsync(ToString(SmtpResponseCode::CLOSING_TRANSMISSION_CHANNEL)).get();
+        socket_wrapper.WriteAsync(ToString(SmtpResponseCode::CLOSING_TRANSMISSION_CHANNEL)).get();
         Logger::LogProd("CommandHandler::HandleQuit: Successfully sent QUIT response to client.");
     }
     catch (const std::exception& e)
@@ -314,7 +314,7 @@ void CommandHandler::HandleMailFrom(SocketWrapper& socket_wrapper, const std::st
         {
             Logger::LogProd("Sender address doesn't exist: " + sender);
             socket_wrapper
-                .SendResponseAsync(ToString(SmtpResponseCode::INVALID_EMAIL_ADDRESS) +
+                .WriteAsync(ToString(SmtpResponseCode::INVALID_EMAIL_ADDRESS) +
                                    " : sender address doesn't exist.")
                 .get();
         }
@@ -322,7 +322,7 @@ void CommandHandler::HandleMailFrom(SocketWrapper& socket_wrapper, const std::st
         {
             m_mail_builder.set_from(sender);
             Logger::LogProd("Sender address set successfully: " + sender);
-            socket_wrapper.SendResponseAsync(ToString(SmtpResponseCode::OK)).get();
+            socket_wrapper.WriteAsync(ToString(SmtpResponseCode::OK)).get();
         }
     }
     catch (const std::exception& e)
@@ -352,14 +352,14 @@ void CommandHandler::HandleRcptTo(SocketWrapper& socket_wrapper, const std::stri
         {
             Logger::LogProd("Recipient address does not exist: " + recipient);
             socket_wrapper
-                .SendResponseAsync(ToString(SmtpResponseCode::INVALID_EMAIL_ADDRESS) +
+                .WriteAsync(ToString(SmtpResponseCode::INVALID_EMAIL_ADDRESS) +
                                    " : recipient address doesn't exist.")
                 .get();
             return;
         }
         m_mail_builder.add_to(recipient);
         Logger::LogProd("Recipient address set successfully: " + recipient);
-        socket_wrapper.SendResponseAsync(ToString(SmtpResponseCode::OK)).get();
+        socket_wrapper.WriteAsync(ToString(SmtpResponseCode::OK)).get();
     }
     catch (const std::exception& e)
     {
@@ -376,7 +376,7 @@ void CommandHandler::HandleData(SocketWrapper& socket_wrapper)
 
     try
     {
-        socket_wrapper.SendResponseAsync(ToString(SmtpResponseCode::START_MAIL_INPUT)).get();
+        socket_wrapper.WriteAsync(ToString(SmtpResponseCode::START_MAIL_INPUT)).get();
         Logger::LogProd("Sent response for DATA command, waiting for data.");
 
         m_in_data = true;
@@ -408,7 +408,7 @@ void CommandHandler::ReadData(SocketWrapper& socket_wrapper, std::string& data_m
 
     try
     {
-        std::string buffer = socket_wrapper.ReadFromSocketAsync(MAX_LENGTH).get();
+        std::string buffer = socket_wrapper.ReadAsync(MAX_LENGTH).get();
         data_message.append(buffer);
 
         Logger::LogProd("Received data: " + buffer);
@@ -479,95 +479,6 @@ void CommandHandler::ProcessDataMessage(SocketWrapper& socket_wrapper, std::stri
     }
     Logger::LogDebug("Exiting CommandHandler::ProcessDataMessage");
 }
-/*
-void CommandHandler::ForwardToClientMailServer(const std::string& server, int port, const std::string& message) {
-    try {
-        /* i used a local variable io_context for the first test and methods ReadFromSocketAsync/SendResponseAsync
-         * worked correctly(google server sended a message where was written about incorrect command(probably due
-         * the unencrypted connection). After I added a field m_io_context to the CommandHandler this problem gone
-         * but all the notes from google server about incorrectness of the commands also gone. Problems with connection
-         * didn't arised
-
-        auto new_socket = std::make_shared<TcpSocket>(m_io_context);
-
-        Logger::LogDebug(m_io_context.stopped() ? "stopped" : "running");
-        SocketWrapper socket_wrapper(new_socket);
-
-        auto connect_future = socket_wrapper.Connect(server, port);
-        if (!socket_wrapper.IsOpen())
-        {
-            Logger::LogDebug("Isn't open");
-        }
-        //auto encrypt_future = socket_wrapper.PerformTlsHandshake(m_ssl_context, boost::asio::ssl::stream_base::client);
-
-        std::string helo_command = "HELO example.com\r\n";
-        auto send_helo_future = socket_wrapper.SendResponseAsync(helo_command);
-
-        auto read_response_future = socket_wrapper.ReadFromSocketAsync(1024);
-
-        auto send_message_future = socket_wrapper.SendResponseAsync(message);
-
-        auto read_final_response_future = socket_wrapper.ReadFromSocketAsync(1024);
-
-        connect_future.get();
-        std::cout << "Successfully connected to: " << server << " on port " << port << std::endl;
-        //encrypt_future.get();
-        // std::cout << "Successfully encrypted" << std::endl;
-        send_helo_future.get();
-        std::string server_response = read_response_future.get();
-        std::cout << "Server response: " << server_response << std::endl;
-        send_message_future.get();
-        server_response = read_final_response_future.get();
-        std::cout << "Server response after message: " << server_response << std::endl;
-
-    } catch (std::exception& e) {
-        std::cerr << "Error connecting to " << server << ": " << e.what() << std::endl;
-    }
-}
-
-// to only one(the most prioritized MX-record)
-void CommandHandler::SendMail(const MailMessage& message) {
-    MXResolver mx_resolver;
-    std::string domain = mx_resolver.ExtractDomain(message.to.front().get_address());
-    std::vector<MXRecord> mx_records = mx_resolver.ResolveMX(domain);
-
-    if (!mx_records.empty()) {
-        std::string mail_message = "Subject: " + message.subject + "\r\n\r\n" + message.body;
-        ForwardToClientMailServer("smtp.gmail.com", 465, mail_message);
-    } else {
-        std::cerr << "No MX records found for domain: " << domain << std::endl;
-    }
-}
-
-
-// to many MX-records
-void CommandHandler::SendMail(const MailMessage& message) {
-    MXResolver mx_resolver;
-    std::set<std::string> domains;
-
-    for (const auto& recipient : message.to) {
-        std::string domain = mx_resolver.ExtractDomain(recipient.get_address());
-        domains.insert(domain);
-    }
-
-    for (const auto& domain : domains) {
-        std::vector<MXRecord> mx_records = mx_resolver.ResolveMX(domain);
-
-        if (!mx_records.empty()) {
-            std::string mail_message = "Subject: " + message.subject + "\r\n\r\n" + message.body;
-
-            for (const auto& mx_record : mx_records) {
-                try {
-                    ForwardToClientMailServer(mx_record.host, 25, mail_message);
-                } catch (const std::exception& e) {
-                    std::cerr << "Failed to send mail to domain " << domain << " via server " << mx_record.host << ": " << e.what() << std::endl;
-                }
-            }
-        } else {
-            std::cerr << "No MX records found for domain: " << domain << std::endl;
-        }
-    }
-}*/
 
 void CommandHandler::HandleEndOfData(SocketWrapper& socket_wrapper) {
     Logger::LogDebug("Entering CommandHandler::HandleEndOfData");
@@ -578,16 +489,18 @@ void CommandHandler::HandleEndOfData(SocketWrapper& socket_wrapper) {
         MailMessage message = m_mail_builder.Build();
         if (message.from.get_address().empty() || message.to.empty()) {
             auto future_response =
-                socket_wrapper.SendResponseAsync(ToString(SmtpResponseCode::REQUIRED_FIELDS_MISSING));
+                socket_wrapper.WriteAsync(ToString(SmtpResponseCode::REQUIRED_FIELDS_MISSING));
             Logger::LogWarning("Required fields missing in mail message.");
         } else {
-            socket_wrapper.SendResponseAsync(ToString(SmtpResponseCode::OK)).get();
+            socket_wrapper.WriteAsync(ToString(SmtpResponseCode::OK)).get();
             Logger::LogProd("Sent 250 OK response for end of data.");
 
             SaveMailToDatabase(message);
             Logger::LogProd("Mail message saved successfully.");
 
-            auto str = "user=egorchampion235@gmail.com\x01auth=Bearer 4/0AQlEd8zqIPgYjGPlm8Lw4kj6o7UigzDWY5chkVSR9MsAXI0Gib42-VZYdQi2gJNvtQc8eg\x01\x01";
+            std::string str = "user=egorchampion235@gmail.com\x01"
+                              "auth=Bearer ya29.a0AcM612wpJUe-GY1az_cIFJ-6XmutxLtXFXMvO35hosdCemwaA4LDgutYwHUjSr-lWiKl5w0Fs287514LoTC4PedDp9w7JPXyy-V75BhdrYgTCrrenTpyHGbraImRj4NQsvXED8DEwoBxaOKirq39rICk64OvMkgDtpdZtKWzaCgYKARESARMSFQHGX2Mix79jbvt1NnzmOW1ohr8dKw0175\x01\x01";
+
             SendMail(message, str);
             Logger::LogProd("Mail message sent successfully.");
         }
@@ -635,15 +548,11 @@ void CommandHandler::SendMail(const MailMessage& message, const std::string& oau
         Logger::LogProd("TLS handshake completed");
 
         std::string auth_command = "AUTH XOAUTH2 " + Base64Encode(oauth2_token) + "\r\n";
+        std::cout << "Auth command: " << auth_command << std::endl;
         boost::asio::write(ssl_socket, boost::asio::buffer(auth_command));
         response = ReadSmtpResponse(ssl_socket);
         std::cout << "Server response: " << response << std::endl;
-/*
-        std::string auth_token = Base64Encode(oauth2_token) + "\r\n";
-        boost::asio::write(ssl_socket, boost::asio::buffer(auth_token));
-        response = ReadSmtpResponse(ssl_socket);
-        std::cout << "Server response: " << response << std::endl;
-*/
+
         if (response.substr(0, 3) == "235") {  // 235 = Authentication successful
             std::string mail_from = "MAIL FROM:<" + message.from.get_address() + ">\r\n";
             boost::asio::write(ssl_socket, boost::asio::buffer(mail_from));
@@ -682,20 +591,52 @@ void CommandHandler::SendMail(const MailMessage& message, const std::string& oau
 }
 
 std::string CommandHandler::ReadSmtpResponse(boost::asio::ip::tcp::socket& socket) {
-    boost::asio::streambuf response_buffer;
-    read_until(socket, response_buffer, "\r\n");
-    std::istream response_stream(&response_buffer);
     std::string response;
-    std::getline(response_stream, response);
+    boost::asio::streambuf buffer;
+    std::istream stream(&buffer);
+
+    try {
+        while (true) {
+            boost::asio::read_until(socket, buffer, "\r\n");
+            std::string line;
+            std::getline(stream, line);
+            response += line + "\n";
+
+            // Check if the response ends with the status code (e.g., 220, 235, 451)
+            if (line.length() >= 3 && line[3] == ' ') {
+                break;
+            }
+        }
+    } catch (const boost::system::system_error& e) {
+        Logger::LogError("Error reading from SMTP server: " + std::string(e.what()));
+        throw;
+    }
+
     return response;
 }
 
 std::string CommandHandler::ReadSmtpResponse(boost::asio::ssl::stream<boost::asio::ip::tcp::socket>& ssl_socket) {
-    boost::asio::streambuf response_buffer;
-    boost::asio::read_until(ssl_socket, response_buffer, "\r\n");
-    std::istream response_stream(&response_buffer);
     std::string response;
-    std::getline(response_stream, response);
+    boost::asio::streambuf buffer;
+    std::istream stream(&buffer);
+
+    try {
+        while (true) {
+            read_until(ssl_socket, buffer, "\r\n");
+            std::string line;
+            std::getline(stream, line);
+            response += line + "\n";
+
+            // Check if the response ends with the status code (e.g., 220, 235, 451)
+            if (line.length() >= 3 && line[3] == ' ') {
+                break;
+            }
+        }
+    } catch (const boost::system::system_error& e) {
+        Logger::LogError("Error reading from SMTP server: " + std::string(e.what()));
+        throw;
+    }
+
     return response;
 }
 
@@ -743,7 +684,7 @@ void CommandHandler::HandleStartTLS(SocketWrapper& socket_wrapper)
         Logger::LogWarning("STARTTLS command received but already in TLS mode.");
         try
         {
-            socket_wrapper.SendResponseAsync(ToString(SmtpResponseCode::BAD_SEQUENCE)).get();
+            socket_wrapper.WriteAsync(ToString(SmtpResponseCode::BAD_SEQUENCE)).get();
         }
         catch (const std::exception& e)
         {
@@ -756,10 +697,10 @@ void CommandHandler::HandleStartTLS(SocketWrapper& socket_wrapper)
     try
     {
         Logger::LogProd("Sending response to indicate readiness to start TLS.");
-        socket_wrapper.SendResponseAsync(ToString(SmtpResponseCode::OK)).get();
+        socket_wrapper.WriteAsync(ToString(SmtpResponseCode::OK)).get();
 
         Logger::LogDebug("Starting TLS handshake.");
-        socket_wrapper.StartTlsAsync(m_ssl_context).get();
+        socket_wrapper.PerformTlsHandshake(boost::asio::ssl::stream_base::server).get();
 
         Logger::LogProd("STARTTLS handshake completed successfully.");
     }
@@ -768,7 +709,7 @@ void CommandHandler::HandleStartTLS(SocketWrapper& socket_wrapper)
         Logger::LogError("Exception in CommandHandler::HandleStartTLS: " + std::string(e.what()));
         try
         {
-            socket_wrapper.SendResponseAsync(ToString(SmtpResponseCode::TLS_TEMPORARILY_UNAVAILABLE)).get();
+            socket_wrapper.WriteAsync(ToString(SmtpResponseCode::TLS_TEMPORARILY_UNAVAILABLE)).get();
         }
         catch (const std::exception& send_e)
         {
@@ -794,17 +735,25 @@ void CommandHandler::HandleAuth(SocketWrapper& socket_wrapper, const std::string
         Logger::LogTrace("Decoded username: " + username);
         Logger::LogTrace("Decoded password: [hidden]");
 
+        // Check if the user exists
+        if (!m_data_base->UserExists(username))
+        {
+            Logger::LogWarning("Authentication failed: user does not exist - " + username);
+            socket_wrapper.WriteAsync(ToString(SmtpResponseCode::AUTHENTICATION_FAILED)).get();
+            return;
+        }
+
         // Attempt to log in with the provided credentials
         try
         {
             m_data_base->Login(username, password);
             Logger::LogProd("User authenticated successfully");
-            socket_wrapper.SendResponseAsync(ToString(SmtpResponseCode::AUTH_SUCCESSFUL)).get();
+            socket_wrapper.WriteAsync(ToString(SmtpResponseCode::AUTH_SUCCESSFUL)).get();
         }
         catch (const MailException& e)
         {
             Logger::LogError("MailException in CommandHandler::HandleAuth: " + std::string(e.what()));
-            socket_wrapper.SendResponseAsync(ToString(SmtpResponseCode::AUTHENTICATION_FAILED)).get();
+            socket_wrapper.WriteAsync(ToString(SmtpResponseCode::AUTH_SUCCESSFUL)).get();
         }
     }
     catch (const std::exception& e)
@@ -829,9 +778,16 @@ void CommandHandler::HandleRegister(SocketWrapper& socket_wrapper, const std::st
         Logger::LogProd("Decoded username: " + username);
         Logger::LogProd("Decoded password: [hidden]");
 
+        if (m_data_base->UserExists(username))
+        {
+            Logger::LogWarning("Registration failed: user " + username + " already exists.");
+            socket_wrapper.WriteAsync(ToString(SmtpResponseCode::USER_ALREADY_EXISTS)).get();
+            return;
+        }
+
         m_data_base->SignUp(username, password);
         Logger::LogProd("User registered successfully");
-        socket_wrapper.SendResponseAsync(ToString(SmtpResponseCode::REGISTER_SUCCESSFUL)).get();
+        socket_wrapper.WriteAsync(ToString(SmtpResponseCode::REGISTER_SUCCESSFUL)).get();
     }
     catch (const std::exception& e)
     {

@@ -1,10 +1,4 @@
-#include <MailMessage.h>
-#include <MailMessageBuilder.h>
-#include <MailMessageForwarder.h>
-
 #include <boost/asio.hpp>
-#include <iostream>
-#include <stdexcept>
 
 #include "Logger.h"
 #include "Server.h"
@@ -24,29 +18,7 @@ int main() {
 
         SmtpServer server(io_context, ssl_context);
         server.Start();
-/*
-        // Test email forwarding
-        std::string server_domain = "smtp.example.com";
-        MailMessageForwarder forwarder(server_domain);
 
-        // Create a test email message
-        MailMessageBuilder mail_builder;
-        mail_builder.set_from("user@gmail.com")
-            .add_to("shevtsov.mykhail@gmail.com")
-            .set_subject("Hello, Emma!")
-            .set_body("Hello, Emma! This is a test email from John Doe.");
-
-        MailMessage mail_message = mail_builder.Build();
-
-        // Forward the email to the server
-        bool success = forwarder.ForwardEmailToClientServer(mail_message);
-
-        // Check the result
-        if (success) {
-            std::cout << "Test passed: Email successfully forwarded." << std::endl;
-        } else {
-            std::cout << "Test failed: Email not forwarded." << std::endl;
-        }*/
         io_context.run();
     } catch (const std::exception& e) {
         Logger::LogError("Exception caught in entry point: " + std::string(e.what()));

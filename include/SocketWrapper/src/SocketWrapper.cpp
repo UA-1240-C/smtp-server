@@ -4,8 +4,8 @@
 
 namespace ISXSocketWrapper
 {
-SocketWrapper::SocketWrapper(TcpSocketPtr tcp_socket)
-    : m_socket(tcp_socket), m_is_tls(false)
+SocketWrapper::SocketWrapper(const TcpSocketPtr& tcp_socket)
+    : m_socket_wrapper(std::make_shared<TcpSocketManager>(tcp_socket))
 {
     Logger::LogDebug("Entering SocketWrapper TCP constructor");
     Logger::LogTrace("Constructor params: TcpSocket" );
@@ -13,8 +13,8 @@ SocketWrapper::SocketWrapper(TcpSocketPtr tcp_socket)
     Logger::LogDebug("Exiting SocketWrapper TCP constructor");
 }
 
-SocketWrapper::SocketWrapper(SslSocketPtr ssl_socket)
-    : m_socket(ssl_socket), m_is_tls(true)
+SocketWrapper::SocketWrapper(const TlsSocketPtr& ssl_socket)
+    : m_socket_wrapper(std::make_shared<TlsSocketManager>(ssl_socket))
 {
     Logger::LogDebug("Entering SocketWrapper SSL constructor");
     Logger::LogTrace("Constructor params: SslSocket" );
@@ -25,247 +25,86 @@ SocketWrapper::SocketWrapper(SslSocketPtr ssl_socket)
 [[nodiscard]] bool SocketWrapper::IsTls() const
 {
     Logger::LogDebug("Entering SocketWrapper::IsTls");
-    Logger::LogTrace("Checking if connection is TLS: " + std::to_string(m_is_tls));
 
+    Logger::LogTrace("SocketWrapper::IsTls return value: bool");
     Logger::LogDebug("Exiting SocketWrapper::IsTls");
-    return m_is_tls;
+    return std::holds_alternative<std::shared_ptr<TlsSocketManager>>(m_socket_wrapper);
 }
 
-std::variant<TcpSocketPtr, SslSocketPtr> SocketWrapper::GetSocket() const
+std::future<void> SocketWrapper::WriteAsync(const std::string& message)
 {
-    return m_socket;
+    if (IsTls()) {
+        return std::get<std::shared_ptr<TlsSocketManager>>(m_socket_wrapper)->WriteAsync(message);
+    }
+    return std::get<std::shared_ptr<TcpSocketManager>>(m_socket_wrapper)->WriteAsync(message);
 }
 
-std::future<void> SocketWrapper::Connect(const std::string& host, unsigned short port)
-{
-    Logger::LogDebug("Entering SocketWrapper::Connect");
-    Logger::LogTrace("Connecting to host: " + host + " on service: " + std::to_string(port));
 
+std::future<std::string> SocketWrapper::ReadAsync(size_t max_length) const
+{
+    if (IsTls()) {
+        return std::get<std::shared_ptr<TlsSocketManager>>(m_socket_wrapper)->ReadAsync(max_length);
+    }
+    return std::get<std::shared_ptr<TcpSocketManager>>(m_socket_wrapper)->ReadAsync(max_length);
+}
+
+std::future<void> SocketWrapper::PerformTlsHandshake(boost::asio::ssl::stream_base::handshake_type handshake_type) const
+{
+    if (IsTls())
+    {
+        if (handshake_type == boost::asio::ssl::stream_base::server) {
+            std::ignore = std::get<std::shared_ptr<TlsSocketManager>>(m_socket_wrapper)
+            ->PerformTlsHandshake( boost::asio::ssl::stream_base::handshake_type::server);
+        } else {
+            std::ignore = std::get<std::shared_ptr<TlsSocketManager>>(m_socket_wrapper)
+            ->PerformTlsHandshake( boost::asio::ssl::stream_base::handshake_type::client);
+        }
+    }
+    throw std::runtime_error("Socket is not using TLS.");
+}
+
+    std::future<void> SocketWrapper::ResolveAndConnectAsync(boost::asio::io_context& io_context,
+        const std::string& hostname, const std::string& service)
+{
+    Logger::LogDebug("Entering SocketWrapper::ResolveAndConnectAsync");
     auto promise = std::make_shared<std::promise<void>>();
     auto future = promise->get_future();
 
-    if (auto* tcp_socket = std::get_if<TcpSocketPtr>(&m_socket))
-    {
-        auto executor = (*tcp_socket)->get_executor();
-        auto resolver = std::make_shared<boost::asio::ip::tcp::resolver>(executor);
+    auto resolver = std::make_shared<boost::asio::ip::tcp::resolver>(io_context);
 
-        resolver->async_resolve(host, std::to_string(port),
-            [tcp_socket, promise](const boost::system::error_code& error, boost::asio::ip::tcp::resolver::results_type endpoints) {
-                if (error)
-                {
-                    Logger::LogDebug("Error in resolve: " + error.message());
-                    promise->set_exception(std::make_exception_ptr(std::runtime_error(error.message())));
+    // Check if the stored socket in m_socket_wrapper is of type TcpSocketManager
+    if (std::holds_alternative<std::shared_ptr<TcpSocketManager>>(m_socket_wrapper)) {
+        auto tcp_socket_manager = std::get<std::shared_ptr<TcpSocketManager>>(m_socket_wrapper);
+
+        resolver->async_resolve(hostname, service,
+            [promise, tcp_socket_manager, resolver](const boost::system::error_code& ec,
+                                                    boost::asio::ip::tcp::resolver::results_type results) {
+                if (ec) {
+                    promise->set_exception(std::make_exception_ptr(
+                        std::runtime_error("Failed to resolve: " + ec.message())));
                     return;
                 }
 
-                Logger::LogDebug("Resolved endpoints. Starting async_connect.");
-                async_connect(**tcp_socket, endpoints,
-                    [promise](const boost::system::error_code& error, const boost::asio::ip::tcp::endpoint&) {
-                        if (error)
-                        {
-                            Logger::LogDebug("Error in async_connect: " + error.message());
-                            promise->set_exception(std::make_exception_ptr(std::runtime_error(error.message())));
-                        }
-                        else
-                        {
-                            Logger::LogDebug("Connected successfully.");
-                            promise->set_value();
-                        }
-                    });
+                async_connect(tcp_socket_manager->get_socket(), results,
+                                           [promise](const boost::system::error_code& ec, const auto&) {
+                                               if (ec) {
+                                                   promise->set_exception(std::make_exception_ptr(
+                                                       std::runtime_error("Failed to connect: " + ec.message())));
+                                               } else {
+                                                   promise->set_value();
+                                               }
+                                           });
             });
+
+    } else {
+        promise->set_exception(std::make_exception_ptr(
+            std::runtime_error("Socket is not a TcpSocketManager")));
     }
-    else
-    {
-        const std::string error_message = "No valid TCP socket available for connection.";
-        Logger::LogDebug(error_message);
-        promise->set_exception(std::make_exception_ptr(std::runtime_error(error_message)));
-    }
-
-    Logger::LogDebug("Exiting SocketWrapper::Connect");
-    return future;
-}
-
-std::future<void> SocketWrapper::PerformTlsHandshake(boost::asio::ssl::context& context,
-    boost::asio::ssl::stream_base::handshake_type type)
-{
-    Logger::LogDebug("Entering SocketWrapper::PerformTlsHandshake");
-    Logger::LogTrace("SocketWrapper::PerformTlsHandshake parameter: ssl_context reference");
-
-    auto promise = std::make_shared<std::promise<void>>();
-    auto future = promise->get_future();
-
-    if (auto* tcp_socket = std::get_if<TcpSocketPtr>(&m_socket))
-    {
-        // Create SSL socket from TcpSocket
-        auto ssl_socket = std::make_shared<SslSocket>(std::move(**tcp_socket), context);
-        Logger::LogProd("SSL socket created with context");
-
-        // we perform this operation
-        ssl_socket->async_handshake(type,
-            [this, ssl_socket, promise](const boost::system::error_code& error) {
-                if (!error)
-                {
-                    Logger::LogProd("TLS handshake successful");
-                    set_socket(ssl_socket);
-                    promise->set_value();
-                }
-                else
-                {
-                    Logger::LogError("TLS handshake error: " + error.message());
-                    promise->set_exception(std::make_exception_ptr(std::runtime_error(error.message())));
-                }
-            });
-    }
-    else
-    {
-        const std::string error_message = "No valid TCP socket available for TLS handshake.";
-        Logger::LogError(error_message);
-        promise->set_exception(
-            std::make_exception_ptr(
-                std::runtime_error(error_message)));
-    }
-
-    Logger::LogTrace("SocketWrapper::PerformTlsHandshake returning an std::future object.");
-    Logger::LogDebug("Exiting SocketWrapper::PerformTlsHandshake");
-
-    return future;
-}
-
-std::future<void> SocketWrapper::SendResponseAsync(const std::string& message)
-{
-    Logger::LogDebug("Entering SocketWrapper::SendResponseAsync");
-    Logger::LogTrace("SocketWrapper::SendResponseAsync parameter: std::string reference" + message);
-
-    auto promise = std::make_shared<std::promise<void>>();
-    auto future = promise->get_future();
-
-    if (auto* tcp_socket = std::get_if<TcpSocketPtr>(&m_socket))
-    {
-        Logger::LogProd("Using TCP socket for sending message.");
-        async_write(**tcp_socket, boost::asio::buffer(message),
-            [promise](const boost::system::error_code& error, std::size_t) {
-                if (error)
-                {
-                    Logger::LogError("Error in async_write for TCP socket: " + error.message());
-                    promise->set_exception(std::make_exception_ptr(std::runtime_error(error.message())));
-                }
-                else
-                {
-                    Logger::LogProd("Message sent successfully via TCP socket.");
-                    promise->set_value();
-                }
-            });
-    }
-    else if (auto* ssl_socket = std::get_if<SslSocketPtr>(&m_socket))
-    {
-        Logger::LogProd("Using SSL socket for sending message.");
-        async_write(**ssl_socket, boost::asio::buffer(message),
-            [promise](const boost::system::error_code& error, std::size_t) {
-                if (error) {
-                    Logger::LogError("Error in async_write for SSL socket: " + error.message());
-                    promise->set_exception(std::make_exception_ptr(std::runtime_error(error.message())));
-                } else {
-                    Logger::LogProd("Message sent successfully via SSL socket.");
-                    promise->set_value();
-                }
-            });
-    }
-    else
-    {
-        const std::string error_message = "No valid socket available for sending data.";
-        Logger::LogError(error_message);
-        promise->set_exception(
-            std::make_exception_ptr(
-                std::runtime_error(error_message)));
-    }
-
-    Logger::LogTrace("SocketWrapper::SendResponseAsync returning an std::future object.");
-    Logger::LogDebug("Exiting SocketWrapper::SendResponseAsync");
-
+    Logger::LogDebug("Exiting SocketWrapper::ResolveAndConnectAsync");
     return future;
 }
 
 
-std::future<std::string> SocketWrapper::ReadFromSocketAsync(size_t max_length)
-{
-    Logger::LogDebug("Entering SocketWrapper::ReadFromSocketAsync");
-    Logger::LogTrace("SocketWrapper::ReadFromSocketAsync parameter: size_t " + std::to_string(max_length));
-
-    auto promise = std::make_shared<std::promise<std::string>>();
-    auto future = promise->get_future();
-    auto buffer = std::make_shared<std::string>(max_length, '\0');
-
-    if (auto* tcp_socket = std::get_if<TcpSocketPtr>(&m_socket))
-    {
-        Logger::LogProd("Using TCP socket for sending message.");
-        (*tcp_socket)->async_read_some(boost::asio::buffer(*buffer),
-            [promise, buffer](const boost::system::error_code& error, const std::size_t length)
-            {
-                if (error)
-                {
-                    Logger::LogError("Error in async_read_some for TCP socket: " + error.message());
-                    promise->set_exception(std::make_exception_ptr(std::runtime_error(error.message())));
-                }
-                else
-                {
-                    Logger::LogProd("Message sent successfully via TCP socket.");
-                    buffer->resize(length);
-                    promise->set_value(*buffer);
-                }
-            });
-    }
-    else if (auto* ssl_socket = std::get_if<SslSocketPtr>(&m_socket))
-    {
-        Logger::LogProd("Using SSL socket for sending message.");
-        (*ssl_socket)->async_read_some(boost::asio::buffer(*buffer),
-            [promise, buffer](const boost::system::error_code& error, const std::size_t length) {
-                if (error)
-                {
-                    Logger::LogError("Error in async_read_some for SSL socket: " + error.message());
-                    promise->set_exception(
-                        std::make_exception_ptr(std::runtime_error(error.message())));
-                } else
-                {
-                    Logger::LogProd("Message sent successfully via TCP socket.");
-                    buffer->resize(length);
-                    promise->set_value(*buffer);
-                }
-            });
-    }
-    else
-    {
-        const std::string error_message = "No valid socket available for sending data.";
-        Logger::LogError(error_message);
-        promise->set_exception(
-            std::make_exception_ptr(
-                std::runtime_error(error_message)));
-    }
-
-    Logger::LogTrace("SocketWrapper::ReadFromSocketAsync returning an std::future object.");
-    Logger::LogDebug("Exiting SocketWrapper::ReadFromSocketAsync");
-
-    return future;
-}
-
-std::future<void> SocketWrapper::StartTlsAsync(boost::asio::ssl::context& context)
-{
-    Logger::LogDebug("Entering SocketWrapper::StartTlsAsync");
-    Logger::LogTrace("SocketWrapper::StartTlsAsync parameter: ssl_context reference");
-
-    // Ensure we're dealing with a valid TcpSocket
-    auto tcp_socket = std::get_if<TcpSocketPtr>(&m_socket);
-    if (!tcp_socket || !*tcp_socket) {
-        Logger::LogError("SocketWrapper::StartTlsAsync: TcpSocket is null.");
-        auto promise = std::make_shared<std::promise<void>>();
-        promise->set_exception(std::make_exception_ptr(std::runtime_error("TcpSocket is null")));
-        return promise->get_future();
-    }
-
-    Logger::LogProd("SocketWrapper::StartTlsAsync: TcpSocket retrieved");
-
-    // Perform the TLS handshake as a server
-    return PerformTlsHandshake(context, boost::asio::ssl::stream_base::server);
-}
 
 void SocketWrapper::set_timeout_timer(std::shared_ptr<boost::asio::steady_timer> timeout_timer) {
     Logger::LogDebug("Entering SocketWrapper::SetTimeoutTimer");
@@ -293,7 +132,7 @@ void SocketWrapper::StartTimeoutTimer(std::chrono::seconds timeout_duration)
             if (!error)
             {
                 Logger::LogWarning("Client timed out. Closing connection.");
-                this->Close();
+                Close();
             }
             else
             {
@@ -339,134 +178,24 @@ void SocketWrapper::Close()
 {
     Logger::LogDebug("Entering SocketWrapper::Close");
 
-    if (auto ssl_socket = std::get_if<SslSocketPtr>(&m_socket))
+    if (IsTls())
     {
-        TerminateSslConnection(**ssl_socket);
+        std::get<std::shared_ptr<TlsSocketManager>>(m_socket_wrapper)
+            ->TerminateConnection();
     }
-    else if (auto tcp_socket = std::get_if<TcpSocketPtr>(&m_socket))
-    {
-        TerminateTcpConnection(**tcp_socket);
-    }
+    std::get<std::shared_ptr<TcpSocketManager>>(m_socket_wrapper)
+            ->TerminateConnection();
     Logger::LogDebug("Exiting SocketWrapper::Close");
 }
 
-    bool SocketWrapper::IsOpen() const
+bool SocketWrapper::IsOpen() const
 {
     Logger::LogDebug("Entering SocketWrapper::IsOpen");
 
-    bool is_open = false;
-
-    if (auto ssl_socket = std::get_if<SslSocketPtr>(&m_socket))
-    {
-        is_open = *ssl_socket && (*ssl_socket)->lowest_layer().is_open();
-        Logger::LogProd("SocketWrapper::IsOpen: SSL socket status - " +
-                        std::string(is_open ? "Open" : "Closed"));
+    if (IsTls()) {
+        return std::get<std::shared_ptr<TlsSocketManager>>(m_socket_wrapper)->IsOpen();
     }
-    else if (auto tcp_socket = std::get_if<TcpSocketPtr>(&m_socket))
-    {
-        is_open = *tcp_socket && (*tcp_socket)->is_open();
-        Logger::LogProd("SocketWrapper::IsOpen: TCP socket status - " +
-                        std::string(is_open ? "Open" : "Closed"));
-    }
-
-    Logger::LogDebug("Exiting SocketWrapper::IsOpen");
-    Logger::LogTrace("SocketWrapper::IsOpen returning: " +
-                     std::string(is_open ? "Open" : "Closed"));
-
-    return is_open;
+    return std::get<std::shared_ptr<TcpSocketManager>>(m_socket_wrapper)->IsOpen();
 }
 
-
-void SocketWrapper::TerminateSslConnection(SslSocket& ssl_socket)
-{
-    Logger::LogDebug("Entering SocketWrapper::TerminateSslConnection");
-
-    boost::system::error_code ec;
-
-    if (ssl_socket.lowest_layer().is_open())
-    {
-        Logger::LogProd("SocketWrapper::TerminateSslConnection: Shutting down SSL socket");
-
-        ssl_socket.lowest_layer().shutdown(TcpSocket::shutdown_both, ec);
-        if (ec && ec != boost::asio::error::not_connected)
-        {
-            Logger::LogError("SocketWrapper::TerminateSslConnection: Error shutting down SSL socket: " +
-                ec.message());
-        }
-        else
-        {
-            Logger::LogProd("SocketWrapper::TerminateSslConnection: SSL socket shutdown successful");
-        }
-
-        ssl_socket.lowest_layer().cancel(ec);
-        if (ec && ec != boost::asio::error::operation_aborted)
-        {
-            Logger::LogError("SocketWrapper::TerminateSslConnection: Error canceling SSL socket: " +
-                ec.message());
-        }
-        else
-        {
-            Logger::LogProd("SocketWrapper::TerminateSslConnection: SSL socket cancel successful");
-        }
-
-        ssl_socket.lowest_layer().close(ec);
-        if (ec && ec != boost::asio::error::not_connected)
-        {
-            Logger::LogError("SocketWrapper::TerminateSslConnection: Error closing SSL socket: " +
-                ec.message());
-        }
-        else
-        {
-            Logger::LogProd("SocketWrapper::TerminateSslConnection: SSL socket closed successfully");
-        }
-    }
-
-    Logger::LogDebug("Exiting SocketWrapper::TerminateSslConnection");
-}
-
-void SocketWrapper::TerminateTcpConnection(TcpSocket& tcp_socket)
-{
-    Logger::LogDebug("Entering SocketWrapper::TerminateTcpConnection");
-
-    boost::system::error_code ec;
-
-    if (tcp_socket.is_open())
-    {
-        Logger::LogProd("SocketWrapper::TerminateTcpConnection: Shutting down TCP socket");
-
-        tcp_socket.shutdown(TcpSocket::shutdown_both, ec);
-        if (ec && ec != boost::asio::error::not_connected)
-        {
-            Logger::LogError("SocketWrapper::TerminateTcpConnection: Error shutting down TCP socket: " +
-                ec.message());
-        }
-        else
-        {
-            Logger::LogProd("SocketWrapper::TerminateTcpConnection: TCP socket shutdown successful");
-        }
-
-        tcp_socket.cancel(ec);
-        if (ec && ec != boost::asio::error::operation_aborted)
-        {
-            Logger::LogError("SocketWrapper::TerminateTcpConnection: Error canceling TCP socket: " +
-                ec.message());
-        }
-        else
-        {
-            Logger::LogProd("SocketWrapper::TerminateTcpConnection: TCP socket cancel successful");
-        }
-
-        tcp_socket.close(ec);
-        if (ec && ec != boost::asio::error::not_connected)
-        {
-            Logger::LogError("SocketWrapper::TerminateTcpConnection: Error closing TCP socket: " + ec.message());
-        }
-        else
-        {
-            Logger::LogProd("SocketWrapper::TerminateTcpConnection: TCP socket closed successfully");
-        }
-    }
-
-    Logger::LogDebug("Exiting SocketWrapper::TerminateTcpConnection");
-}
 }
