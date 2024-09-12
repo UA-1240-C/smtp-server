@@ -18,8 +18,6 @@ void Logger::set_attributes()
 {
 	const attrs::local_clock time_stamp;
 	logging::core::get()->add_global_attribute("TimeStamp", time_stamp);
-	const attrs::named_scope scope;
-	logging::core::get()->add_thread_attribute("Scope", scope);
 }
 
 void Logger::set_sink_filter()
@@ -79,11 +77,11 @@ void Logger::Setup(const Config::Logging& logging_config)
 {
 	s_log_filename = logging_config.filename;
 	s_severity_filter = static_cast<SeverityFilter>(logging_config.log_level);
-	s_flush = logging_config.flush;
+	s_flush = static_cast<bool>(logging_config.flush);
 
+	set_sink_formatter();
 	s_sink_pointer = set_sink();
 	set_attributes();
-	set_sink_formatter();
 	set_sink_filter();
 }
 
@@ -141,48 +139,6 @@ void Logger::LogToConsole(const std::string& message, const LogLevel& log_level,
 
 void Logger::LogToFile(const std::string& message, const LogLevel& log_level, const std::source_location& location)
 {
-	if (s_log_file.is_open())
-	{
-		const std::thread::id thread_id = std::this_thread::get_id();
-		const std::string sev_level = SeverityToOutput();
-		std::lock_guard<std::mutex> lock(s_logging_mutex);
-		if (!s_log_file)
-		{
-			std::cerr << "Error opening file" << std::endl; // check
-		}
-
-		s_log_file <<
-			thread_id <<
-			" - " << boost::posix_time::second_clock::local_time() <<
-			" [" << sev_level <<
-			"] - [" << location.function_name() <<
-			"] " << message;
-		if (s_flush)
-		{
-			s_log_file.flush();
-		}
-		if (s_log_file.bad())
-		{
-			std::cerr << "I/O operation failed" << std::endl; // check
-		}
-		else if (s_log_file.fail())
-		{
-			std::cerr << "Logical error on i/o operation" << std::endl;
-		}
-		else if (s_log_file.eof())
-		{
-			std::cerr << "End of file reached" << std::endl;
-		}
-
-		if (s_log_file.fail())
-		{
-			std::cerr << "Error writing to file" << std::endl; // check
-		}
-	}
-	else
-	{
-		std::cerr << "Log file is not open" << std::endl;
-	}
 }
 
 void Logger::LogDebug(const std::string& message, const std::source_location& location)

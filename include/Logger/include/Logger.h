@@ -146,11 +146,13 @@ public:
 	 * @return Severity filter from the Logger class; used for testing
 	 */
 	static uint8_t get_severity_filter() { return s_severity_filter; }
+
 	/**
 	 * @brief Get current log file from the Logger class
 	 * @return Log file from the Logger class; used for testing
 	 */
 	static std::string get_log_filename() { return s_log_filename; }
+
 	/**
 	* @brief Get current flush setting from the Logger class
 	* @return Flush setting from the Logger class; used for testing
@@ -215,8 +217,8 @@ public:
 	 * @param log_level Log level of the message, one from LogLevel enum
 	 * @param location The source location where the log was invoked. Defaults to the current location.
 	 */
-	static void LogToConsole(const std::string& message, const LogLevel& log_level,
-							const std::source_location& location = std::source_location::current());
+	void LogToConsole(const std::string& message, const LogLevel& log_level,
+					const std::source_location& location = std::source_location::current());
 
 	/**
 	 * @brief Logs a message to the file with the specified log level.
@@ -224,8 +226,8 @@ public:
 	 * @param log_level The severity level of the log message.
 	 * @param location The source location where the log was invoked. Defaults to the current location.
 	 */
-	static void LogToFile(const std::string& message, const LogLevel& log_level,
-						const std::source_location& location = std::source_location::current());
+	void LogToFile(const std::string& message, const LogLevel& log_level,
+					const std::source_location& location = std::source_location::current());
 
 	/**
 	 * @brief Logs a message with the specified log level, both to the console and the system log.
@@ -245,8 +247,8 @@ public:
 		{
 			s_thread_local_logger = std::make_unique<Logger>();
 		}
-		LogToConsole(message, log_level, location);
-		LogToFile(message, log_level, location);
+		s_thread_local_logger->LogToConsole(message, log_level, location);
+		s_thread_local_logger->LogToFile(message, log_level, location);
 		Syslog(message, log_level, location);
 	}
 
