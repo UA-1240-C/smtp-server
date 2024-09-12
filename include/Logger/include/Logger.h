@@ -160,6 +160,15 @@ public:
 	static uint8_t get_flush() { return s_flush; }
 
 	/**
+	* @brief Get current thread-local logger instance from the Logger class
+	* @return Thread-local logger instance from the Logger class if it exists; used for testing
+	*/
+	static std::unique_ptr<Logger>& get_thread_local_logger()
+	{
+		return s_thread_local_logger;
+	}
+
+	/**
 	 * @brief Set sink for the logger.
 	 *
 	 * Function sets up the sink as shared pointer to the backend.
