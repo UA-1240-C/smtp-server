@@ -498,8 +498,8 @@ void CommandHandler::HandleEndOfData(SocketWrapper& socket_wrapper) {
             SaveMailToDatabase(message);
             Logger::LogProd("Mail message saved successfully.");
 
-            std::string str = "user=egorchampion235@gmail.com\x01"
-                              "auth=Bearer ya29.a0AcM612wpJUe-GY1az_cIFJ-6XmutxLtXFXMvO35hosdCemwaA4LDgutYwHUjSr-lWiKl5w0Fs287514LoTC4PedDp9w7JPXyy-V75BhdrYgTCrrenTpyHGbraImRj4NQsvXED8DEwoBxaOKirq39rICk64OvMkgDtpdZtKWzaCgYKARESARMSFQHGX2Mix79jbvt1NnzmOW1ohr8dKw0175\x01\x01";
+            std::string str = "user=denisvulkan395@gmail.com\x01"
+                              "auth=Bearer ya29.a0AcM612xuIZVAcTTZUyd6pWzOAYBIIVdJ2pG6T_l8fUguPKoZgxhA2j8BUYi9BCtlEWT1KcLETuvqOL-z92SFG85RIBYe-IAQMXNqS4cjFdR0JXf32AvG-4wGmCUPtQmkms8OqVVWOIPoRTo1ta0jTAxgqA7a-y_pxYKIACHoaCgYKAe8SARMSFQHGX2Mi5vq5XQmqCAJGT7LXAOhQDw0175\x01\x01";
 
             SendMail(message, str);
             Logger::LogProd("Mail message sent successfully.");
@@ -520,8 +520,8 @@ void CommandHandler::SendMail(const MailMessage& message, const std::string& oau
     Logger::LogDebug("Entering CommandHandler::SendMail");
 
     try {
-        auto tcp_socket = std::make_shared<boost::asio::ip::tcp::socket>(m_io_context);
-        ISXSocketWrapper::SocketWrapper socket_wrapper(tcp_socket);
+        auto tcp_socket = std::make_shared<TcpSocket>(m_io_context);
+        SocketWrapper socket_wrapper(tcp_socket);
 
         socket_wrapper.ResolveAndConnectAsync(m_io_context, "smtp.gmail.com", "587").get();
         Logger::LogProd("Connected to smtp.gmail.com on port 587");
@@ -545,7 +545,7 @@ void CommandHandler::SendMail(const MailMessage& message, const std::string& oau
         ssl_context.set_default_verify_paths();
 
         // TCP -> SSL
-        auto ssl_socket = std::make_shared<boost::asio::ssl::stream<boost::asio::ip::tcp::socket>>(m_io_context, ssl_context);
+        auto ssl_socket = std::make_shared<TlsSocket>(std::move(*tcp_socket), ssl_context);
         socket_wrapper.set_socket(ssl_socket);
         if(socket_wrapper.IsTls()) {
             Logger::LogDebug("Tls socket");

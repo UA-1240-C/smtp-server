@@ -1,6 +1,10 @@
+find_package(jsoncpp REQUIRED)
+
+
 add_library(CommandHandler src/CommandHandler.cpp
         src/StandartSmtpResponses.cpp
-        src/MXResolver.cpp)
+        src/MXResolver.cpp
+        src/AccessTokenFetcher.cpp)
 
 target_link_libraries(CommandHandler PRIVATE
         MailDB
@@ -9,7 +13,8 @@ target_link_libraries(CommandHandler PRIVATE
         Boost::log_setup
         c-ares
         ${OPENSSL_LIBRARIES}
-        )
+        jsoncpp
+)
 
 
 target_link_libraries(CommandHandler PRIVATE MailDB)
@@ -22,4 +27,5 @@ target_include_directories(CommandHandler PUBLIC
         ${CMAKE_SOURCE_DIR}/include/Logger/include
         ${CMAKE_SOURCE_DIR}/include/Server/include
         ${CMAKE_SOURCE_DIR}/include/Utils/include
+        ${jsoncpp_INCLUDE_DIRS}
 )
