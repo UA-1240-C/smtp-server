@@ -520,65 +520,74 @@ void CommandHandler::SendMail(const MailMessage& message, const std::string& oau
     Logger::LogDebug("Entering CommandHandler::SendMail");
 
     try {
-        boost::asio::io_context io_context;
-        boost::asio::ip::tcp::resolver resolver(io_context);
-        boost::asio::ip::tcp::resolver::results_type endpoints = resolver.resolve("smtp.gmail.com", "587");
-        boost::asio::ip::tcp::socket socket(io_context);
-        boost::asio::connect(socket, endpoints);
+        auto tcp_socket = std::make_shared<boost::asio::ip::tcp::socket>(m_io_context);
+        ISXSocketWrapper::SocketWrapper socket_wrapper(tcp_socket);
+
+        socket_wrapper.ResolveAndConnectAsync(m_io_context, "smtp.gmail.com", "587").get();
         Logger::LogProd("Connected to smtp.gmail.com on port 587");
 
-        std::string response = ReadSmtpResponse(socket);
+        std::string response = socket_wrapper.ReadAsync(MAX_LENGTH).get();
         std::cout << "Server response: " << response << std::endl;
 
         std::string helo_command = "HELO example.com\r\n";
-        boost::asio::write(socket, boost::asio::buffer(helo_command));
-        response = ReadSmtpResponse(socket);
+        socket_wrapper.WriteAsync(helo_command).get();
+        response = socket_wrapper.ReadAsync(MAX_LENGTH).get();
         std::cout << "Server response: " << response << std::endl;
 
+        // STARTTLS
         std::string starttls_command = "STARTTLS\r\n";
-        boost::asio::write(socket, boost::asio::buffer(starttls_command));
-        response = ReadSmtpResponse(socket);
+        socket_wrapper.WriteAsync(starttls_command).get();
+        response = socket_wrapper.ReadAsync(MAX_LENGTH).get();
         std::cout << "Server response: " << response << std::endl;
 
-        boost::asio::ssl::context ctx(boost::asio::ssl::context::tlsv12_client);
-        ctx.set_default_verify_paths();
-        boost::asio::ssl::stream<boost::asio::ip::tcp::socket> ssl_socket(io_context, ctx);
-        ssl_socket.lowest_layer() = std::move(socket);
-        ssl_socket.handshake(boost::asio::ssl::stream_base::client);
-        Logger::LogProd("TLS handshake completed");
+        // SSL-context
+        boost::asio::ssl::context ssl_context(boost::asio::ssl::context::tlsv12_client);
+        ssl_context.set_default_verify_paths();
 
+        // TCP -> SSL
+        auto ssl_socket = std::make_shared<boost::asio::ssl::stream<boost::asio::ip::tcp::socket>>(m_io_context, ssl_context);
+        socket_wrapper.set_socket(ssl_socket);
+        if(socket_wrapper.IsTls()) {
+            Logger::LogDebug("Tls socket");
+        } else {
+            Logger::LogDebug("!Tls socket");
+        }
+        socket_wrapper.PerformTlsHandshake(boost::asio::ssl::stream_base::handshake_type::client).get();
+        Logger::LogDebug("asg");
+
+        // XOAUTH2
         std::string auth_command = "AUTH XOAUTH2 " + Base64Encode(oauth2_token) + "\r\n";
         std::cout << "Auth command: " << auth_command << std::endl;
-        boost::asio::write(ssl_socket, boost::asio::buffer(auth_command));
-        response = ReadSmtpResponse(ssl_socket);
+        socket_wrapper.WriteAsync(auth_command).get();
+        response = socket_wrapper.ReadAsync(MAX_LENGTH).get();
         std::cout << "Server response: " << response << std::endl;
 
         if (response.substr(0, 3) == "235") {  // 235 = Authentication successful
             std::string mail_from = "MAIL FROM:<" + message.from.get_address() + ">\r\n";
-            boost::asio::write(ssl_socket, boost::asio::buffer(mail_from));
-            response = ReadSmtpResponse(ssl_socket);
+            socket_wrapper.WriteAsync(mail_from).get();
+            response = socket_wrapper.ReadAsync(MAX_LENGTH).get();
             std::cout << "Server response: " << response << std::endl;
 
             for (const auto& recipient : message.to) {
                 std::string rcpt_to = "RCPT TO:<" + recipient.get_address() + ">\r\n";
-                boost::asio::write(ssl_socket, boost::asio::buffer(rcpt_to));
-                response = ReadSmtpResponse(ssl_socket);
+                socket_wrapper.WriteAsync(rcpt_to).get();
+                response = socket_wrapper.ReadAsync(MAX_LENGTH).get();
                 std::cout << "Server response: " << response << std::endl;
             }
 
             std::string data_command = "DATA\r\n";
-            boost::asio::write(ssl_socket, boost::asio::buffer(data_command));
-            response = ReadSmtpResponse(ssl_socket);
+            socket_wrapper.WriteAsync(data_command).get();
+            response = socket_wrapper.ReadAsync(MAX_LENGTH).get();
             std::cout << "Server response: " << response << std::endl;
 
             std::string email_data = "Subject: " + message.subject + "\r\n" + message.body + "\r\n.\r\n";
-            boost::asio::write(ssl_socket, boost::asio::buffer(email_data));
-            response = ReadSmtpResponse(ssl_socket);
+            socket_wrapper.WriteAsync(email_data).get();
+            response = socket_wrapper.ReadAsync(MAX_LENGTH).get();
             std::cout << "Server response: " << response << std::endl;
 
             std::string quit_command = "QUIT\r\n";
-            boost::asio::write(ssl_socket, boost::asio::buffer(quit_command));
-            response = ReadSmtpResponse(ssl_socket);
+            socket_wrapper.WriteAsync(quit_command).get();
+            response = socket_wrapper.ReadAsync(MAX_LENGTH).get();
             std::cout << "Server response: " << response << std::endl;
         }
 

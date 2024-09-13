@@ -68,6 +68,7 @@ std::future<void> TlsSocketManager::PerformTlsHandshake(boost::asio::ssl::stream
     auto promise = std::make_shared<std::promise<void>>();
     auto future = promise->get_future();
 
+    Logger::LogDebug("Before handshake");
     m_socket->async_handshake(handshake_type,
         [promise](const boost::system::error_code& error) {
             if (error) {

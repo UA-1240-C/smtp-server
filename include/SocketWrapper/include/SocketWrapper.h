@@ -58,10 +58,18 @@ public:
      * the `m_is_tls` flag accordingly. The function logs the type of socket being set
      * (either "SslSocket" or "TcpSocket") for debugging purposes.
      */
-     template <typename SocketType>
-     void set_socket(SocketType socket) {
-       m_socket_wrapper = std::make_shared<SocketType>(std::move(socket));
-     }
+    template <typename SocketType>
+    void set_socket(SocketType socket) {
+        Logger::LogDebug(typeid(socket).name());
+        if constexpr (std::is_same_v<SocketType, TcpSocketPtr>) {
+            m_socket_wrapper = std::make_shared<TcpSocketManager>(socket);
+        } else if constexpr (std::is_same_v<SocketType, TlsSocketPtr>) {
+            m_socket_wrapper = std::make_shared<TlsSocketManager>(socket);
+        } else {
+            Logger::LogDebug(typeid(socket).name());
+            Logger::LogDebug("Unsupported socket type");
+        }
+    }
 
 
     // std::future<void> Connect(const std::string& host, unsigned short port);

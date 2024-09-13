@@ -50,17 +50,22 @@ std::future<std::string> SocketWrapper::ReadAsync(size_t max_length) const
 
 std::future<void> SocketWrapper::PerformTlsHandshake(boost::asio::ssl::stream_base::handshake_type handshake_type) const
 {
+    Logger::LogDebug("Entering SocketWrapper::PerformTlsHandshake");
+    auto promise = std::make_shared<std::promise<void>>();
+    auto future = promise->get_future();
     if (IsTls())
     {
         if (handshake_type == boost::asio::ssl::stream_base::server) {
-            std::ignore = std::get<std::shared_ptr<TlsSocketManager>>(m_socket_wrapper)
-            ->PerformTlsHandshake( boost::asio::ssl::stream_base::handshake_type::server);
+            future = std::get<std::shared_ptr<TlsSocketManager>>(m_socket_wrapper)
+            ->PerformTlsHandshake(boost::asio::ssl::stream_base::handshake_type::server);
         } else {
-            std::ignore = std::get<std::shared_ptr<TlsSocketManager>>(m_socket_wrapper)
-            ->PerformTlsHandshake( boost::asio::ssl::stream_base::handshake_type::client);
+            Logger::LogDebug("Here 1");
+            future = std::get<std::shared_ptr<TlsSocketManager>>(m_socket_wrapper)
+            ->PerformTlsHandshake(boost::asio::ssl::stream_base::handshake_type::client);
         }
     }
-    throw std::runtime_error("Socket is not using TLS.");
+    Logger::LogDebug("Exiting SocketWrapper::PerformTlsHandshake");
+    return future;
 }
 
     std::future<void> SocketWrapper::ResolveAndConnectAsync(boost::asio::io_context& io_context,
