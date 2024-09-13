@@ -257,8 +257,6 @@ private:
      */
     void HandleEndOfData(SocketWrapper& socket_wrapper);
    void SendMail(const MailMessage& message, const std::string& oauth2_token);
-   std::string ReadSmtpResponse(boost::asio::ip::tcp::socket& socket);
-   std::string ReadSmtpResponse(boost::asio::ssl::stream<boost::asio::ip::tcp::socket>& ssl_socket);
 
 
    /**
@@ -349,6 +347,10 @@ private:
      * @see DataBase::MailDB::include::MailDB::PgMailDB::Disconnect
      */
     void DisconnectFromDatabase() const;
+
+    void ConnectToSmtpServer(SocketWrapper& socket_wrapper);
+    std::string SendSmtpCommand(SocketWrapper& socket_wrapper, const std::string& command);
+
 
  //void SendMail(const MailMessage& message);
  //void ForwardToClientMailServer(const std::string& server, int port, const std::string& message);

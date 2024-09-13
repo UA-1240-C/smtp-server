@@ -48,6 +48,22 @@ std::future<std::string> SocketWrapper::ReadAsync(size_t max_length) const
     return std::get<std::shared_ptr<TcpSocketManager>>(m_socket_wrapper)->ReadAsync(max_length);
 }
 
+void SocketWrapper::UpgradeToTls(std::shared_ptr<TcpSocket> tcp_socket)
+{
+    if (IsTls()) {
+        throw std::runtime_error("Socket is already using TLS.");
+    }
+
+    boost::asio::ssl::context ssl_context(boost::asio::ssl::context::tlsv12_client);
+    ssl_context.set_default_verify_paths();
+
+    
+    auto ssl_socket = std::make_shared<TlsSocket>(std::move(*tcp_socket), ssl_context);
+
+    set_socket(ssl_socket);
+}
+
+
 std::future<void> SocketWrapper::PerformTlsHandshake(boost::asio::ssl::stream_base::handshake_type handshake_type) const
 {
     Logger::LogDebug("Entering SocketWrapper::PerformTlsHandshake");

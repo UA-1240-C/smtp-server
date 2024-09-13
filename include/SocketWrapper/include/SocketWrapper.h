@@ -185,6 +185,9 @@ public:
      * confirmation is logged. If the timer is null or an error occurs during cancellation, an error is logged.
      */
     void CancelTimeoutTimer();
+
+    void UpgradeToTls(std::shared_ptr<TcpSocket> tcp_socket);
+
 private:
     /**
      * @brief Closes a TCP socket.

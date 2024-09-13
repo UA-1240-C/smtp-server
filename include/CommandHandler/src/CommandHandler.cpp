@@ -498,8 +498,8 @@ void CommandHandler::HandleEndOfData(SocketWrapper& socket_wrapper) {
             SaveMailToDatabase(message);
             Logger::LogProd("Mail message saved successfully.");
 
-            std::string str = "user=denisvulkan395@gmail.com\x01"
-                              "auth=Bearer ya29.a0AcM612xuIZVAcTTZUyd6pWzOAYBIIVdJ2pG6T_l8fUguPKoZgxhA2j8BUYi9BCtlEWT1KcLETuvqOL-z92SFG85RIBYe-IAQMXNqS4cjFdR0JXf32AvG-4wGmCUPtQmkms8OqVVWOIPoRTo1ta0jTAxgqA7a-y_pxYKIACHoaCgYKAe8SARMSFQHGX2Mi5vq5XQmqCAJGT7LXAOhQDw0175\x01\x01";
+            std::string str = "user=egorchampion235@gmail.com\x01"
+                              "auth=Bearer ya29.a0AcM612x9Oj3eMt8YrKOSfDCuxwY-EQSJci3CuAn2xcV-TyY2tQk4vYQNxg9EQ0txsMP3oKQ5rIZXMBVRhD-mH4a4kj1nuFjN6eR8qYyAkYVvk2JxKGArX5pxaPf8-lkIsg0y281N464r6wTKVUVcNjjk0-NGpl7mPcsaCgYKASUSARESFQHGX2Mi60q8hlTSaxPfP_kHmch8Ow0170\x01\x01";
 
             SendMail(message, str);
             Logger::LogProd("Mail message sent successfully.");
@@ -516,6 +516,28 @@ void CommandHandler::HandleEndOfData(SocketWrapper& socket_wrapper) {
     Logger::LogDebug("Exiting CommandHandler::HandleEndOfData");
 }
 
+void CommandHandler::ConnectToSmtpServer(SocketWrapper& socket_wrapper) {
+    socket_wrapper.ResolveAndConnectAsync(m_io_context, "smtp.gmail.com", "587").get();
+    Logger::LogProd("Connected to smtp.gmail.com on port 587");
+
+    std::string response = socket_wrapper.ReadAsync(MAX_LENGTH).get();
+    std::cout << "Server response: " << response << std::endl;
+
+    std::string helo_command = "HELO example.com\r\n";
+    socket_wrapper.WriteAsync(helo_command).get();
+    response = socket_wrapper.ReadAsync(MAX_LENGTH).get();
+    std::cout << "Server response: " << response << std::endl;
+}
+
+
+std::string CommandHandler::SendSmtpCommand(SocketWrapper& socket_wrapper, const std::string& command) {
+    std::string command_with_endl = command + "\r\n";
+    socket_wrapper.WriteAsync(command_with_endl).get();
+    std::string response = socket_wrapper.ReadAsync(MAX_LENGTH).get();
+    std::cout << "Server response: " << response << std::endl;
+    return response;
+}
+
 void CommandHandler::SendMail(const MailMessage& message, const std::string& oauth2_token) {
     Logger::LogDebug("Entering CommandHandler::SendMail");
 
@@ -528,67 +550,23 @@ void CommandHandler::SendMail(const MailMessage& message, const std::string& oau
 
         std::string response = socket_wrapper.ReadAsync(MAX_LENGTH).get();
         std::cout << "Server response: " << response << std::endl;
-
-        std::string helo_command = "HELO example.com\r\n";
-        socket_wrapper.WriteAsync(helo_command).get();
-        response = socket_wrapper.ReadAsync(MAX_LENGTH).get();
-        std::cout << "Server response: " << response << std::endl;
-
-        // STARTTLS
-        std::string starttls_command = "STARTTLS\r\n";
-        socket_wrapper.WriteAsync(starttls_command).get();
-        response = socket_wrapper.ReadAsync(MAX_LENGTH).get();
-        std::cout << "Server response: " << response << std::endl;
-
-        // SSL-context
-        boost::asio::ssl::context ssl_context(boost::asio::ssl::context::tlsv12_client);
-        ssl_context.set_default_verify_paths();
-
-        // TCP -> SSL
-        auto ssl_socket = std::make_shared<TlsSocket>(std::move(*tcp_socket), ssl_context);
-        socket_wrapper.set_socket(ssl_socket);
-        if(socket_wrapper.IsTls()) {
-            Logger::LogDebug("Tls socket");
-        } else {
-            Logger::LogDebug("!Tls socket");
-        }
+        SendSmtpCommand(socket_wrapper, "HELO example.com");
+        
+        SendSmtpCommand(socket_wrapper, "STARTTLS");
+        socket_wrapper.UpgradeToTls(tcp_socket);
         socket_wrapper.PerformTlsHandshake(boost::asio::ssl::stream_base::handshake_type::client).get();
-        Logger::LogDebug("asg");
 
         // XOAUTH2
-        std::string auth_command = "AUTH XOAUTH2 " + Base64Encode(oauth2_token) + "\r\n";
-        std::cout << "Auth command: " << auth_command << std::endl;
-        socket_wrapper.WriteAsync(auth_command).get();
-        response = socket_wrapper.ReadAsync(MAX_LENGTH).get();
-        std::cout << "Server response: " << response << std::endl;
+        response = SendSmtpCommand(socket_wrapper, "AUTH XOAUTH2 " + Base64Encode(oauth2_token));
 
         if (response.substr(0, 3) == "235") {  // 235 = Authentication successful
-            std::string mail_from = "MAIL FROM:<" + message.from.get_address() + ">\r\n";
-            socket_wrapper.WriteAsync(mail_from).get();
-            response = socket_wrapper.ReadAsync(MAX_LENGTH).get();
-            std::cout << "Server response: " << response << std::endl;
-
+            SendSmtpCommand(socket_wrapper, "MAIL FROM:<" + message.from.get_address() + ">");
             for (const auto& recipient : message.to) {
-                std::string rcpt_to = "RCPT TO:<" + recipient.get_address() + ">\r\n";
-                socket_wrapper.WriteAsync(rcpt_to).get();
-                response = socket_wrapper.ReadAsync(MAX_LENGTH).get();
-                std::cout << "Server response: " << response << std::endl;
+                SendSmtpCommand(socket_wrapper, "RCPT TO:<" + recipient.get_address() + ">");
             }
-
-            std::string data_command = "DATA\r\n";
-            socket_wrapper.WriteAsync(data_command).get();
-            response = socket_wrapper.ReadAsync(MAX_LENGTH).get();
-            std::cout << "Server response: " << response << std::endl;
-
-            std::string email_data = "Subject: " + message.subject + "\r\n" + message.body + "\r\n.\r\n";
-            socket_wrapper.WriteAsync(email_data).get();
-            response = socket_wrapper.ReadAsync(MAX_LENGTH).get();
-            std::cout << "Server response: " << response << std::endl;
-
-            std::string quit_command = "QUIT\r\n";
-            socket_wrapper.WriteAsync(quit_command).get();
-            response = socket_wrapper.ReadAsync(MAX_LENGTH).get();
-            std::cout << "Server response: " << response << std::endl;
+            SendSmtpCommand(socket_wrapper, "DATA");
+            SendSmtpCommand(socket_wrapper, "Subject: " + message.subject + "\r\n" + message.body + "\r\n.");
+            SendSmtpCommand(socket_wrapper, "QUIT");
         }
 
     } catch (const std::exception& e) {
@@ -597,56 +575,6 @@ void CommandHandler::SendMail(const MailMessage& message, const std::string& oau
     }
 
     Logger::LogDebug("Exiting CommandHandler::SendMail");
-}
-
-std::string CommandHandler::ReadSmtpResponse(boost::asio::ip::tcp::socket& socket) {
-    std::string response;
-    boost::asio::streambuf buffer;
-    std::istream stream(&buffer);
-
-    try {
-        while (true) {
-            boost::asio::read_until(socket, buffer, "\r\n");
-            std::string line;
-            std::getline(stream, line);
-            response += line + "\n";
-
-            // Check if the response ends with the status code (e.g., 220, 235, 451)
-            if (line.length() >= 3 && line[3] == ' ') {
-                break;
-            }
-        }
-    } catch (const boost::system::system_error& e) {
-        Logger::LogError("Error reading from SMTP server: " + std::string(e.what()));
-        throw;
-    }
-
-    return response;
-}
-
-std::string CommandHandler::ReadSmtpResponse(boost::asio::ssl::stream<boost::asio::ip::tcp::socket>& ssl_socket) {
-    std::string response;
-    boost::asio::streambuf buffer;
-    std::istream stream(&buffer);
-
-    try {
-        while (true) {
-            read_until(ssl_socket, buffer, "\r\n");
-            std::string line;
-            std::getline(stream, line);
-            response += line + "\n";
-
-            // Check if the response ends with the status code (e.g., 220, 235, 451)
-            if (line.length() >= 3 && line[3] == ' ') {
-                break;
-            }
-        }
-    } catch (const boost::system::system_error& e) {
-        Logger::LogError("Error reading from SMTP server: " + std::string(e.what()));
-        throw;
-    }
-
-    return response;
 }
 
 void CommandHandler::SaveMailToDatabase(const MailMessage& message)
