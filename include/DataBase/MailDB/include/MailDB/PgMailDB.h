@@ -5,9 +5,15 @@
 #include <sodium/crypto_pwhash.h>
 
 #include "IMailDB.h"
+#include "ConnectionPool.h"
+#include "ConnectionPoolWrapper.h"
+#include "PgEmailsWriter.h"
+#include "PgManager.h"
+#include "EmailsInstance.h"
 
 namespace ISXMailDB
 {
+
 /**
  * @class PgMailDB
  * @brief Concrete implementation of the IMailDB interface using PostgreSQL as the database backend.
@@ -20,34 +26,16 @@ class PgMailDB : public IMailDB
 
 public:
     /**
-     * @brief Constructs a PgMailDB instance with the given host name.
-     * @param host_name The name of the host for the database connection.
+     * @brief Constructs a PgMailDB.
+     * 
+     * @param manager The class that stores data required for initialization.
      */
-    PgMailDB(std::string_view host_name);
-
-    /**
-     * @brief Copy constructor for PgMailDB.
-     * @param other The PgMailDB instance to copy.
-     */
-    PgMailDB(const PgMailDB&);
+    PgMailDB(PgManager& manager);
 
     /**
      * @brief Destructor for PgMailDB.
      */
     ~PgMailDB() override;
-
-    /**
-     * @copydoc IMailDB::Connect
-     */
-    void Connect(const std::string &connection_string) override;
-    /**
-     * @copydoc IMailDB::Disconnect
-     */
-    void Disconnect() override;
-    /**
-     * @copydoc IMailDB::IsConnected
-     */
-    bool IsConnected() const override;
 
     /**
      * @copydoc IMailDB::SignUp
@@ -57,6 +45,11 @@ public:
      * @copydoc IMailDB::Login
      */  
     void Login(const std::string_view user_name, const std::string_view password) override;
+
+    /**
+     * @copydoc IMailDB::Logout
+     */  
+    void Logout() override;
 
     /**
      * @copydoc IMailDB::RetrieveUserInfo
@@ -69,22 +62,22 @@ public:
     /**
      * @copydoc IMailDB::InsertEmail
      */     
-    void InsertEmail(const std::string_view sender, const std::string_view receiver,
-                                const std::string_view subject, const std::string_view body) override;
+    void InsertEmail(const std::string_view receiver, const std::string_view subject,
+                     const std::string_view body) override;
     /**
      * @copydoc IMailDB::InsertEmail
      */      
-    void InsertEmail(const std::string_view sender, const std::vector<std::string_view> receivers,
-                                const std::string_view subject, const std::string_view body) override;
+    void InsertEmail(const std::vector<std::string_view> receivers, const std::string_view subject, 
+                     const std::string_view body) override;
 
     /**
      * @copydoc IMailDB::RetrieveEmails
      */    
-    std::vector<Mail> RetrieveEmails(const std::string_view user_name, bool should_retrieve_all = false) const override;
+    std::vector<Mail> RetrieveEmails(bool should_retrieve_all = false) override;
     /**
      * @copydoc IMailDB::MarkEmailsAsReceived
      */    
-    void MarkEmailsAsReceived(const std::string_view user_name) override;
+    void MarkEmailsAsReceived() override;
     /**
      * @copydoc IMailDB::UserExists
      */    
@@ -100,11 +93,6 @@ public:
     void DeleteUser(const std::string_view user_name, const std::string_view password) override;
 
 protected:
-    /**
-     * @copydoc IMailDB::InsertHost
-     */ 
-    void InsertHost(const std::string_view host_name) override;
-
     /**
      * @copydoc IMailDB::HashPassword
      */ 
@@ -161,10 +149,20 @@ protected:
      *         database query.
      */
     void PerformEmailInsertion(const uint32_t sender_id, const uint32_t receiver_id,
-                                const std::string_view subject, const uint32_t body_id, pqxx::transaction_base& transaction);
+                               const std::string_view subject, const uint32_t body_id, pqxx::transaction_base& transaction);
 
-    std::unique_ptr<pqxx::connection> m_conn; ///< The connection to the PostgreSQL database.
+    /**
+     * @brief Check if there is a logged in user.
+     * 
+     * @throws MailException if the user is not logged in.
+     */
+    void CheckIfUserLoggedIn();
 
+    const std::string HOST_NAME; ///< The host name associated with the database.
+    const uint32_t HOST_ID; ///< The host ID associated with the database.
+
+    std::shared_ptr<ConnectionPool<pqxx::connection>> m_connection_pool; ///< The connection pool of connections to the PostgreSQL database.
+    std::shared_ptr<PgEmailsWriter> m_email_writer; ///< The object that is responsible for caching emails
 };
 
 }

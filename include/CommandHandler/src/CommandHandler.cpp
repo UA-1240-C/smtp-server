@@ -14,8 +14,11 @@ constexpr std::size_t DELIMITER_OFFSET = 2;
 
 namespace ISXCommandHandler
 {
-CommandHandler::CommandHandler(boost::asio::ssl::context& ssl_context)
-    : m_ssl_context(ssl_context), m_data_base(std::make_unique<PgMailDB>("localhost"))
+
+CommandHandler::CommandHandler(boost::asio::ssl::context& ssl_context, 
+                               ISXMailDB::PgManager& database_manager)
+    : m_ssl_context(ssl_context), 
+      m_data_base(std::make_unique<PgMailDB>(database_manager))  
 {
     Logger::LogDebug("Entering CommandHandler constructor");
     Logger::LogTrace("Constructor params: ssl_context");
@@ -27,86 +30,13 @@ CommandHandler::CommandHandler(boost::asio::ssl::context& ssl_context)
                               boost::asio::ssl::context::no_tlsv1_1);
     Logger::LogProd("SSL options set successfully.");
 
-    // Connect to the database
-    try
-    {
-        ConnectToDatabase();
-    }
-    catch (const std::exception& e)
-    {
-        Logger::LogError("Exception during database connection: " + std::string(e.what()));
-        throw;  // Re-throw to ensure proper exception handling at creation time
-    }
-
     Logger::LogDebug("Exiting CommandHandler constructor");
 }
 
 CommandHandler::~CommandHandler()
 {
     Logger::LogDebug("Entering CommandHandler destructor");
-
-    DisconnectFromDatabase();
-
     Logger::LogDebug("Exiting CommandHandler destructor");
-}
-
-void CommandHandler::ConnectToDatabase() const
-{
-    Logger::LogDebug("Entering CommandHandler::ConnectToDatabase");
-
-    Logger::LogTrace("CommandHandler::ConnectToDatabase parameter: connection_string=" + m_connection_string);
-
-    try
-    {
-        m_data_base->Connect(m_connection_string);
-
-        if (!m_data_base->IsConnected())
-        {
-            const std::string error_message = "Database connection is not established.";
-            Logger::LogError("CommandHandler::ConnectToDatabase: " + error_message);
-            throw std::runtime_error(error_message);
-        }
-
-        Logger::LogDebug("Exiting CommandHandler::ConnectToDatabase successfully");
-    }
-    catch (const std::exception& e)
-    {
-        Logger::LogError("CommandHandler::ConnectToDatabase: Exception occurred - " + std::string(e.what()));
-        throw;
-    }
-}
-
-void CommandHandler::DisconnectFromDatabase() const
-{
-    Logger::LogDebug("Entering CommandHandler::DisconnectFromDatabase");
-
-    if (m_data_base->IsConnected())
-    {
-        Logger::LogTrace(
-            "CommandHandler::DisconnectFromDatabase: "
-            "Database is currently connected. Proceeding to disconnect.");
-
-        try
-        {
-            m_data_base->Disconnect();
-            Logger::LogProd(
-                "CommandHandler::DisconnectFromDatabase: "
-                "Successfully disconnected from the database.");
-        }
-        catch (const std::exception& e)
-        {
-            Logger::LogError(
-                "CommandHandler::DisconnectFromDatabase: "
-                "Error during database disconnection: " +
-                std::string(e.what()));
-        }
-    }
-    else
-    {
-        Logger::LogTrace("CommandHandler::DisconnectFromDatabase: Database was not connected.");
-    }
-
-    Logger::LogDebug("Exiting CommandHandler::DisconnectFromDatabase");
 }
 
 void CommandHandler::ProcessLine(const std::string& line, SocketWrapper& socket_wrapper)
@@ -294,12 +224,12 @@ void CommandHandler::HandleMailFrom(SocketWrapper& socket_wrapper, const std::st
 
     try
     {
-        if (!m_data_base->UserExists(sender))
+        if (m_data_base->get_user_name() != sender)
         {
-            Logger::LogProd("Sender address doesn't exist: " + sender);
+            Logger::LogProd("Sender must be logged in");
             socket_wrapper
                 .SendResponseAsync(ToString(SmtpResponseCode::INVALID_EMAIL_ADDRESS) +
-                                   " : sender address doesn't exist.")
+                                   " : sender must be logged in.")
                 .get();
         }
         else
@@ -511,7 +441,7 @@ void CommandHandler::SaveMailToDatabase(const MailMessage& message)
         {
             try
             {
-                m_data_base->InsertEmail(message.from.get_address(), recipient.get_address(), message.subject,
+                m_data_base->InsertEmail(recipient.get_address(), message.subject,
                                          message.body);
                 Logger::LogDebug("Body: " + message.body);
                 Logger::LogDebug("subject: " + message.subject);
@@ -595,14 +525,6 @@ void CommandHandler::HandleAuth(SocketWrapper& socket_wrapper, const std::string
         Logger::LogTrace("Decoded username: " + username);
         Logger::LogTrace("Decoded password: [hidden]");
 
-        // Check if the user exists
-        if (!m_data_base->UserExists(username))
-        {
-            Logger::LogWarning("Authentication failed: user does not exist - " + username);
-            socket_wrapper.SendResponseAsync(ToString(SmtpResponseCode::AUTHENTICATION_FAILED)).get();
-            return;
-        }
-
         // Attempt to log in with the provided credentials
         try
         {
@@ -613,8 +535,10 @@ void CommandHandler::HandleAuth(SocketWrapper& socket_wrapper, const std::string
         catch (const MailException& e)
         {
             Logger::LogError("MailException in CommandHandler::HandleAuth: " + std::string(e.what()));
-            socket_wrapper.SendResponseAsync(ToString(SmtpResponseCode::AUTH_SUCCESSFUL)).get();
+            socket_wrapper.SendResponseAsync(ToString(SmtpResponseCode::AUTHENTICATION_FAILED)).get();
         }
+       
+      
     }
     catch (const std::exception& e)
     {
@@ -638,16 +562,18 @@ void CommandHandler::HandleRegister(SocketWrapper& socket_wrapper, const std::st
         Logger::LogProd("Decoded username: " + username);
         Logger::LogProd("Decoded password: [hidden]");
 
-        if (m_data_base->UserExists(username))
+        try
         {
-            Logger::LogWarning("Registration failed: user " + username + " already exists.");
-            socket_wrapper.SendResponseAsync(ToString(SmtpResponseCode::USER_ALREADY_EXISTS)).get();
-            return;
+            m_data_base->SignUp(username, password);
+            Logger::LogProd("User registered successfully");
+            socket_wrapper.SendResponseAsync(ToString(SmtpResponseCode::REGISTER_SUCCESSFUL)).get();
         }
-
-        m_data_base->SignUp(username, password);
-        Logger::LogProd("User registered successfully");
-        socket_wrapper.SendResponseAsync(ToString(SmtpResponseCode::REGISTER_SUCCESSFUL)).get();
+        catch(const MailException& e)
+        {
+            Logger::LogWarning("Registration failed: " + std::string(e.what()));
+            socket_wrapper.SendResponseAsync(ToString(SmtpResponseCode::USER_ALREADY_EXISTS)).get();
+        }
+       
     }
     catch (const std::exception& e)
     {

@@ -8,11 +8,11 @@
     },
     "communicationsettings": {
       "blocking": 0,
-      "socket_timeout": 15
+      "socket_timeout": 300
     },
     "logging": {
       "filename": "serverlog.txt",
-      "LogLevel": 2,
+      "LogLevel": 1,
       "flush": 0
     },
     "time": {

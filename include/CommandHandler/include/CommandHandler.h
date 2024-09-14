@@ -9,6 +9,8 @@
 
 #include "Base64.h"
 #include "MailDB/PgMailDB.h"
+#include "MailDB/ConnectionPool.h"
+#include "MailDB/PgManager.h"
 #include "MailMessageBuilder.h"
 #include "SocketWrapper.h"
 
@@ -34,15 +36,17 @@ public:
     * @brief Constructs a CommandHandler object.
     *
     * This constructor initializes the CommandHandler with a reference to an SSL context
-    * and establishes a connection to the PostgreSQL mail database. SSL options are set to
+    * and establishes a connection to the PostgreSQL mail database using connection pool. SSL options are set to
     * disable older, less secure protocols.
     *
     * @param ssl_context A reference to the boost::asio::ssl::context used for SSL connections.
+    * @param connection_pool A reference to the ISXMailDB::ConnectionPool used for database connections.
     *
     * @exception MailException Thrown if there is an error during the database connection.
     * @see DataBase::MailDB::include::MailDB::MailException.h
     */
-    explicit CommandHandler(boost::asio::ssl::context& ssl_context);
+    explicit CommandHandler(boost::asio::ssl::context& ssl_context, 
+                            ISXMailDB::PgManager& database_manager);
 
     /**
      * @brief Destructs the CommandHandler object and disconnects from the data base.
@@ -321,37 +325,13 @@ private:
     * @see DataBase::MailDB::include::MailDB::PgMailDB::InsertMail
     */
     void SaveMailToDatabase(const MailMessage& message);
-
-    /**
-   * @brief Establishes a connection to the mail database.
-   *
-   * This function is responsible for connecting to the mail database, enabling subsequent database operations.
-   * It is closely related to the `Connect` function found in `DataBase::MailDB::include::MailDB::PgMailDB`,
-   * which handles the actual connection logic.
-   *
-   * @see DataBase::MailDB::include::MailDB::PgMailDB::Connect
-   */
-    void ConnectToDatabase() const;
-
-    /**
-     * @brief Closes the connection to the mail database.
-     *
-     * This function handles disconnecting from the mail database, ensuring that the connection is properly closed.
-     * It is closely related to the `Disconnect` function located in `DataBase::MailDB::include::MailDB::PgMailDB`,
-     * which performs the actual disconnection process.
-     *
-     * @see DataBase::MailDB::include::MailDB::PgMailDB::Disconnect
-     */
-    void DisconnectFromDatabase() const;
+    
 private:
     boost::asio::ssl::context& m_ssl_context;  ///< Reference to the SSL context for secure connections.
     std::unique_ptr<PgMailDB> m_data_base;     ///< Pointer to the mail database for storing and retrieving mail messages.
     MailMessageBuilder m_mail_builder;         ///< Instance of the mail message builder for constructing messages.
     bool m_in_data = false;                    ///< lag indicating whether the server is currently processing mail data.
-    std::string m_connection_string =
-        "postgresql://postgres.qotrdwfvknwbfrompcji:"
-        "yUf73LWenSqd9Lt4@aws-0-eu-central-1.pooler."
-        "supabase.com:6543/postgres?sslmode=require";  ///< Data base connection string.
+    
 };
 }  // namespace ISXCommandHandler
 
