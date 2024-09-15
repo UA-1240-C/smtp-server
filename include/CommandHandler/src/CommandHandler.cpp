@@ -2,6 +2,7 @@
 #include "Logger.h"
 #include "StandartSmtpResponses.h"
 #include "MXResolver.h"
+#include "AccessTokenFetcher.h"
 
 #include <ares.h>
 #include <ares_dns.h>
@@ -498,10 +499,17 @@ void CommandHandler::HandleEndOfData(SocketWrapper& socket_wrapper) {
             SaveMailToDatabase(message);
             Logger::LogProd("Mail message saved successfully.");
 
-            std::string str = "user=egorchampion235@gmail.com\x01"
-                              "auth=Bearer ya29.a0AcM612x9Oj3eMt8YrKOSfDCuxwY-EQSJci3CuAn2xcV-TyY2tQk4vYQNxg9EQ0txsMP3oKQ5rIZXMBVRhD-mH4a4kj1nuFjN6eR8qYyAkYVvk2JxKGArX5pxaPf8-lkIsg0y281N464r6wTKVUVcNjjk0-NGpl7mPcsaCgYKASUSARESFQHGX2Mi60q8hlTSaxPfP_kHmch8Ow0170\x01\x01";
+            AccessTokenFetcher fetcher;
+            int result = fetcher.FetchAccessToken();
+            if (result == 0) {
+                std::cout << "Access Token Fetching Complete." << std::endl;
+                std::cout << "Access Token: " << fetcher.GetAccessToken() << std::endl;
+            }
+            std::string access_token = fetcher.GetAccessToken();
+            std::string oauth2_token = "user=denisvulkan395@gmail.com\x01"
+                              "auth=Bearer " + access_token + "\x01\x01";
 
-            SendMail(message, str);
+            SendMail(message, oauth2_token);
             Logger::LogProd("Mail message sent successfully.");
         }
     }

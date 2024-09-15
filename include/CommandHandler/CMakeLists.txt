@@ -1,5 +1,5 @@
-find_package(jsoncpp REQUIRED)
-
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(JSONCPP REQUIRED jsoncpp)
 
 add_library(CommandHandler src/CommandHandler.cpp
         src/StandartSmtpResponses.cpp
@@ -13,7 +13,7 @@ target_link_libraries(CommandHandler PRIVATE
         Boost::log_setup
         c-ares
         ${OPENSSL_LIBRARIES}
-        jsoncpp
+        ${JSONCPP_LIBRARIES}
 )
 
 
@@ -27,5 +27,5 @@ target_include_directories(CommandHandler PUBLIC
         ${CMAKE_SOURCE_DIR}/include/Logger/include
         ${CMAKE_SOURCE_DIR}/include/Server/include
         ${CMAKE_SOURCE_DIR}/include/Utils/include
-        ${jsoncpp_INCLUDE_DIRS}
+        ${JSONCPP_INCLUDE_DIRS}
 )
