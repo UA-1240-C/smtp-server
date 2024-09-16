@@ -87,7 +87,7 @@ int AccessTokenFetcher::OpenOAuthBrowser() const {
 
     // Open the URL in the default browser depending on the OS
     #if defined(__linux__)
-        std::string command = "xdg-open '" + encoded_url + "'";
+        std::string command = "xdg-open " + encoded_url;
     #elif defined(__APPLE__)
         std::string command = "open '" + encoded_url + "'";
     #elif defined(_WIN32)

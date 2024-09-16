@@ -48,38 +48,45 @@ std::future<std::string> SocketWrapper::ReadAsync(size_t max_length) const
     return std::get<std::shared_ptr<TcpSocketManager>>(m_socket_wrapper)->ReadAsync(max_length);
 }
 
-void SocketWrapper::UpgradeToTls(std::shared_ptr<TcpSocket> tcp_socket)
+void SocketWrapper::UpgradeToTls()
 {
     if (IsTls()) {
         throw std::runtime_error("Socket is already using TLS.");
     }
 
-    boost::asio::ssl::context ssl_context(boost::asio::ssl::context::tlsv12_client);
+    boost::asio::ssl::context ssl_context(boost::asio::ssl::context::tls_client);
     ssl_context.set_default_verify_paths();
 
-    
+    auto* tcp_socket_manager = std::get_if<std::shared_ptr<TcpSocketManager>>(&m_socket_wrapper);
+    auto tcp_socket = &(*tcp_socket_manager)->get_socket();
     auto ssl_socket = std::make_shared<TlsSocket>(std::move(*tcp_socket), ssl_context);
 
     set_socket(ssl_socket);
 }
 
 
-std::future<void> SocketWrapper::PerformTlsHandshake(boost::asio::ssl::stream_base::handshake_type handshake_type) const
+std::future<void> SocketWrapper::PerformTlsHandshake(boost::asio::ssl::stream_base::handshake_type handshake_type, boost::asio::ssl::context& context)
 {
     Logger::LogDebug("Entering SocketWrapper::PerformTlsHandshake");
-    auto promise = std::make_shared<std::promise<void>>();
-    auto future = promise->get_future();
-    if (IsTls())
-    {
-        if (handshake_type == boost::asio::ssl::stream_base::server) {
-            future = std::get<std::shared_ptr<TlsSocketManager>>(m_socket_wrapper)
-            ->PerformTlsHandshake(boost::asio::ssl::stream_base::handshake_type::server);
-        } else {
-            Logger::LogDebug("Here 1");
-            future = std::get<std::shared_ptr<TlsSocketManager>>(m_socket_wrapper)
-            ->PerformTlsHandshake(boost::asio::ssl::stream_base::handshake_type::client);
-        }
-    }
+        auto promise = std::make_shared<std::promise<void>>();
+        auto future = promise->get_future();
+
+        auto* tcp_socket_manager = std::get_if<std::shared_ptr<TcpSocketManager>>(&m_socket_wrapper);
+        auto tcp_socket = &(*tcp_socket_manager)->get_socket();
+        
+        auto ssl_socket = std::make_shared<TlsSocket>(std::move(*tcp_socket), context);
+
+
+        ssl_socket->async_handshake(handshake_type,
+        [promise, this, ssl_socket](const boost::system::error_code& error) {
+            if (error) {
+                promise->set_exception(std::make_exception_ptr(std::runtime_error(error.message())));
+            } else {
+                set_socket(ssl_socket);
+                promise->set_value();
+            }
+        });
+    
     Logger::LogDebug("Exiting SocketWrapper::PerformTlsHandshake");
     return future;
 }

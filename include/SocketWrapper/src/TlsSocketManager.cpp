@@ -74,6 +74,7 @@ std::future<void> TlsSocketManager::PerformTlsHandshake(boost::asio::ssl::stream
             if (error) {
                 promise->set_exception(std::make_exception_ptr(std::runtime_error(error.message())));
             } else {
+                
                 promise->set_value();
             }
         });
@@ -91,12 +92,12 @@ void TlsSocketManager::TerminateConnection() const
         boost::system::error_code ec;
         m_socket->lowest_layer().shutdown(boost::asio::ip::tcp::socket::shutdown_both, ec);
         if (ec) {
-            Logger::LogError("An error occured while shutting down SSL socket: "
+            Logger::LogDebug("An error occured while shutting down SSL socket: "
                              + ec.message());
         }
         m_socket->lowest_layer().close(ec);
         if (ec) {
-            Logger::LogError("An error occured while closing SSL socket: "
+            Logger::LogDebug("An error occured while closing SSL socket: "
                                          + ec.message());        }
     }
     Logger::LogDebug("Exitiing TlsSocketManager::TerminateConnection");

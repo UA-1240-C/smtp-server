@@ -71,6 +71,34 @@ public:
         }
     }
 
+    [[nodiscard]] TcpSocketManager* get_tcp_socket_manager() {
+        if (auto* tcp_manager = std::get_if<std::shared_ptr<TcpSocketManager>>(&m_socket_wrapper)) {
+            return tcp_manager->get();
+        }
+        return nullptr;
+    }
+
+    [[nodiscard]] const TcpSocketManager* get_tcp_socket_manager() const {
+        if (const auto* tcp_manager = std::get_if<std::shared_ptr<TcpSocketManager>>(&m_socket_wrapper)) {
+            return tcp_manager->get();
+        }
+        return nullptr;
+    }
+
+    [[nodiscard]] TlsSocketManager* get_tls_socket_manager() {
+        if (auto* tls_manager = std::get_if<std::shared_ptr<TlsSocketManager>>(&m_socket_wrapper)) {
+            return tls_manager->get();
+        }
+        return nullptr;
+    }
+
+    [[nodiscard]] const TlsSocketManager* get_tls_socket_manager() const {
+        if (const auto* tls_manager = std::get_if<std::shared_ptr<TlsSocketManager>>(&m_socket_wrapper)) {
+            return tls_manager->get();
+        }
+        return nullptr;
+    }
+
 
     // std::future<void> Connect(const std::string& host, unsigned short port);
     // std::future<void> PerformTlsHandshake(boost::asio::ssl::context& context,
@@ -133,7 +161,7 @@ public:
      * @note The function returns immediately with a `std::future<void>` that will be set once the handshake completes,
      * allowing the caller to wait for the completion if desired.
      */
-    std::future<void> PerformTlsHandshake(boost::asio::ssl::stream_base::handshake_type handshake_type) const;
+    std::future<void> PerformTlsHandshake(boost::asio::ssl::stream_base::handshake_type handshake_type, boost::asio::ssl::context& context);
 
     std::future<void> ResolveAndConnectAsync(boost::asio::io_context& io_context,
                                              const std::string& hostname,
@@ -186,7 +214,7 @@ public:
      */
     void CancelTimeoutTimer();
 
-    void UpgradeToTls(std::shared_ptr<TcpSocket> tcp_socket);
+    void UpgradeToTls();
 
 private:
     /**

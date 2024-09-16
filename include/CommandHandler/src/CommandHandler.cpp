@@ -498,7 +498,7 @@ void CommandHandler::HandleEndOfData(SocketWrapper& socket_wrapper) {
 
             SaveMailToDatabase(message);
             Logger::LogProd("Mail message saved successfully.");
-
+            /*
             AccessTokenFetcher fetcher;
             int result = fetcher.FetchAccessToken();
             if (result == 0) {
@@ -509,7 +509,9 @@ void CommandHandler::HandleEndOfData(SocketWrapper& socket_wrapper) {
             std::string oauth2_token = "user=denisvulkan395@gmail.com\x01"
                               "auth=Bearer " + access_token + "\x01\x01";
 
-            SendMail(message, oauth2_token);
+            //SendMail(message, oauth2_token);
+            
+            */
             Logger::LogProd("Mail message sent successfully.");
         }
     }
@@ -561,8 +563,9 @@ void CommandHandler::SendMail(const MailMessage& message, const std::string& oau
         SendSmtpCommand(socket_wrapper, "HELO example.com");
         
         SendSmtpCommand(socket_wrapper, "STARTTLS");
-        socket_wrapper.UpgradeToTls(tcp_socket);
-        socket_wrapper.PerformTlsHandshake(boost::asio::ssl::stream_base::handshake_type::client).get();
+        socket_wrapper.UpgradeToTls();
+        
+        socket_wrapper.PerformTlsHandshake(boost::asio::ssl::stream_base::handshake_type::client, m_ssl_context).get();
 
         // XOAUTH2
         response = SendSmtpCommand(socket_wrapper, "AUTH XOAUTH2 " + Base64Encode(oauth2_token));
@@ -644,8 +647,11 @@ void CommandHandler::HandleStartTLS(SocketWrapper& socket_wrapper)
         Logger::LogProd("Sending response to indicate readiness to start TLS.");
         socket_wrapper.WriteAsync(ToString(SmtpResponseCode::OK)).get();
 
+        //socket_wrapper.UpgradeToTls();
+        Logger::LogDebug(socket_wrapper.IsTls() ? "true" : "false");
+
         Logger::LogDebug("Starting TLS handshake.");
-        socket_wrapper.PerformTlsHandshake(boost::asio::ssl::stream_base::server).get();
+        socket_wrapper.PerformTlsHandshake(boost::asio::ssl::stream_base::server, m_ssl_context).get();
 
         Logger::LogProd("STARTTLS handshake completed successfully.");
     }
