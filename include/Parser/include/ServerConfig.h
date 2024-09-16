@@ -9,29 +9,29 @@
 class Config {
 public:
     struct Server {
-        std::string server_name = "DefaultServer";
-        std::string server_display_name = "DefaultServerDisplayName";
-        int listener_port = 25000;
-        std::string ip_address = "127.0.0.1";
+        std::string m_server_name = "DefaultServer"; // Default server name
+        std::string m_server_display_name = "DefaultServerDisplayName"; // Default display name
+        int m_listener_port = 25000; // Default listener port
+        std::string m_ip_address = "127.0.0.1"; // Default IP address
     };
 
     struct CommunicationSettings {
-        int blocking = 0;
-        int socket_timeout = 5;
+        int m_blocking = 0; // Default m_blocking setting
+        int m_socket_timeout = 5; // Default socket timeout
     };
 
     struct Logging {
-        std::string filename = "serverlog.txt";
-        int log_level = 2;
-        int flush = 0;
+        std::string m_filename = "serverlog.txt"; // Default log file name
+        int m_log_level = 2; // Default log level
+        int m_flush = 0; // Default flush setting
     };
 
     struct Time {
-        int period_time = 30;
+        int m_period_time = 30; // Default period time
     };
 
     struct ThreadPool {
-        int max_working_threads = 10;
+        int m_max_working_threads = 10; // Default max number of working threads
     };
 
     Config(const std::string &filename);
@@ -43,11 +43,11 @@ public:
     ThreadPool get_thread_pool() const;
 
 private:
-    Server server;
-    CommunicationSettings communication_settings;
-    Logging logging;
-    Time time;
-    ThreadPool thread_pool;
+    Server m_server;
+    CommunicationSettings m_communication_settings;
+    Logging m_logging;
+    Time m_time;
+    ThreadPool m_thread_pool;
 
     void ParseServerConfig(const JSON &root);
     void ParseCommunicationSettings(const JSON &root);
@@ -62,4 +62,4 @@ private:
     void NotifyDefault(const std::string &property) const;
 };
 
-#endif
+#endif // CONFIG_H
