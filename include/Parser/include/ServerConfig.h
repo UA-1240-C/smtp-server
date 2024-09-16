@@ -5,6 +5,7 @@
 #include <string>
 #include <fstream>
 #include "JSONParser.h"
+#include "Logger.h"
 
 class Config {
 public:
@@ -58,8 +59,6 @@ private:
 
     template<typename T>
     T GetValueOrDefault(const std::unordered_map<std::string, JSON> &obj, const std::string &key, T default_value) const;
-
-    void NotifyDefault(const std::string &property) const;
 };
 
 #endif // CONFIG_H
