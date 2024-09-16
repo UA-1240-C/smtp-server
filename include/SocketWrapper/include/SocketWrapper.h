@@ -214,8 +214,6 @@ public:
      */
     void CancelTimeoutTimer();
 
-    void UpgradeToTls();
-
 private:
     /**
      * @brief Closes a TCP socket.

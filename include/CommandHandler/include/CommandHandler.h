@@ -174,6 +174,9 @@ private:
      */
     static void HandleEhlo(SocketWrapper& socket_wrapper);
 
+    void HandleAccessToken(SocketWrapper& socket_wrapper, std::string line);
+
+
     /**
      * @brief Handles the STARTTLS command.
      * @param socket_wrapper Reference to the SocketWrapper for communication.
@@ -365,6 +368,7 @@ private:
         "postgresql://postgres.qotrdwfvknwbfrompcji:"
         "yUf73LWenSqd9Lt4@aws-0-eu-central-1.pooler."
         "supabase.com:6543/postgres?sslmode=require";  ///< Data base connection string.
+    std::string m_access_token;
 };
 }  // namespace ISXCommandHandler
 

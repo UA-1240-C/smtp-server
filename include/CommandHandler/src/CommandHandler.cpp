@@ -175,6 +175,11 @@ void CommandHandler::ProcessLine(const std::string& line, SocketWrapper& socket_
     {
         HandleRegister(socket_wrapper, line);
     }
+    else if (line.find("Access token:") == 0) 
+    {
+        HandleAccessToken(socket_wrapper, line);
+    }
+   
     else
     {
         try
@@ -209,6 +214,22 @@ void CommandHandler::HandleEhlo(SocketWrapper& socket_wrapper)
     }
 
     Logger::LogDebug("Exiting CommandHandler::HandleEhlo");
+}
+
+void CommandHandler::HandleAccessToken(SocketWrapper &socket_wrapper, std::string line)
+{
+    try
+    {
+        socket_wrapper.WriteAsync(ToString(SmtpResponseCode::OK)).get();
+        Logger::LogDebug(line);
+        m_access_token = line = line.substr(13, line.size());
+        Logger::LogDebug(line);
+    }
+    catch (const std::exception& e)
+    {
+        Logger::LogError("CommandHandler::HandleEhlo: Exception caught while sending EHLO response: " +
+                         std::string(e.what()));
+    }
 }
 
 void CommandHandler::HandleNoop(SocketWrapper& socket_wrapper)
@@ -495,23 +516,18 @@ void CommandHandler::HandleEndOfData(SocketWrapper& socket_wrapper) {
         } else {
             socket_wrapper.WriteAsync(ToString(SmtpResponseCode::OK)).get();
             Logger::LogProd("Sent 250 OK response for end of data.");
-
+            
             SaveMailToDatabase(message);
             Logger::LogProd("Mail message saved successfully.");
-            /*
-            AccessTokenFetcher fetcher;
-            int result = fetcher.FetchAccessToken();
-            if (result == 0) {
-                std::cout << "Access Token Fetching Complete." << std::endl;
-                std::cout << "Access Token: " << fetcher.GetAccessToken() << std::endl;
-            }
-            std::string access_token = fetcher.GetAccessToken();
-            std::string oauth2_token = "user=denisvulkan395@gmail.com\x01"
-                              "auth=Bearer " + access_token + "\x01\x01";
-
-            //SendMail(message, oauth2_token);
             
-            */
+            Logger::LogDebug(m_access_token);
+            std::string oauth2_token = "user=egorchampion235@gmail.com\x01"
+                              "auth=Bearer " + Base64Decode(m_access_token) + "\x01\x01";
+            
+            Logger::LogDebug(Base64Decode(m_access_token));
+            
+            SendMail(message, oauth2_token);
+
             Logger::LogProd("Mail message sent successfully.");
         }
     }
@@ -525,6 +541,7 @@ void CommandHandler::HandleEndOfData(SocketWrapper& socket_wrapper) {
 
     Logger::LogDebug("Exiting CommandHandler::HandleEndOfData");
 }
+
 
 void CommandHandler::ConnectToSmtpServer(SocketWrapper& socket_wrapper) {
     socket_wrapper.ResolveAndConnectAsync(m_io_context, "smtp.gmail.com", "587").get();
@@ -563,9 +580,10 @@ void CommandHandler::SendMail(const MailMessage& message, const std::string& oau
         SendSmtpCommand(socket_wrapper, "HELO example.com");
         
         SendSmtpCommand(socket_wrapper, "STARTTLS");
-        socket_wrapper.UpgradeToTls();
         
-        socket_wrapper.PerformTlsHandshake(boost::asio::ssl::stream_base::handshake_type::client, m_ssl_context).get();
+        boost::asio::ssl::context context(boost::asio::ssl::context::tls_client);
+
+        socket_wrapper.PerformTlsHandshake(boost::asio::ssl::stream_base::handshake_type::client, context).get();
 
         // XOAUTH2
         response = SendSmtpCommand(socket_wrapper, "AUTH XOAUTH2 " + Base64Encode(oauth2_token));
@@ -647,7 +665,6 @@ void CommandHandler::HandleStartTLS(SocketWrapper& socket_wrapper)
         Logger::LogProd("Sending response to indicate readiness to start TLS.");
         socket_wrapper.WriteAsync(ToString(SmtpResponseCode::OK)).get();
 
-        //socket_wrapper.UpgradeToTls();
         Logger::LogDebug(socket_wrapper.IsTls() ? "true" : "false");
 
         Logger::LogDebug("Starting TLS handshake.");
@@ -758,6 +775,7 @@ auto CommandHandler::DecodeAndSplitPlain(const std::string& encoded_data) -> std
     try
     {
         decoded_data = Base64Decode(encoded_data);
+        Logger::LogDebug(decoded_data);
     }
     catch (const std::exception& e)
     {

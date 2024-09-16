@@ -47,8 +47,8 @@ endif()
 
 # Add google tests
 FetchContent_Declare(googletest
-	GIT_REPOSITORY https://github.com/google/googletest
-	GIT_TAG v1.15.0)
+    GIT_REPOSITORY https://github.com/google/googletest
+    GIT_TAG v1.15.0)
 FetchContent_GetProperties(googletest)
 if(NOT googletest_POPULATED)
     FetchContent_Populate(googletest)
@@ -61,6 +61,7 @@ FetchContent_Declare(
     GIT_TAG v1.33
 )
 FetchContent_MakeAvailable(cares)
+
 
 # Add subdirectories
 add_subdirectory(include/CommandHandler)
