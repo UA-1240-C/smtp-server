@@ -78,7 +78,7 @@ std::future<void> SocketWrapper::ResolveAndConnectAsync(boost::asio::io_context&
         const std::string& hostname, const std::string& service)
 {
     Logger::LogDebug("Entering SocketWrapper::ResolveAndConnectAsync");
-    Logger::LogTrace(SocketWrapper::ResolveAndConnectAsync with params: boost::asio::io::context&, const string&, const string&);
+    Logger::LogTrace("SocketWrapper::ResolveAndConnectAsync with params: boost::asio::io::context&, const string&, const string&");
     auto promise = std::make_shared<std::promise<void>>();
     auto future = promise->get_future();
 
