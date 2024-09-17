@@ -21,7 +21,7 @@ This is a C++ logger for managing and writing log messages with various severity
 - **Thread-Local Logging:** Each server thread has its own logger instance.
 - **Singleton Pattern:** Ensures only one logger instance is active.
 - **Multi-Threaded:** This logger is designed for use in multi-threaded environments.
-- **Multiple Output Destinations:** Supports logging to a console and system log. File logging is in development.
+- **Multiple Output Destinations:** Supports logging to a console, a file and system log.
 
 ## Installation
 
@@ -104,8 +104,6 @@ The logger's behavior is determined by a configuration file, typically named con
 	</logging>
 ```
 
-## Customization
-
 ### Console messages coloring
 
 The logger is customized to display log messages in different colors based on their severity level. Coloring is achieved using ANSI escape codes:
@@ -113,6 +111,16 @@ The logger is customized to display log messages in different colors based on th
 - **TRACE:** Cyan
 - **DEBUG:** Blue
 - **PROD/WARNING/ERROR:** Red
+
+### File Logging Specifics
+
+Each log entry written to a file will include:
+  - Timestamp (formatted using `boost::posix_time`)
+  - Thread ID
+  - Log Level (e.g., DEBUG, PROD)
+  - Source location (function signature)
+
+The file is flushed either on demand or when logger stops running.
 
 ### System Log Integration
 

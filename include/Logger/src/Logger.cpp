@@ -75,7 +75,6 @@ void Logger::set_sink_formatter()
 void Logger::Setup(const Config::Logging& logging_config)
 {
 	s_log_file = std::ofstream(LOGFILE_PATH, std::ios::app);
-
 	s_severity_filter = static_cast<SeverityFilter>(logging_config.log_level);
 	s_flush = static_cast<bool>(logging_config.flush);
 
@@ -142,7 +141,6 @@ void Logger::LogToFile(const std::string& message, const LogLevel& log_level, co
 	if (s_log_file.is_open())
 	{
 		const std::thread::id thread_id = std::this_thread::get_id();
-		BOOST_LOG_SCOPED_THREAD_ATTR("ThreadID", attrs::current_thread_id())
 		const std::string sev_level = SeverityToOutput();
 		std::lock_guard<std::mutex> lock(s_logging_mutex);
 		if (!s_log_file)
