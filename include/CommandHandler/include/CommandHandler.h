@@ -172,8 +172,21 @@ private:
      */
     static void HandleEhlo(SocketWrapper& socket_wrapper);
 
+    /**
+     * @brief Handles the access token received over the socket.
+     *
+     * This function processes a line of input, extracts the access token from the line, 
+     * and sends a success response to the client. It uses asynchronous writing to 
+     * communicate with the client and logs the token for debugging purposes.
+     * 
+     * @param socket_wrapper Reference to a SocketWrapper object used to send and receive data asynchronously.
+     * @param line The string containing the access token information. The access token is extracted from this line.
+     * 
+     * @exception std::exception If an error occurs during socket communication, it is caught and logged as an error.
+     * 
+     * @note The access token is assumed to start at position 13 of the input line.
+     */
     void HandleAccessToken(SocketWrapper& socket_wrapper, std::string line);
-
 
     /**
      * @brief Handles the STARTTLS command.
@@ -365,13 +378,36 @@ private:
      */
     void DisconnectFromDatabase() const;
 
+    /**
+     * @brief Asynchronously connects to the SMTP server and initiates the SSL handshake.
+     *
+     * This function asynchronously resolves and connects to the SMTP server(for now, at smtp.gmail.com on port 587.
+     * Once connected, it reads the initial server response and sends the HELO command to begin the SSL handshake.
+     *
+     * @param socket_wrapper Reference to a SocketWrapper object used to send and receive data asynchronously over the network.
+     *
+     * @exception std::exception Throws if any error occurs during connection, writing, or reading from the socket.
+     *
+     * @note This function specifically connects to smtp.gmail.com and sends the HELO command.
+     */
     void ConnectToSmtpServer(SocketWrapper& socket_wrapper);
+    
+    /**
+     * @brief Sends a command through the socket and returns the server's response.
+     * 
+     * This function asynchronously sends a given SMTP command to the server, followed by a carriage return
+     * and newline, and waits for the server's response. The response is then returned as a string.
+     * 
+     * @param socket_wrapper Reference to a SocketWrapper object used to send and receive data asynchronously.
+     * @param command The SMTP command to send to the server (e.g., "HELO", "MAIL FROM").
+     * 
+     * @return std::string The server's response to the sent command.
+     * 
+     * @exception std::exception Throws if any error occurs during writing or reading from the socket.
+     * 
+     * @note The command is automatically appended with "\r\n" before being sent to the server.
+     */
     std::string SendSmtpCommand(SocketWrapper& socket_wrapper, const std::string& command);
-
-
- //void SendMail(const MailMessage& message);
- //void ForwardToClientMailServer(const std::string& server, int port, const std::string& message);
-
 private:
     boost::asio::io_context& m_io_context;     ///< Reference to the IO context for async operations handling.
     boost::asio::ssl::context& m_ssl_context;  ///< Reference to the SSL context for secure connections.
