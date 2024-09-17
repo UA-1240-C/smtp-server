@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 #include "CommandHandler.h"
 #include "Logger.h"
 #include "StandartSmtpResponses.h"
@@ -6,11 +7,22 @@
 #include <ares.h>
 #include <ares_dns.h>
 #include <boost/asio.hpp>
+=======
+>>>>>>> 0dac059 (Moved an ssl context configuration from the command handler to the server initializer. Renamed SendMail method to ForwardMail. Totally removed redundant AccessTokenFetcher)
 #include <vector>
 #include <string>
 #include <iostream>
 #include <set>
+
+#include <ares.h>
+#include <ares_dns.h>
+#include <boost/asio.hpp>
 #include <arpa/nameser.h>
+
+#include "CommandHandler.h"
+#include "Logger.h"
+#include "StandartSmtpResponses.h"
+#include "MXResolver.h"
 
 constexpr std::size_t MAILING_LIST_PREFIX_LENGTH = 5;
 
@@ -31,17 +43,6 @@ CommandHandler::CommandHandler(boost::asio::io_context& io_context, boost::asio:
 {
     Logger::LogDebug("Entering CommandHandler constructor");
     Logger::LogTrace("Constructor params: ssl_context");
-
-    // Set SSL options
-    Logger::LogDebug("Setting SSL options");
-    m_ssl_context.set_options(boost::asio::ssl::context::default_workarounds | boost::asio::ssl::context::no_sslv2 |
-                              boost::asio::ssl::context::no_sslv3 | boost::asio::ssl::context::no_tlsv1 |
-                              boost::asio::ssl::context::no_tlsv1_1);
-
-    m_ssl_context.set_default_verify_paths();
-
-    m_ssl_context.set_verify_mode(boost::asio::ssl::verify_peer);
-    Logger::LogProd("SSL options set successfully.");
 
     // Connect to the database
     try
@@ -525,7 +526,7 @@ void CommandHandler::HandleEndOfData(SocketWrapper& socket_wrapper) {
             
             Logger::LogDebug(Base64Decode(m_access_token));
             
-            SendMail(message, oauth2_token);
+            ForwardMail(message, oauth2_token);
 
             Logger::LogProd("Mail message sent successfully.");
         }
@@ -559,14 +560,14 @@ std::string CommandHandler::SendSmtpCommand(SocketWrapper& socket_wrapper, const
     return response;
 }
 
-void CommandHandler::SendMail(const MailMessage& message, const std::string& oauth2_token) {
+void CommandHandler::ForwardMail(const MailMessage& message, const std::string& oauth2_token) {
     Logger::LogDebug("Entering CommandHandler::SendMail");
 
     try {
         auto tcp_socket = std::make_shared<TcpSocket>(m_io_context);
         SocketWrapper socket_wrapper(tcp_socket);
 
-	    ConnectToSmtpServer(socket_wrapper);
+	ConnectToSmtpServer(socket_wrapper);
 
         SendSmtpCommand(socket_wrapper, "STARTTLS");
         

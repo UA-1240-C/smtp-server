@@ -99,6 +99,22 @@ void ServerInitializer::InitializeTimeout()
     Logger::LogDebug("Exiting ServerInitializer::InitializeTimeout");
 }
 
+void ServerInitializer::ConfigureSslContext() 
+{
+    Logger::LogDebug("Entering ServerInitializer::ConfigureSslContext");
+    m_ssl_context.set_options(
+		    boost::asio::ssl::context::default_workarounds | 
+		    boost::asio::ssl::context::no_sslv2 |
+                    boost::asio::ssl::context::no_sslv3 | 
+		    boost::asio::ssl::context::no_tlsv1 |
+                    boost::asio::ssl::context::no_tlsv1_1);
+
+    m_ssl_context.set_default_verify_paths();
+
+    m_ssl_context.set_verify_mode(boost::asio::ssl::verify_peer);
+    Logger::LogProd("Exiting ServerInitializer::ConfigureSslContext");
+}
+
 auto ServerInitializer::get_thread_pool() const -> ISXThreadPool::ThreadPool<>& { return *m_thread_pool; }
 
 boost::asio::ssl::context& ServerInitializer::get_ssl_context() const { return m_ssl_context; }

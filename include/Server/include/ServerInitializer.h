@@ -149,6 +149,20 @@ private:
      */
     void InitializeTimeout();
 
+    /**
+     * @brief Configures the SSL context with the appropriate options and verification settings.
+     *
+     * This function sets various SSL options to improve security and compatibility,
+     * including disabling older, insecure protocols (SSLv2, SSLv3, TLSv1, TLSv1.1)
+     * and enabling peer verification. It also sets the default certificate verification paths.
+     *
+     * @note This function is crucial to ensure the SSL connection is established
+     * with strong security settings, adhering to modern standards.
+     *
+     * @throws boost::system::system_error Thrown if there is an issue setting SSL options or
+     * default verification paths.
+     */
+    void ConfigureSslContext();
 private:
     boost::asio::io_context& m_io_context; ///< The Boost.Asio I/O context used for asynchronous operations.
     boost::asio::ssl::context& m_ssl_context; ///< The Boost.Asio SSL context used for secure communication.

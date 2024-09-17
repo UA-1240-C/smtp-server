@@ -257,9 +257,25 @@ private:
      * @see SaveMailToDatabase(const MailMessage& message)
      */
     void HandleEndOfData(SocketWrapper& socket_wrapper);
-   void SendMail(const MailMessage& message, const std::string& oauth2_token);
 
-
+    /**
+     * @brief Forwards an email using the provided OAuth2 token for authentication.
+     *
+     * This function connects to the SMTP server via raw TCP socket, encrypts connection
+     * using STARTTLS and authenticates a client initiated a message sending using the 
+     * XOAUTH2 command with the provided OAuth2 token. If authentication is
+     * successful, the email message is sent to the recipients.
+     *
+     * @param message The email message to be sent, including subject, body, and recipients.
+     * @param oauth2_token The OAuth2 token used for XOAUTH2 authentication.
+     *
+     * @throws boost::system::system_error Thrown if there is an error in the underlying
+     * network operations or SSL handshake.
+     * @throws std::runtime_error Thrown if authentication or communication with the SMTP
+     * server fails.
+     */
+    void ForwardMail(const MailMessage& message, const std::string& oauth2_token);
+ 
    /**
      * @brief Handles the QUIT command.
      *
@@ -361,12 +377,12 @@ private:
     boost::asio::ssl::context& m_ssl_context;  ///< Reference to the SSL context for secure connections.
     std::unique_ptr<PgMailDB> m_data_base;     ///< Pointer to the mail database for storing and retrieving mail messages.
     MailMessageBuilder m_mail_builder;         ///< Instance of the mail message builder for constructing messages.
-    bool m_in_data = false;                    ///< lag indicating whether the server is currently processing mail data.
+    bool m_in_data = false;                    ///< flag indicating whether the server is currently processing mail data.
     std::string m_connection_string =
         "postgresql://postgres.qotrdwfvknwbfrompcji:"
         "yUf73LWenSqd9Lt4@aws-0-eu-central-1.pooler."
-        "supabase.com:6543/postgres?sslmode=require";  ///< Data base connection string.
-    std::string m_access_token;
+        "supabase.com:6543/postgres?sslmode=require";  ///< Data base connection string.i
+    std::string m_access_token;             ///< An access token used to authenticate sender on its mail exchange server
 };
 }  // namespace ISXCommandHandler
 
