@@ -1,5 +1,3 @@
-#pragma once
-
 #ifndef COMMANDHANDLER_H
 #define COMMANDHANDLER_H
 

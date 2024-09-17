@@ -6,8 +6,8 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 find_package(Boost REQUIRED COMPONENTS system thread log log_setup)
 find_package(OpenSSL REQUIRED)
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(LIBSODIUM REQUIRED libsodium)
+#find_package(PkgConfig REQUIRED)
+#pkg_check_modules(LIBSODIUM REQUIRED libsodium)
 
 include(FetchContent)
 
@@ -109,5 +109,5 @@ target_include_directories(SMTP_server PRIVATE
     ${CMAKE_SOURCE_DIR}/include/Logger/include
     ${Boost_INCLUDE_DIRS}
     ${OPENSSL_INCLUDE_DIR}
-    ${LIBSODIUM_INCLUDE_DIRS}
+    #   ${LIBSODIUM_INCLUDE_DIRS}
 )
