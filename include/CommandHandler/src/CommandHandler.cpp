@@ -549,13 +549,8 @@ void CommandHandler::ConnectToSmtpServer(SocketWrapper& socket_wrapper) {
 
     std::string response = socket_wrapper.ReadAsync(MAX_LENGTH).get();
     std::cout << "Server response: " << response << std::endl;
-
-    std::string helo_command = "HELO example.com\r\n";
-    socket_wrapper.WriteAsync(helo_command).get();
-    response = socket_wrapper.ReadAsync(MAX_LENGTH).get();
-    std::cout << "Server response: " << response << std::endl;
+    SendSmtpCommand(socket_wrapper, "HELO example.com");
 }
-
 
 std::string CommandHandler::SendSmtpCommand(SocketWrapper& socket_wrapper, const std::string& command) {
     std::string command_with_endl = command + "\r\n";
@@ -572,13 +567,8 @@ void CommandHandler::SendMail(const MailMessage& message, const std::string& oau
         auto tcp_socket = std::make_shared<TcpSocket>(m_io_context);
         SocketWrapper socket_wrapper(tcp_socket);
 
-        socket_wrapper.ResolveAndConnectAsync(m_io_context, "smtp.gmail.com", "587").get();
-        Logger::LogProd("Connected to smtp.gmail.com on port 587");
+	ConnectToSmtpServer(&socket_wrapper);
 
-        std::string response = socket_wrapper.ReadAsync(MAX_LENGTH).get();
-        std::cout << "Server response: " << response << std::endl;
-        SendSmtpCommand(socket_wrapper, "HELO example.com");
-        
         SendSmtpCommand(socket_wrapper, "STARTTLS");
         
         boost::asio::ssl::context context(boost::asio::ssl::context::tls_client);
