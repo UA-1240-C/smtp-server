@@ -189,8 +189,18 @@ private:
     void HandleAccessToken(SocketWrapper& socket_wrapper, std::string line);
 
     /**
-     * @brief Handles the STARTTLS command.
-     * @param socket_wrapper Reference to the SocketWrapper for communication.
+     * @brief Handles the STARTTLS command by initiating the TLS handshake if not already in TLS mode.
+     *
+     * This function checks if the connection is already in TLS mode. If it is, it sends an SMTP response indicating
+     * that the STARTTLS command was issued out of sequence. If not, it sends an OK response, and then proceeds
+     * to perform the TLS handshake, upgrading the connection to TLS.
+     *
+     * @param socket_wrapper Reference to a SocketWrapper object used for network communication.
+     *
+     * @exception std::exception Throws if an error occurs during network communication or TLS handshake.
+     *
+     * @note The function ensures that the STARTTLS command is only executed when not already in TLS mode.
+     *       It logs various states and handles exceptions during the process.
      */
     void HandleStartTLS(SocketWrapper& socket_wrapper);
 
