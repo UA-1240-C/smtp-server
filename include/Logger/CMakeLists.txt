@@ -1,6 +1,11 @@
 # Logger/CMakeLists.txt
 
 cmake_minimum_required(VERSION 3.28)
+# Correctly set the LOGFILE_PATH variable
+set(LOGFILE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/serverlog.txt")
+
+# Correctly pass LOGFILE_PATH as a preprocessor definition
+add_compile_definitions(LOGFILE_PATH=\"${LOGFILE_PATH}\")
 
 # Create the library
 add_library(Logger STATIC
