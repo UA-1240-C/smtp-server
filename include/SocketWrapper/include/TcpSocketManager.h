@@ -10,6 +10,39 @@
 using TcpSocket = boost::asio::ip::tcp::socket;
 using TcpSocketPtr = std::shared_ptr<TcpSocket>;
 
+/**
+ * @class TcpSocketManager
+ * @brief Manages asynchronous TCP socket operations.
+ *
+ * The `TcpSocketManager` class provides an abstraction for managing a TCP socket with asynchronous
+ * read and write operations using Boost.Asio. It encapsulates a raw TCP socket and provides methods
+ * to perform asynchronous reads, writes, and to manage the socket's lifecycle.
+ *
+ * This class allows for non-blocking communication over TCP, enabling the handling of socket
+ * operations in an asynchronous manner. It supports basic operations such as sending and receiving
+ * messages and managing socket connections.
+ *
+ * Key functionalities include:
+ * - Performing asynchronous writes to the socket (`WriteAsync`).
+ * - Performing asynchronous reads from the socket (`ReadAsync`).
+ * - Terminating the socket connection and handling any potential errors (`TerminateConnection`).
+ * - Checking if the socket is open (`IsOpen`).
+ * - Accessing the underlying raw TCP socket (`get_socket`).
+ *
+ * @note The `TcpSocketManager` assumes that the underlying socket is properly initialized and
+ *       connected before performing any read or write operations. Ensure to handle any potential
+ *       exceptions that may arise from asynchronous operations.
+ *
+ * Example usage:
+ * @code
+ * auto tcp_socket = std::make_shared<boost::asio::ip::tcp::socket>(io_context);
+ * TcpSocketManager tcp_manager(tcp_socket);
+ * auto write_future = tcp_manager.WriteAsync("Hello, World!");
+ * write_future.get(); // Wait for write to complete or throw an exception
+ * auto read_future = tcp_manager.ReadAsync(1024);
+ * std::string message = read_future.get(); // Wait for read to complete or throw an exception
+ * @endcode
+ */
 class TcpSocketManager {
 public:
 	/**
