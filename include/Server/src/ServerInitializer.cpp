@@ -11,6 +11,7 @@ ServerInitializer::ServerInitializer(boost::asio::io_context& io_context, boost:
     InitializeAcceptor();
     InitializeTimeout();
     InitializeThreadPool();
+    ConfigureSslContext();
     SignalHandler::SetupSignalHandlers();
 }
 

@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 #include "CommandHandler.h"
 #include "Logger.h"
 #include "StandartSmtpResponses.h"
@@ -7,8 +6,6 @@
 #include <ares.h>
 #include <ares_dns.h>
 #include <boost/asio.hpp>
-=======
->>>>>>> 0dac059 (Moved an ssl context configuration from the command handler to the server initializer. Renamed SendMail method to ForwardMail. Totally removed redundant AccessTokenFetcher)
 #include <vector>
 #include <string>
 #include <iostream>
