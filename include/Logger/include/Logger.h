@@ -114,7 +114,6 @@ class Logger
 	static boost::shared_ptr<sinks::asynchronous_sink<sinks::text_ostream_backend>> s_sink_pointer;
 	static logging::formatter s_sink_formatter; // Formatter for the sinks
 	static uint8_t s_severity_filter; // Severity filter for the sink
-	static std::string s_log_filename; // Log file name
 	static std::ofstream s_log_file; // Log file path, in development
 	static uint8_t s_flush; // Auto flushing for console output
 	static std::mutex s_logging_mutex; // Mutex for thread safety
@@ -146,12 +145,6 @@ public:
 	 * @return Severity filter from the Logger class; used for testing
 	 */
 	static uint8_t get_severity_filter() { return s_severity_filter; }
-
-	/**
-	 * @brief Get current log file from the Logger class
-	 * @return Log file from the Logger class; used for testing
-	 */
-	static std::string get_log_filename() { return s_log_filename; }
 
 	/**
 	* @brief Get current flush setting from the Logger class

@@ -3,7 +3,6 @@
 boost::shared_ptr<sinks::asynchronous_sink<sinks::text_ostream_backend>> Logger::s_sink_pointer;
 logging::formatter Logger::s_sink_formatter;
 uint8_t Logger::s_severity_filter;
-std::string Logger::s_log_filename;
 std::ofstream Logger::s_log_file;
 uint8_t Logger::s_flush;
 std::mutex Logger::s_logging_mutex;
@@ -75,8 +74,6 @@ void Logger::set_sink_formatter()
 
 void Logger::Setup(const Config::Logging& logging_config)
 {
-	s_log_filename = "..\\serverlog.txt";
-	// s_log_file = std::ofstream(s_log_filename, std::ios::app);
 	s_log_file = std::ofstream(LOGFILE_PATH, std::ios::app);
 
 	s_severity_filter = static_cast<SeverityFilter>(logging_config.log_level);
