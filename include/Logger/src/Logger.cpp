@@ -3,7 +3,6 @@
 boost::shared_ptr<sinks::asynchronous_sink<sinks::text_ostream_backend>> Logger::s_sink_pointer;
 logging::formatter Logger::s_sink_formatter;
 uint8_t Logger::s_severity_filter;
-std::string Logger::s_log_filename;
 std::ofstream Logger::s_log_file;
 uint8_t Logger::s_flush;
 std::mutex Logger::s_logging_mutex;
@@ -75,7 +74,8 @@ void Logger::set_sink_formatter()
 
 void Logger::Setup(const Config::Logging& logging_config)
 {
-	s_log_filename = logging_config.filename;
+	s_log_file = std::ofstream(LOGFILE_PATH, std::ios::app);
+
 	s_severity_filter = static_cast<SeverityFilter>(logging_config.log_level);
 	s_flush = static_cast<bool>(logging_config.flush);
 
@@ -92,7 +92,7 @@ void Logger::Reset()
 	s_sink_pointer.reset();
 }
 
-std::string Logger::SeverityToOutput() // maybe needs fixing for presision
+std::string Logger::SeverityToOutput() // maybe needs fixing for precision
 {
 	switch (s_severity_filter)
 	{
@@ -139,6 +139,28 @@ void Logger::LogToConsole(const std::string& message, const LogLevel& log_level,
 
 void Logger::LogToFile(const std::string& message, const LogLevel& log_level, const std::source_location& location)
 {
+	if (s_log_file.is_open())
+	{
+		const std::thread::id thread_id = std::this_thread::get_id();
+		BOOST_LOG_SCOPED_THREAD_ATTR("ThreadID", attrs::current_thread_id())
+		const std::string sev_level = SeverityToOutput();
+		std::lock_guard<std::mutex> lock(s_logging_mutex);
+		if (!s_log_file)
+		{
+			std::cerr << "Error opening file" << std::endl; // check
+		}
+
+		s_log_file <<
+			thread_id <<
+			" - " << boost::posix_time::second_clock::local_time() <<
+			" [" << sev_level <<
+			"] - [" << location.function_name() <<
+			"] " << message << '\n';
+		if (s_flush)
+		{
+			s_log_file.flush();
+		}
+	}
 }
 
 void Logger::LogDebug(const std::string& message, const std::source_location& location)
