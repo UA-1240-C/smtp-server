@@ -2,7 +2,6 @@
 #include "Logger.h"
 #include "StandartSmtpResponses.h"
 #include "MXResolver.h"
-#include "AccessTokenFetcher.h"
 
 #include <ares.h>
 #include <ares_dns.h>
@@ -567,7 +566,7 @@ void CommandHandler::SendMail(const MailMessage& message, const std::string& oau
         auto tcp_socket = std::make_shared<TcpSocket>(m_io_context);
         SocketWrapper socket_wrapper(tcp_socket);
 
-	ConnectToSmtpServer(&socket_wrapper);
+	    ConnectToSmtpServer(socket_wrapper);
 
         SendSmtpCommand(socket_wrapper, "STARTTLS");
         
@@ -576,7 +575,7 @@ void CommandHandler::SendMail(const MailMessage& message, const std::string& oau
         socket_wrapper.PerformTlsHandshake(boost::asio::ssl::stream_base::handshake_type::client, context).get();
 
         // XOAUTH2
-        response = SendSmtpCommand(socket_wrapper, "AUTH XOAUTH2 " + Base64Encode(oauth2_token));
+        std::string response = SendSmtpCommand(socket_wrapper, "AUTH XOAUTH2 " + Base64Encode(oauth2_token));
 
         if (response.substr(0, 3) == "235") {  // 235 = Authentication successful
             SendSmtpCommand(socket_wrapper, "MAIL FROM:<" + message.from.get_address() + ">");
