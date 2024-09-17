@@ -74,10 +74,11 @@ std::future<void> SocketWrapper::PerformTlsHandshake(boost::asio::ssl::stream_ba
     return future;
 }
 
-    std::future<void> SocketWrapper::ResolveAndConnectAsync(boost::asio::io_context& io_context,
+std::future<void> SocketWrapper::ResolveAndConnectAsync(boost::asio::io_context& io_context,
         const std::string& hostname, const std::string& service)
 {
     Logger::LogDebug("Entering SocketWrapper::ResolveAndConnectAsync");
+    Logger::LogTrace(SocketWrapper::ResolveAndConnectAsync with params: boost::asio::io::context&, const string&, const string&);
     auto promise = std::make_shared<std::promise<void>>();
     auto future = promise->get_future();
 
@@ -112,10 +113,9 @@ std::future<void> SocketWrapper::PerformTlsHandshake(boost::asio::ssl::stream_ba
             std::runtime_error("Socket is not a TcpSocketManager")));
     }
     Logger::LogDebug("Exiting SocketWrapper::ResolveAndConnectAsync");
+    Logger::LogTrace("SocketWrapper::ResolveAndConnectAsync return value: std::future<void>");
     return future;
 }
-
-
 
 void SocketWrapper::set_timeout_timer(std::shared_ptr<boost::asio::steady_timer> timeout_timer) {
     Logger::LogDebug("Entering SocketWrapper::SetTimeoutTimer");
@@ -209,4 +209,33 @@ bool SocketWrapper::IsOpen() const
     return std::get<std::shared_ptr<TcpSocketManager>>(m_socket_wrapper)->IsOpen();
 }
 
+[[nodiscard]] TcpSocketManager* SocketWrapper::get_tcp_socket_manager() {
+    if (auto* tcp_manager = std::get_if<std::shared_ptr<TcpSocketManager>>(&m_socket_wrapper)) {
+        return tcp_manager->get();
+    }
+    return nullptr;
 }
+
+
+[[nodiscard]] const TcpSocketManager* SocketWrapper::get_tcp_socket_manager() const {
+    if (const auto* tcp_manager = std::get_if<std::shared_ptr<TcpSocketManager>>(&m_socket_wrapper)) {
+        return tcp_manager->get();
+    }
+    return nullptr;
+}
+
+[[nodiscard]] TlsSocketManager* SocketWrapper::get_tls_socket_manager() {
+    if (auto* tls_manager = std::get_if<std::shared_ptr<TlsSocketManager>>(&m_socket_wrapper)) {
+        return tls_manager->get();
+    }
+    return nullptr;
+}
+
+[[nodiscard]] const TlsSocketManager* SocketWrapper::get_tls_socket_manager() const {
+    if (const auto* tls_manager = std::get_if<std::shared_ptr<TlsSocketManager>>(&m_socket_wrapper)) {
+        return tls_manager->get();
+    }
+    return nullptr;
+}
+}
+

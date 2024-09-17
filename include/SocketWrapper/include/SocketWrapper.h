@@ -71,38 +71,54 @@ public:
         }
     }
 
-    [[nodiscard]] TcpSocketManager* get_tcp_socket_manager() {
-        if (auto* tcp_manager = std::get_if<std::shared_ptr<TcpSocketManager>>(&m_socket_wrapper)) {
-            return tcp_manager->get();
-        }
-        return nullptr;
-    }
+    /**
+     * @brief Retrieves a pointer to the TcpSocketManager if it exists in the socket wrapper.
+     *
+     * This function attempts to extract a shared pointer to the TcpSocketManager from the `m_socket_wrapper` variant.
+     * If successful, it returns a raw pointer to the TcpSocketManager; otherwise, it returns nullptr.
+     *
+     * @return A pointer to TcpSocketManager if present, or nullptr if not.
+     *
+     * @note The function is marked as [[nodiscard]], indicating that the return value should not be ignored.
+     */
+    [[nodiscard]] TcpSocketManager* get_tcp_socket_manager();
 
-    [[nodiscard]] const TcpSocketManager* get_tcp_socket_manager() const {
-        if (const auto* tcp_manager = std::get_if<std::shared_ptr<TcpSocketManager>>(&m_socket_wrapper)) {
-            return tcp_manager->get();
-        }
-        return nullptr;
-    }
+    /**
+     * @brief Retrieves a constant pointer to the TcpSocketManager if it exists in the socket wrapper.
+     *
+     * This function is a const-qualified version that returns a constant pointer to the TcpSocketManager.
+     * It attempts to extract a shared pointer from the `m_socket_wrapper`. If successful, it returns the raw constant pointer.
+     *
+     * @return A constant pointer to TcpSocketManager if present, or nullptr if not.
+     *
+     * @note The function is marked as [[nodiscard]], indicating that the return value should not be ignored.
+     */
+    [[nodiscard]] const TcpSocketManager* get_tcp_socket_manager() const;
 
-    [[nodiscard]] TlsSocketManager* get_tls_socket_manager() {
-        if (auto* tls_manager = std::get_if<std::shared_ptr<TlsSocketManager>>(&m_socket_wrapper)) {
-            return tls_manager->get();
-        }
-        return nullptr;
-    }
+    /**
+     * @brief Retrieves a pointer to the TlsSocketManager if it exists in the socket wrapper.
+     *
+     * This function attempts to extract a shared pointer to the TlsSocketManager from the `m_socket_wrapper` variant.
+     * If successful, it returns a raw pointer to the TlsSocketManager; otherwise, it returns nullptr.
+     *
+     * @return A pointer to TlsSocketManager if present, or nullptr if not.
+     *
+     * @note The function is marked as [[nodiscard]], indicating that the return value should not be ignored.
+     */
+    [[nodiscard]] TlsSocketManager* get_tls_socket_manager();
 
-    [[nodiscard]] const TlsSocketManager* get_tls_socket_manager() const {
-        if (const auto* tls_manager = std::get_if<std::shared_ptr<TlsSocketManager>>(&m_socket_wrapper)) {
-            return tls_manager->get();
-        }
-        return nullptr;
-    }
-
-
-    // std::future<void> Connect(const std::string& host, unsigned short port);
-    // std::future<void> PerformTlsHandshake(boost::asio::ssl::context& context,
-    //                                       boost::asio::ssl::stream_base::handshake_type type);
+    /**
+     * @brief Retrieves a constant pointer to the TlsSocketManager if it exists in the socket wrapper.
+     *
+     * This function is a const-qualified version that returns a constant pointer to the TlsSocketManager.
+     * It attempts to extract a shared pointer from the `m_socket_wrapper`. If successful, it returns the raw constant pointer.
+     *
+     * @return A constant pointer to TlsSocketManager if present, or nullptr if not.
+     *
+     * @note The function is marked as [[nodiscard]], indicating that the return value should not be ignored.
+     */
+    [[nodiscard]] const TlsSocketManager* get_tls_socket_manager() const;
+	    
     /**
      * @brief Asynchronously sends a response message over a socket.
      *
@@ -163,6 +179,25 @@ public:
      */
     std::future<void> PerformTlsHandshake(boost::asio::ssl::stream_base::handshake_type handshake_type, boost::asio::ssl::context& context);
 
+    /**
+     * @brief Asynchronously resolves a hostname and service and attempts to connect to the resolved address.
+     *
+     * This function performs asynchronous hostname DNS resolution and connects to the first available result.
+     * It checks whether the `m_socket_wrapper` holds a `TcpSocketManager` and uses its socket for the connection.
+     *
+     * If the resolution or connection fails, the promise is set with an exception.
+     * Otherwise, it sets the promise's value upon successful connection.
+     *
+     * @param io_context The Boost.Asio I/O context used for managing asynchronous operations.
+     * @param hostname The hostname of the server to resolve (e.g., "smtp.gmail.com").
+     * @param service The service or port number to resolve (e.g., "587").
+     *
+     * @return A `std::future<void>` that becomes ready when the connection is successfully established or an exception is thrown.
+     *
+     * @exception std::runtime_error Thrown if the hostname resolution or connection fails, containing the error message.
+     *
+     * @note The function logs the entry and exit points, as well as any errors encountered during resolution or connection.
+     */
     std::future<void> ResolveAndConnectAsync(boost::asio::io_context& io_context,
                                              const std::string& hostname,
                                              const std::string& service);
@@ -213,21 +248,6 @@ public:
      * confirmation is logged. If the timer is null or an error occurs during cancellation, an error is logged.
      */
     void CancelTimeoutTimer();
-
-private:
-    /**
-     * @brief Closes a TCP socket.
-     *
-     * This method closes the socket, which could be only TCP socket.
-     */
-   // void TerminateTcpConnection(TcpSocket& tcp_socket);
-
-    /**
-     * @brief Closes an SSL socket.
-     *
-     * This method closes the socket, which could be only SSL socket.
-     */
-    //void TerminateSslConnection(TlsSocket& ssl_socket);
 private:
     std::variant<std::shared_ptr<TcpSocketManager>, std::shared_ptr<TlsSocketManager>> m_socket_wrapper;  ///< The variant holding either a TCP or SSL/TLS socket.
     std::shared_ptr<boost::asio::steady_timer>
