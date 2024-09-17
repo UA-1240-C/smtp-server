@@ -7,7 +7,6 @@ server.crt
 server.key
 server.csr
 
-html
 latex
 
 .vs
