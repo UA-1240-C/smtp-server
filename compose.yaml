@@ -1,0 +1,17 @@
+services:
+  smtp-server:
+    build: .
+    container_name: cpp-smtp-server-container
+    networks:
+      smtp-net:
+        ipv4_address: 10.6.0.3
+    ports:
+      - "2525:2525"
+
+networks:
+  smtp-net:
+    driver: bridge
+    ipam:
+     config:
+       - subnet: 10.6.0.0/16
+         gateway: 10.6.0.1

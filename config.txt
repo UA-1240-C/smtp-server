@@ -4,7 +4,7 @@
       "servername": "ServTest",
       "serverdisplayname": "ServTestserver",
       "listenerport": 2525,
-      "ipaddress": "127.0.0.1"
+      "ipaddress": "10.6.0.3"
     },
     "communicationsettings": {
       "blocking": 0,

@@ -4,7 +4,6 @@ set -e
 
 # Save the current directory
 CURRENT_DIR=$(pwd)
-ls
 
 # Move to the project root directory
 WORKING_DIR=$(dirname "$CURRENT_DIR")

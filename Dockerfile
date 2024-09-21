@@ -16,10 +16,15 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /smtp-server
 
 COPY . .
+RUN pwd
+RUN ls
+RUN cd scripts && ls -la
 
-RUN chmod +x scripts/build.sh
-RUN scripts/build.sh
+RUN chmod +x scripts/build.sh && ./scripts/build.sh
 
+RUN pwd
 EXPOSE 2525
 
-ENTRYPOINT ["/bin/bash", "-c", "cd build && ./SMTP_server"]
+# ENTRYPOINT ["./build/SMTP_server"]
+# ENTRYPOINT ["/bin/sh", "-c", "cd build && ./SMTP_server"]
+CMD ["/bin/sh", "-c", "cd build && ./SMTP_server"]
