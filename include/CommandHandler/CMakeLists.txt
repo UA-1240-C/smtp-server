@@ -3,7 +3,6 @@ pkg_check_modules(JSONCPP REQUIRED jsoncpp)
 
 add_library(CommandHandler src/CommandHandler.cpp
         src/StandartSmtpResponses.cpp
-        src/MXResolver.cpp
 )
 
 target_link_libraries(CommandHandler PRIVATE

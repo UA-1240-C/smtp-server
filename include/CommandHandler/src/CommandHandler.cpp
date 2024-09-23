@@ -9,12 +9,10 @@
 #include <ares.h>
 #include <ares_dns.h>
 #include <boost/asio.hpp>
-#include <arpa/nameser.h>
 
 #include "CommandHandler.h"
 #include "Logger.h"
 #include "StandartSmtpResponses.h"
-#include "MXResolver.h"
 
 constexpr std::size_t MAILING_LIST_PREFIX_LENGTH = 5;
 
