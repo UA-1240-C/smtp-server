@@ -12,6 +12,7 @@ ServerInitializer::ServerInitializer(boost::asio::io_context& io_context, boost:
     InitializeTimeout();
     InitializeThreadPool();
     ConfigureSslContext();
+    InitializeDatabaseManager();
     SignalHandler::SetupSignalHandlers();
 }
 
@@ -89,6 +90,27 @@ void ServerInitializer::InitializeThreadPool()
     Logger::LogDebug("Exiting ServerInitializer::InitializeThreadPool");
 }
 
+void ServerInitializer::InitializeDatabaseManager()
+{
+    Logger::LogDebug("Entering ServerInitializer::InitializeDatabaseManager");
+
+    try
+    {
+        m_database_manager = std::make_unique<ISXMailDB::PgManager>(
+            CONNECTION_STRING,
+            "localhost",
+            true
+        );
+    }
+    catch(const std::exception& e)
+    {
+        Logger::LogError("Exception in InitializeDatabaseManager: " + std::string(e.what()));
+        throw;
+    }
+
+    Logger::LogDebug("Exiting ServerInitializer::InitializeDatabaseManager");
+}
+
 void ServerInitializer::InitializeTimeout()
 {
     Logger::LogDebug("Entering ServerInitializer::InitializeTimeout");
@@ -135,4 +157,8 @@ auto ServerInitializer::get_timeout_seconds() const -> std::chrono::seconds { re
 uint8_t ServerInitializer::get_log_level() const { return m_log_level; }
 
 tcp::acceptor& ServerInitializer::get_acceptor() const { return *m_acceptor; }
-}  // namespace ISXSS
+
+ISXMailDB::ConnectionPool<pqxx::connection>& ISXSS::ServerInitializer::get_connection_pool() const { return *m_connection_pool;}
+
+ISXMailDB::PgManager& ServerInitializer::get_database_manager() const { return *m_database_manager; }
+} // namespace ISXSS 

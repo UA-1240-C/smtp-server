@@ -67,7 +67,7 @@ void SmtpServer::HandleClient(SocketWrapper socket_wrapper)
 
     try
     {
-        CommandHandler command_handler(m_initializer.get_io_context(), m_initializer.get_ssl_context());
+        CommandHandler command_handler(m_initializer.get_io_context(), m_initializer.get_ssl_context(), m_initializer.get_database_manager());
         MailMessageBuilder mail_builder;
         std::string current_line;
 

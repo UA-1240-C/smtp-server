@@ -8,6 +8,8 @@
 
 #include "Base64.h"
 #include "MailDB/PgMailDB.h"
+#include "MailDB/ConnectionPool.h"
+#include "MailDB/PgManager.h"
 #include "MailMessageBuilder.h"
 #include "SocketWrapper.h"
 
@@ -37,13 +39,14 @@ public:
     * disable older, less secure protocols.
     *
     * @param io_context A reference to the boost::asio::io_context used for asynchronous operations management.
+    * @param connection_pool A reference to the ISXMailDB::ConnectionPool used for database connections.
     * @param ssl_context A reference to the boost::asio::ssl::context used for SSL connections.
     *
     * @exception MailException Thrown if there is an error during the database connection.
     * @see DataBase::MailDB::include::MailDB::MailException.h
     */
-    explicit CommandHandler(boost::asio::io_context& io_context, boost::asio::ssl::context& ssl_context);
-
+    explicit CommandHandler(boost::asio::io_context& io_context, boost::asio::ssl::context& ssl_context,
+                            ISXMailDB::PgManager& database_manager);
     /**
      * @brief Destructs the CommandHandler object and disconnects from the data base.
      */
@@ -423,12 +426,8 @@ private:
     boost::asio::ssl::context& m_ssl_context;  ///< Reference to the SSL context for secure connections.
     std::unique_ptr<PgMailDB> m_data_base;     ///< Pointer to the mail database for storing and retrieving mail messages.
     MailMessageBuilder m_mail_builder;         ///< Instance of the mail message builder for constructing messages.
-    bool m_in_data = false;                    ///< flag indicating whether the server is currently processing mail data.
-    std::string m_connection_string =
-        "postgresql://postgres.qotrdwfvknwbfrompcji:"
-        "yUf73LWenSqd9Lt4@aws-0-eu-central-1.pooler."
-        "supabase.com:6543/postgres?sslmode=require";  ///< Data base connection string.i
-    std::string m_access_token;             ///< An access token used to authenticate sender on its mail exchange server
+    bool m_in_data = false;                    ///< lag indicating whether the server is currently processing mail data.
+    std::string m_access_token;                ///< An access token used to authenticate sender on its mail exchange server
 };
 }  // namespace ISXCommandHandler
 
