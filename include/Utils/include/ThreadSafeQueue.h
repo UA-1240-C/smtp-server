@@ -4,7 +4,6 @@
 #define THREADSAFEQUEUE_H
 
 #include <algorithm>
-#include <mutex>
 #include <deque>
 #include <optional>
 
@@ -38,14 +37,14 @@ concept IsLocable = requires(Lock&& lock)
  * @tparam T The type of elements stored in the queue.
  * @tparam Lock The type of lock used for synchronization (default is std::mutex).
  */
-template <typename T, IsLocable Lock = std::mutex>
+template <typename T>
 class ThreadSafeQueue
 {
 public:
   /**
    * @brief Constructs an empty ThreadSafeQueue.
    */
-  ThreadSafeQueue() : m_mutex(), m_data() {}
+  ThreadSafeQueue() : m_data(std::make_shared<std::deque<T>>()) {}
 
   /**
 	* @brief Adds an element by the actual
@@ -54,8 +53,7 @@ public:
    */
   void PushBack(T&& value)
   {
-    std::scoped_lock<std::mutex> lock(m_mutex);
-    m_data.push_back(std::forward<T>(value));
+    m_data.load()->push_back(std::forward<T>(value));
   }
 
   /**
@@ -64,8 +62,7 @@ public:
    */
   void PushFront(T&& value)
   {
-    std::scoped_lock<std::mutex> lock(m_mutex);
-    m_data.push_front(std::forward<T>(value));
+    m_data.load()->push_front(std::forward<T>(value));
   }
 
   /**
@@ -75,11 +72,10 @@ public:
    */
   std::optional<T> PopFront()
   {
-    std::scoped_lock<std::mutex> lock(m_mutex);
-    if (m_data.empty()) return std::nullopt;
+    if (m_data.load()->empty()) return std::nullopt;
 
-    auto front = std::move(m_data.front());
-    m_data.pop_front();
+    auto front = std::move(m_data.load()->front());
+    m_data.load()->pop_front();
     return front;
   }
 
@@ -90,11 +86,10 @@ public:
    */
   std::optional<T> PopBack()
   {
-    std::scoped_lock<std::mutex> lock(m_mutex);
-    if (m_data.empty()) return std::nullopt;
+    if (m_data.load()->empty()) return std::nullopt;
 
-    auto back = std::move(m_data.back());
-    m_data.pop_back();
+    auto back = std::move(m_data.load()->back());
+    m_data.load()->pop_back();
     return back;
   }
 
@@ -108,13 +103,12 @@ public:
 	 */
   void RotateToFront(const T& item)
   {
-    std::scoped_lock lock(m_mutex);
-    auto iter = std::find(m_data.begin(), m_data.end(), item);
+    auto iter = std::find(m_data.load()->begin(), m_data.load()->end(), item);
 
-    if (iter != m_data.end())
+    if (iter != m_data.load()->end())
     {
-      m_data.erase(iter);
-    	m_data.push_front(item);
+      m_data.load()->erase(iter);
+    	m_data.load()->push_front(item);
     }
   }
 
@@ -126,14 +120,12 @@ public:
 	 */
   std::optional<T> CopyFrontAndRotateToBack()
   {
-    std::scoped_lock lock(m_mutex);
+    if (m_data.load()->empty()) return std::nullopt;
 
-    if (m_data.empty()) return std::nullopt;
+    auto front = std::move(m_data.load()->front());
+    m_data.load()->pop_front();
 
-    auto front = std::move(m_data.front());
-    m_data.pop_front();
-
-    m_data.push_back(front);
+    m_data.load()->push_back(front);
 
     return front;
   }
@@ -143,8 +135,7 @@ private:
 	 * This mutex has an ability to change it's state in
 	 * methods marked as const.
 	 */
-  mutable Lock m_mutex;
-  std::deque<T> m_data; ///< The underlying deque storing the elements, guarded by m_mutex.
+  std::atomic<std::shared_ptr<std::deque<T>>> m_data;
 };
 }
 #endif //THREADSAFEQUEUE_H
