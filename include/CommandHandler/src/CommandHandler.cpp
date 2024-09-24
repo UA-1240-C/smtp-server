@@ -131,7 +131,8 @@ void CommandHandler::HandleEhlo(SocketWrapper& socket_wrapper)
 
     try
     {
-        socket_wrapper.WriteAsync(ToString(SmtpResponseCode::OK)).get();
+        std::string to_write = "250-server.domain.com\r\n250-STARTTLS\r\n250-AUTH PLAIN\r\n" + ToString(SmtpResponseCode::OK);
+        socket_wrapper.WriteAsync(to_write).get();
         Logger::LogProd("CommandHandler::HandleEhlo: Successfully sent EHLO response to client.");
     }
     catch (const std::exception& e)
@@ -580,7 +581,7 @@ void CommandHandler::HandleStartTLS(SocketWrapper& socket_wrapper)
     try
     {
         Logger::LogProd("Sending response to indicate readiness to start TLS.");
-        socket_wrapper.WriteAsync(ToString(SmtpResponseCode::OK)).get();
+        socket_wrapper.WriteAsync("220 Ready to start TLS\r\n").get();
 
         Logger::LogDebug(socket_wrapper.IsTls() ? "true" : "false");
 
