@@ -9,7 +9,7 @@ SocketWrapper::SocketWrapper(const TcpSocketPtr& tcp_socket)
 {
     Logger::LogDebug("Entering SocketWrapper TCP constructor");
     Logger::LogTrace("Constructor params: TcpSocket" );
-
+    set_timeout_timer(std::make_shared<boost::asio::steady_timer>(tcp_socket->get_executor()));
     Logger::LogDebug("Exiting SocketWrapper TCP constructor");
 }
 
@@ -18,7 +18,7 @@ SocketWrapper::SocketWrapper(const TlsSocketPtr& ssl_socket)
 {
     Logger::LogDebug("Entering SocketWrapper SSL constructor");
     Logger::LogTrace("Constructor params: SslSocket" );
-
+    set_timeout_timer(std::make_shared<boost::asio::steady_timer>(ssl_socket->get_executor()));
     Logger::LogDebug("Exiting SocketWrapper SSL constructor");
 }
 
@@ -183,6 +183,17 @@ void SocketWrapper::CancelTimeoutTimer()
     }
 
     Logger::LogDebug("Exiting SocketWrapper::CancelTimeoutTimer");
+}
+
+void SocketWrapper::ResetTimeoutTimer(std::chrono::seconds timeout_duration)
+{
+    Logger::LogDebug("Entering SocketWrapper::ResetTimeoutTimer");
+    Logger::LogTrace("SocketWrapper::ResetTimeoutTimer params: " + std::to_string(timeout_duration.count()) + " seconds");
+
+    CancelTimeoutTimer();
+    StartTimeoutTimer(timeout_duration);
+
+    Logger::LogDebug("Exiting SocketWrapper::ResetTimeoutTimer");
 }
 
 void SocketWrapper::Close()
