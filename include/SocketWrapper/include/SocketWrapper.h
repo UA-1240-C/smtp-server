@@ -248,6 +248,7 @@ public:
      * confirmation is logged. If the timer is null or an error occurs during cancellation, an error is logged.
      */
     void CancelTimeoutTimer();
+    void ResetTimeoutTimer(std::chrono::seconds timeout_duration);
 private:
     std::variant<std::shared_ptr<TcpSocketManager>, std::shared_ptr<TlsSocketManager>> m_socket_wrapper;  ///< The variant holding either a TCP or SSL/TLS socket.
     std::shared_ptr<boost::asio::steady_timer>

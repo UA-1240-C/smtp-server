@@ -1,6 +1,9 @@
 add_library(Server src/Server.cpp src/ServerInitializer.cpp)
 
+add_subdirectory(include/ClientSession)
+
 target_link_libraries(Server PRIVATE
+        ClientSession
         MailDB
         CommandHandler
         MailMessage
