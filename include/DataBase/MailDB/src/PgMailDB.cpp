@@ -174,13 +174,13 @@ std::vector<std::string> PgMailDB::RetrieveEmailContentInfo(const std::string_vi
 }
 
 void PgMailDB::InsertEmail(const std::string_view receiver, const std::string_view subject, 
-                           const std::string_view body)
+                           const std::string_view body, const std::vector<std::string> attachments)
 {
-    InsertEmail(std::vector<std::string_view>{receiver}, subject, body);
+    InsertEmail(std::vector<std::string_view>{receiver}, subject, body, attachments);
 }
 
 void PgMailDB::InsertEmail(const std::vector<std::string_view> receivers, const std::string_view subject, 
-                           const std::string_view body)
+                           const std::string_view body, const std::vector<std::string> attachments)
 {
     CheckIfUserLoggedIn();
     if(m_email_writer)
@@ -189,7 +189,8 @@ void PgMailDB::InsertEmail(const std::vector<std::string_view> receivers, const 
         EmailsInstance emails{{m_user_id, m_user_name},
             std::vector<std::string>(receivers.begin(), receivers.end()),
             std::string(subject),
-            std::string(body)
+            std::string(body),
+            std::vector<std::string>(attachments.begin(), attachments.end())
         };
         m_email_writer->AddEmails(std::move(emails));
         return;
@@ -198,6 +199,7 @@ void PgMailDB::InsertEmail(const std::vector<std::string_view> receivers, const 
     PgConnection conn(*m_connection_pool);
     uint32_t sender_id, body_id;
     std::vector<uint32_t> receivers_id;
+    std::vector<uint32_t> attachments_id;
     {
         try
         {
@@ -211,6 +213,11 @@ void PgMailDB::InsertEmail(const std::vector<std::string_view> receivers, const 
                 }
                 
                 body_id = InsertEmailContent(body, nontransaction);
+
+                for(size_t i = 0; i < attachments.size(); i++)
+                {
+                    attachments_id.emplace_back(InsertAttachment(attachments[i], nontransaction));
+                }
             }
         }
         catch (const std::exception& e)
@@ -221,8 +228,9 @@ void PgMailDB::InsertEmail(const std::vector<std::string_view> receivers, const 
 
     try {
         pqxx::work transaction(*conn);
-        for (size_t i = 0; i < receivers_id.size(); i++) {
-            PerformEmailInsertion(sender_id, receivers_id[i], subject, body_id, transaction);
+        for (size_t i = 0; i < receivers_id.size(); i++) 
+        {
+            PerformEmailInsertion(sender_id, receivers_id[i], subject, body_id, attachments_id, transaction);
         }
         transaction.commit();
     }
@@ -241,23 +249,24 @@ std::vector<Mail> PgMailDB::RetrieveEmails(bool should_retrieve_all)
     // Retrieves email details for the current user, optionally filtering for unread emails, and orders them by sent time.
     std::string query =
         "WITH filtered_emails AS ( "
-        "    SELECT sender_id, subject, mail_body_id, sent_at "
+        "    SELECT sender_id, subject, mail_body_id, sent_at, attachment_id"
         "    FROM \"emailMessages\" "
         "    WHERE recipient_id = " +
         ntx.quote(m_user_id) + 
         (should_retrieve_all ? "": " AND is_received = FALSE")+
         ")"
-        "SELECT u.user_name AS sender_name, f.subject, m.body_content "
+        "SELECT u.user_name AS sender_name, f.subject, m.body_content, a.attachment_data"
         "FROM filtered_emails AS f "
         "LEFT JOIN users AS u ON u.user_id = f.sender_id "
         "LEFT JOIN \"mailBodies\" AS m ON m.mail_body_id = f.mail_body_id "
+        "LEFT JOIN \"mailAttachments\" AS a ON a.id = f.attachment_id "
         "ORDER BY f.sent_at DESC; ";
 
     std::vector<Mail> resutl_mails;
 
-    for (auto& [sender, subject, body] : ntx.query<std::string, std::string, std::string>(query))
+    for (auto& [sender, subject, body, attachment] : ntx.query<std::string, std::string, std::string, std::string>(query))
     {
-        resutl_mails.emplace_back(m_user_name, sender, subject, body);
+        resutl_mails.emplace_back(m_user_name, sender, subject, body, attachment);
     }
 
     return resutl_mails;
@@ -366,10 +375,17 @@ uint32_t PgMailDB::InsertEmailContent(const std::string_view content, pqxx::tran
 {
     pqxx::result body_id;
     try {
-        body_id = transaction.exec_params(
-            "INSERT INTO \"mailBodies\" (body_content)VALUES($1) RETURNING mail_body_id"
-            , content
-        );
+        body_id = transaction.exec_params("SELECT * FROM \"mailBodies\" WHERE body_content = $1 LIMIT 1", content);
+
+        if(body_id.empty())
+        {
+            body_id.clear();
+            body_id = transaction.exec_params(
+                "INSERT INTO \"mailBodies\" (body_content)VALUES($1) RETURNING mail_body_id"
+                , content
+            );
+        }
+
         transaction.commit();
     }
     catch (const std::exception& e) {
@@ -377,6 +393,30 @@ uint32_t PgMailDB::InsertEmailContent(const std::string_view content, pqxx::tran
     }
 
     return body_id[0].at("mail_body_id").as<uint32_t>();
+}
+
+uint32_t PgMailDB::InsertAttachment(const std::string_view attachment, pqxx::transaction_base &transaction) const
+{
+    pqxx::result attachment_id;
+    try {
+        attachment_id = transaction.exec_params("SELECT * FROM \"mailAttachments\" WHERE attachment_data = $1 LIMIT 1", attachment);
+
+        if(attachment_id.empty())
+        {
+            attachment_id.clear();
+            attachment_id = transaction.exec_params(
+                "INSERT INTO \"mailAttachments\" (attachment_data)VALUES($1) RETURNING id"
+                , attachment
+            );
+        }
+
+        transaction.commit();
+    }
+    catch (const std::exception& e) {
+        throw MailException(e.what());
+    }
+
+    return attachment_id[0].at("id").as<uint32_t>();
 }
 
 uint32_t PgMailDB::RetriveUserId(const std::string_view user_name, pqxx::transaction_base &ntx) const
@@ -393,15 +433,31 @@ uint32_t PgMailDB::RetriveUserId(const std::string_view user_name, pqxx::transac
 }  
 
 void PgMailDB::PerformEmailInsertion(const uint32_t sender_id, const uint32_t receiver_id,
-                                const std::string_view subject, const uint32_t body_id, pqxx::transaction_base& transaction)
+                                const std::string_view subject, const uint32_t body_id, const std::vector<uint32_t> attachments_id, pqxx::transaction_base& transaction)
 {
     try {
-        transaction.exec_params(
-            "INSERT INTO \"emailMessages\" (sender_id, recipient_id, subject, mail_body_id, is_received) "
-            "VALUES ($1, $2, $3, $4, false) "
-            , sender_id, receiver_id,
-            subject, body_id
-        );
+
+        if(!attachments_id.empty())
+        {
+            for(size_t i{}; i < attachments_id.size(); i++)
+            {
+                transaction.exec_params(
+                    "INSERT INTO \"emailMessages\" (sender_id, recipient_id, subject, mail_body_id, is_received, attachment_id) "
+                    "VALUES ($1, $2, $3, $4, false, $5) "
+                    , sender_id, receiver_id,
+                    subject, body_id, attachments_id[i]
+                );
+            }
+        }
+        else
+        {
+            transaction.exec_params(
+                    "INSERT INTO \"emailMessages\" (sender_id, recipient_id, subject, mail_body_id, is_received) "
+                    "VALUES ($1, $2, $3, $4, false) "
+                    , sender_id, receiver_id,
+                    subject, body_id
+                );
+        }
     }
     catch (const std::exception& e) {
         throw MailException(e.what());

@@ -41,9 +41,10 @@ struct Mail
      * @param body The body of the email.
      */
     Mail(const std::string_view recipient, const std::string_view sender,
-         const std::string_view subject, const std::string_view body)
+         const std::string_view subject, const std::string_view body, const std::string_view attachment)
         : recipient(recipient), sender(sender), 
-          subject(subject), body(body)
+          subject(subject), body(body),
+          attachment(attachment)
     {
     }
     
@@ -51,6 +52,7 @@ struct Mail
     std::string sender;
     std::string subject;
     std::string body;
+    std::string attachment;
 };
 
 /**
@@ -168,13 +170,14 @@ public:
      * @param receiver The email address of the receiver.
      * @param subject The subject of the email.
      * @param body The body content of the email.
+     * @param attachments A vector of attachments.
      * 
      * @return bool Returns `true` if the email was successfully inserted, otherwise `false`.
      * 
      * @throw MailException if the process fails or if current user is not logged in.
      */
     virtual void InsertEmail(const std::string_view receiver,
-                             const std::string_view subject, const std::string_view body) = 0;
+                             const std::string_view subject, const std::string_view body, const std::vector<std::string> attachments) = 0;
     
     /**
      * @brief Inserts an email with multiple receivers into the database. The sender is current logged in user.
@@ -186,13 +189,13 @@ public:
      * @param receivers A vector of email addresses representing the receivers.
      * @param subject The subject of the email.
      * @param body The body content of the email.
-     * 
+     * @param attachments A vector of attachments.
      * @return bool Returns `true` if the email was successfully inserted, otherwise `false`.
      * 
      * @throw MailException if the process fails if current user is not logged in.
      */
     virtual void InsertEmail(const std::vector<std::string_view> receivers,
-                                const std::string_view subject, const std::string_view body) = 0;
+                                const std::string_view subject, const std::string_view body, const std::vector<std::string> attachments) = 0;
 
     /**
      * @brief Retrieves emails for a current logged in user.

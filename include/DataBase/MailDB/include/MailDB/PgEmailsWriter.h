@@ -99,6 +99,17 @@ private:
     uint32_t InsertEmailBody(const std::string_view content, pqxx::transaction_base& transaction);
 
     /**
+     * @brief Inserts an email body into the database.
+     *
+     * Handles the insertion of email body content and returns the ID of the inserted body.
+     *
+     * @param attachment The content of the email attachment.
+     * @param transaction The `pqxx::transaction_base` object used for database operations.
+     * @return The ID of the inserted email attachment.
+     */
+    uint32_t InsertAttachment(const std::string_view attachment, pqxx::transaction_base &transaction);
+
+    /**
      * @brief Performs the insertion of an email into the database.
      *
      * Completes the email insertion process by adding the sender, receiver, subject, and body ID.
@@ -107,10 +118,12 @@ private:
      * @param receiver_id The ID of the receiver.
      * @param subject The subject of the email.
      * @param body_id The ID of the email body.
+     * @param attachments_id A vector of attachments's id
      * @param transaction The `pqxx::transaction_base` object used for database operations.
      */
     void PerformEmailInsertion(const uint32_t sender_id, const uint32_t receiver_id,
-                               const std::string_view subject, const uint32_t body_id, 
+                               const std::string_view subject, const uint32_t body_id,
+                               const std::vector<uint32_t> attachments_id, 
                                pqxx::transaction_base& transaction);
 
     std::queue<EmailsInstance> m_queue;                ///< Queue of email instances to be processed

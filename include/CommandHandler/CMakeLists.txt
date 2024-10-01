@@ -10,13 +10,15 @@ target_link_libraries(CommandHandler PRIVATE
         Utils
         Boost::log
         Boost::log_setup
-        c-ares
         ${OPENSSL_LIBRARIES}
         ${JSONCPP_LIBRARIES}
 )
 
 
-target_link_libraries(CommandHandler PRIVATE MailDB)
+target_link_libraries(CommandHandler PRIVATE 
+        MailDB
+        MIMEParser
+)
 
 target_include_directories(CommandHandler PUBLIC
         ${CMAKE_SOURCE_DIR}/include/CommandHandler/include
@@ -26,5 +28,6 @@ target_include_directories(CommandHandler PUBLIC
         ${CMAKE_SOURCE_DIR}/include/Logger/include
         ${CMAKE_SOURCE_DIR}/include/Server/include
         ${CMAKE_SOURCE_DIR}/include/Utils/include
+        ${CMAKE_SOURCE_DIR}/include/MIMEParser/include
         ${JSONCPP_INCLUDE_DIRS}
 )

@@ -63,12 +63,12 @@ public:
      * @copydoc IMailDB::InsertEmail
      */     
     void InsertEmail(const std::string_view receiver, const std::string_view subject,
-                     const std::string_view body) override;
+                     const std::string_view body, const std::vector<std::string> attachments) override;
     /**
      * @copydoc IMailDB::InsertEmail
      */      
     void InsertEmail(const std::vector<std::string_view> receivers, const std::string_view subject, 
-                     const std::string_view body) override;
+                     const std::string_view body, const std::vector<std::string> attachments) override;
 
     /**
      * @copydoc IMailDB::RetrieveEmails
@@ -142,6 +142,7 @@ protected:
      * @param receiver_id The ID of the user receiving the email.
      * @param subject A `std::string_view` representing the subject of the email.
      * @param body_id The ID of the email body content.
+     * @param attachment_id A vector of attachments's id.
      * @param transaction A `pqxx::transaction_base` object representing the ongoing database transaction. The 
      *        transaction must be active when calling this method.
      * 
@@ -149,7 +150,7 @@ protected:
      *         database query.
      */
     void PerformEmailInsertion(const uint32_t sender_id, const uint32_t receiver_id,
-                               const std::string_view subject, const uint32_t body_id, pqxx::transaction_base& transaction);
+                               const std::string_view subject, const uint32_t body_id, const std::vector<uint32_t> attachment_id, pqxx::transaction_base& transaction);
 
     /**
      * @brief Check if there is a logged in user.
@@ -157,6 +158,25 @@ protected:
      * @throws MailException if the user is not logged in.
      */
     void CheckIfUserLoggedIn();
+
+    /**
+     * @brief Inserts a new email attachment content into the "mailAttachments" table.
+     * 
+     * This method inserts the provided email attachment content into the `mailAttachments` table and retrieves the generated 
+     * `id` for the inserted content. The method ensures that the database connection is valid before attempting 
+     * the insertion. If the connection is lost or manually closed, a `MailException` is thrown. Upon successful 
+     * insertion, the method commits the transaction and returns the ID of the newly inserted email attachment content.
+     * 
+     * @param attachment A `std::string_view` representing the email attachment content to be inserted into the database.
+     * @param transaction A `pqxx::transaction_base` object representing the ongoing database transaction. The transaction 
+     *        must be active when calling this method.
+     * 
+     * @return uint32_t The ID of the newly inserted email attachment content, as retrieved from the `mailAttachments` table.
+     * 
+     * @throws MailException If the database connection is lost or manually closed, or if any exception is thrown 
+     *         during the execution of the database query.
+     */
+    uint32_t InsertAttachment(const std::string_view attachment, pqxx::transaction_base &transaction) const;
 
     const std::string HOST_NAME; ///< The host name associated with the database.
     const uint32_t HOST_ID; ///< The host ID associated with the database.
