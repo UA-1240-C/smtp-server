@@ -65,6 +65,7 @@ bool PgEmailsWriter::InsertEmail(const EmailsInstance &emails, pqxx::work &work)
 {
     uint32_t sender_id = emails.sender.sender_id, body_id;
     std::vector<uint32_t> receivers_id;
+    std::vector<uint32_t> attachments_id;
 
     try
     {
@@ -74,8 +75,13 @@ bool PgEmailsWriter::InsertEmail(const EmailsInstance &emails, pqxx::work &work)
         }
         body_id = InsertEmailBody(emails.body, work);
 
+        for(size_t i = 0; i < emails.attachments.size(); i++)
+        {
+            attachments_id.emplace_back(InsertAttachment(emails.attachments[i], work));
+        }
+
         for (size_t i = 0; i < receivers_id.size(); i++) {
-            PerformEmailInsertion(sender_id, receivers_id[i], emails.subject, body_id, work);
+            PerformEmailInsertion(sender_id, receivers_id[i], emails.subject, body_id, attachments_id, work);
         }
         return true;
     }
@@ -103,33 +109,73 @@ uint32_t PgEmailsWriter::RetriveUserId(const std::string_view user_name, pqxx::t
 uint32_t PgEmailsWriter::InsertEmailBody(const std::string_view content, pqxx::transaction_base &transaction)
 {
     pqxx::result body_id;
-    try 
-    {
-        body_id = transaction.exec_params(
-            "INSERT INTO \"mailBodies\" (body_content)VALUES($1) RETURNING mail_body_id"
-            , content
-        );
-        return body_id[0].at("mail_body_id").as<uint32_t>();
+    try {
+        body_id = transaction.exec_params("SELECT * FROM \"mailBodies\" WHERE body_content = $1 LIMIT 1", content);
+
+        if(body_id.empty())
+        {
+            body_id.clear();
+            body_id = transaction.exec_params(
+                "INSERT INTO \"mailBodies\" (body_content)VALUES($1) RETURNING mail_body_id"
+                , content
+            );
+        }
     }
-    catch (const std::exception& e) 
-    {
+    catch (const std::exception& e) {
         throw MailException(e.what());
     }
+
+    return body_id[0].at("mail_body_id").as<uint32_t>();
 }
 
-void PgEmailsWriter::PerformEmailInsertion(const uint32_t sender_id, const uint32_t receiver_id, const std::string_view subject, const uint32_t body_id, pqxx::transaction_base &transaction)
+uint32_t PgEmailsWriter::InsertAttachment(const std::string_view attachment, pqxx::transaction_base &transaction)
 {
-    try 
-    {
-        transaction.exec_params(
-            "INSERT INTO \"emailMessages\" (sender_id, recipient_id, subject, mail_body_id, is_received) "
-            "VALUES ($1, $2, $3, $4, false) "
-            , sender_id, receiver_id,
-            subject, body_id
-        );
+    pqxx::result attachment_id;
+    try {
+        attachment_id = transaction.exec_params("SELECT * FROM \"mailAttachments\" WHERE attachment_data = $1 LIMIT 1", attachment);
+
+        if(attachment_id.empty())
+        {
+            attachment_id.clear();
+            attachment_id = transaction.exec_params(
+                "INSERT INTO \"mailAttachments\" (attachment_data)VALUES($1) RETURNING id"
+                , attachment
+            );
+        }
     }
-    catch (const std::exception& e) 
-    {
+    catch (const std::exception& e) {
+        throw MailException(e.what());
+    }
+
+    return attachment_id[0].at("id").as<uint32_t>();
+}
+
+void PgEmailsWriter::PerformEmailInsertion(const uint32_t sender_id, const uint32_t receiver_id, const std::string_view subject, const uint32_t body_id, const std::vector<uint32_t> attachments_id, pqxx::transaction_base &transaction)
+{
+    try {
+        if(!attachments_id.empty())
+        {
+            for(size_t i{}; i < attachments_id.size(); i++)
+            {
+                transaction.exec_params(
+                    "INSERT INTO \"emailMessages\" (sender_id, recipient_id, subject, mail_body_id, is_received, attachment_id) "
+                    "VALUES ($1, $2, $3, $4, false, $5) "
+                    , sender_id, receiver_id,
+                    subject, body_id, attachments_id[i]
+                );
+            }
+        }
+        else
+        {
+            transaction.exec_params(
+                    "INSERT INTO \"emailMessages\" (sender_id, recipient_id, subject, mail_body_id, is_received) "
+                    "VALUES ($1, $2, $3, $4, false) "
+                    , sender_id, receiver_id,
+                    subject, body_id
+                );
+        }
+    }
+    catch (const std::exception& e) {
         throw MailException(e.what());
     }
 }

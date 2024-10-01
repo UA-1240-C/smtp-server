@@ -421,6 +421,26 @@ private:
      * @note The command is automatically appended with "\r\n" before being sent to the server.
      */
     std::string SendSmtpCommand(SocketWrapper& socket_wrapper, const std::string& command);
+    
+    /**
+     * @brief Processes the MIME email data received from the client during the DATA command.
+     *
+     * This function is responsible for parsing and processing the MIME email content sent by the client after the
+     * DATA command has been issued. It reads the incoming data, extracts the email subject, body, sender, recipients,
+     * ccs, bccs and attachments.
+     *
+     * The function performs the following steps:
+     * - Extracts individual lines from the received data.
+     *
+     * If an exception is thrown during processing, it is logged and propagated to the caller.
+     *
+     * @param body Reference to a string containing the data received from the client. This string is
+     *                     updated with the received data and processed to extract email content.
+     *
+     * @throws std::exception If an error occurs while processing the data.
+     *
+     */
+    void ProcessMIMEDataMessage(std::string& body);
 private:
     boost::asio::io_context& m_io_context;     ///< Reference to the IO context for async operations handling.
     boost::asio::ssl::context& m_ssl_context;  ///< Reference to the SSL context for secure connections.
@@ -428,6 +448,7 @@ private:
     MailMessageBuilder m_mail_builder;         ///< Instance of the mail message builder for constructing messages.
     bool m_in_data = false;                    ///< lag indicating whether the server is currently processing mail data.
     std::string m_access_token;                ///< An access token used to authenticate sender on its mail exchange server
+    std::vector<std::string> m_attachments;    ///< A list of sended attachments
 };
 }  // namespace ISXCommandHandler
 

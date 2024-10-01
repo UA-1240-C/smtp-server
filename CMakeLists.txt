@@ -6,8 +6,9 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 find_package(Boost REQUIRED COMPONENTS system thread log log_setup)
 find_package(OpenSSL REQUIRED)
-#find_package(PkgConfig REQUIRED)
-#pkg_check_modules(LIBSODIUM REQUIRED libsodium)
+find_package(PkgConfig REQUIRED)
+find_package(vmime REQUIRED)
+pkg_check_modules(LIBSODIUM REQUIRED libsodium)
 
 include(FetchContent)
 
@@ -55,14 +56,6 @@ if(NOT googletest_POPULATED)
     add_subdirectory(${googletest_SOURCE_DIR} ${googletest_BUILD_DIR})
 endif()
 
-FetchContent_Declare(
-    cares
-    GIT_REPOSITORY https://github.com/c-ares/c-ares.git
-    GIT_TAG v1.33
-)
-FetchContent_MakeAvailable(cares)
-
-
 # Add subdirectories
 add_subdirectory(include/CommandHandler)
 add_subdirectory(include/DataBase/MailDB)
@@ -73,6 +66,7 @@ add_subdirectory(include/MailMessage)
 add_subdirectory(include/Utils)
 add_subdirectory(include/Parser)
 add_subdirectory(include/Logger)
+add_subdirectory(include/MIMEParser)
 
 # Add executable
 add_executable(SMTP_server src/main.cpp)
@@ -88,11 +82,12 @@ target_link_libraries(SMTP_server PRIVATE
     Utils
     Parser
     Logger
+    MIMEParser
     Boost::system
     Boost::thread
     Boost::log
     Boost::log_setup
-    c-ares
+    vmime
     ${OPENSSL_LIBRARIES}
 )
 
@@ -107,7 +102,9 @@ target_include_directories(SMTP_server PRIVATE
     ${CMAKE_SOURCE_DIR}/include/SocketWrapper/include
     ${CMAKE_SOURCE_DIR}/include/Utils/include
     ${CMAKE_SOURCE_DIR}/include/Logger/include
+    ${CMAKE_SOURCE_DIR}/include/MIMEParser/include
     ${Boost_INCLUDE_DIRS}
     ${OPENSSL_INCLUDE_DIR}
-    #   ${LIBSODIUM_INCLUDE_DIRS}
+    ${VMIME_INCLUDE_DIRS}
+    ${LIBSODIUM_INCLUDE_DIRS}
 )

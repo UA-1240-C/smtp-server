@@ -17,6 +17,7 @@ struct EmailsInstance
     std::vector<std::string> receivers;
     std::string subject;
     std::string body;
+    std::vector<std::string> attachments;
 };
 
 }

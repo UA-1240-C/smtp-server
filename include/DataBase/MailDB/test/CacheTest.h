@@ -70,8 +70,8 @@ TEST_F(CacheTest, DefaultTest)
     pg.SignUp("user1", "pass1");
     pg.Login("user1", "pass1");
 
-    pg.InsertEmail("user1", "sub1", "body1");
-    pg.InsertEmail("user1", "sub2", "body2");
+    pg.InsertEmail("user1", "sub1", "body1", {});
+    pg.InsertEmail("user1", "sub2", "body2", {});
 
     std::this_thread::sleep_for(3*s_database_manager->get_writer_timeout());
 

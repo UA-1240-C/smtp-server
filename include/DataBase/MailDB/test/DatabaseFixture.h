@@ -27,11 +27,11 @@ class DatabaseFixture : public testing::Test
         m_database->SignUp("user3", "pass3");
 
         m_database->Login("user1", "pass1");
-        m_database->InsertEmail("user2", "subject1", "looooong body1");
+        m_database->InsertEmail("user2", "subject1", "looooong body1", {});
         m_database->Login("user2", "pass2");
-        m_database->InsertEmail("user3", "subject2", "small body2");
+        m_database->InsertEmail("user3", "subject2", "small body2", {});
         m_database->Login("user3", "pass3");
-        m_database->InsertEmail("user1", "subject3", "medium body3");
+        m_database->InsertEmail("user1", "subject3", "medium body3", {});
     }
 
     virtual void TearDown() override
@@ -90,7 +90,7 @@ TEST_F(DatabaseFixture, Retrieve_All_Body_Content_Test)
 TEST_F(DatabaseFixture, Insert_Email_With_Existing_Sender_Receiver_Test)
 {
     m_database->Login("user3", "pass3");
-    EXPECT_NO_THROW(m_database->InsertEmail("user2", "subjectsubject", "body"));
+    EXPECT_NO_THROW(m_database->InsertEmail("user2", "subjectsubject", "body", {}));
     m_database->Login("user2", "pass2");
     EXPECT_EQ(2, m_database->RetrieveEmails().size());
 }
@@ -98,16 +98,16 @@ TEST_F(DatabaseFixture, Insert_Email_With_Existing_Sender_Receiver_Test)
 TEST_F(DatabaseFixture, Insert_Email_With_Unexisting_Sender_Receiver_Test)
 {   
     m_database->Logout();
-    EXPECT_ANY_THROW(m_database->InsertEmail("user2", "subjectsubject", "body"));
+    EXPECT_ANY_THROW(m_database->InsertEmail("user2", "subjectsubject", "body", {}));
     m_database->Login("user3", "pass3");
-    EXPECT_ANY_THROW(m_database->InsertEmail("user54235", "subjectsubject", "body"));
-    EXPECT_ANY_THROW(m_database->InsertEmail("", "subjectsubject", "body"));
+    EXPECT_ANY_THROW(m_database->InsertEmail("user54235", "subjectsubject", "body", {}));
+    EXPECT_ANY_THROW(m_database->InsertEmail("", "subjectsubject", "body", {}));
 }
 
 TEST_F(DatabaseFixture, Insert_Blank_Email_Test)
 {
     m_database->Login("user1", "pass1");
-    EXPECT_NO_THROW(m_database->InsertEmail("user2", "", ""));
+    EXPECT_NO_THROW(m_database->InsertEmail("user2", "", "", {}));
     m_database->Login("user2", "pass2");
     EXPECT_EQ(2, m_database->RetrieveEmails().size());
 }

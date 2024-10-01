@@ -1,18 +1,18 @@
-#include <ares.h>
-#include <ares_dns.h>
-#include <boost/asio.hpp>
 #include <vector>
 #include <string>
 #include <iostream>
 #include <set>
+#include <tuple>
 
-#include <ares.h>
-#include <ares_dns.h>
+//#include <ares.h>
+//#include <ares_dns.h>
 #include <boost/asio.hpp>
+#include <vmime/vmime.hpp>
 
 #include "CommandHandler.h"
 #include "Logger.h"
 #include "StandartSmtpResponses.h"
+#include "MIMEParser.h"
 
 constexpr std::size_t MAILING_LIST_PREFIX_LENGTH = 5;
 
@@ -381,7 +381,7 @@ void CommandHandler::ReadData(SocketWrapper& socket_wrapper, std::string& data_m
 
 void CommandHandler::ProcessDataMessage(SocketWrapper& socket_wrapper, std::string& data_message, std::string& body)
 {
-    Logger::LogDebug("Exiting CommandHandler::ProcessDataMessage");
+    Logger::LogDebug("Entering CommandHandler::ProcessDataMessage");
     Logger::LogTrace(
         "CommandHandler::ProcessDataMessage parameters: "
         "SocketWrapper reference, std::string reference " +
@@ -399,9 +399,16 @@ void CommandHandler::ProcessDataMessage(SocketWrapper& socket_wrapper, std::stri
             {
                 Logger::LogProd("End-of-data sequence detected, exiting data read loop.");
 
-                m_mail_builder.set_body(body + "\r\n");
-                Logger::LogProd("Set body: " + body);
-
+                if(ISXMIMEParser::MIMEParser::IsMIME(body))
+                {
+                    ProcessMIMEDataMessage(body);
+                }
+                else
+                {
+                    m_mail_builder.set_body(body + "\r\n");
+                    Logger::LogProd("Set body: " + body);
+                }
+  
                 HandleEndOfData(socket_wrapper);
                 m_in_data = false;
                 break;
@@ -430,6 +437,44 @@ void CommandHandler::ProcessDataMessage(SocketWrapper& socket_wrapper, std::stri
     Logger::LogDebug("Exiting CommandHandler::ProcessDataMessage");
 }
 
+void CommandHandler::ProcessMIMEDataMessage(std::string& body)
+{
+    Logger::LogDebug("Entering CommandHandler::ProcessMIMEDataMessage");
+    Logger::LogTrace(
+        "CommandHandler::ProcessMIMEDataMessage parameters: "
+        "std::string reference ");
+    try
+    {
+        ISXMIMEParser::MIMEParser parser(body);
+        vmime::shared_ptr<vmime::messageParser> mime_parser = vmime::make_shared<vmime::messageParser>(body);
+
+        m_mail_builder.set_from(std::get<0>(parser.RetrieveSender()), std::get<1>(parser.RetrieveSender()));
+
+        for(auto&& recipient: parser.RetrieveRecipients())
+        {
+            m_mail_builder.add_to(std::get<0>(recipient), std::get<1>(recipient));
+        }
+        for(auto&& cc: parser.RetrieveCCs())
+        {
+            m_mail_builder.add_cc(std::get<0>(cc), std::get<1>(cc));
+        }
+
+        m_mail_builder.set_body(parser.RetrieveBody());
+        m_attachments = parser.RetrieveAttachments();
+
+        for(auto&& att: m_attachments)
+        {
+            std::cout << att << '\n';
+            std::cout << Base64Decode(att) << '\n';
+        }
+    }
+    catch(const std::exception& e)
+    {
+        throw;
+    }
+    Logger::LogDebug("Exiting CommandHandler::ProcessMIMEDataMessage");
+}
+
 void CommandHandler::HandleEndOfData(SocketWrapper& socket_wrapper) {
     Logger::LogDebug("Entering CommandHandler::HandleEndOfData");
     Logger::LogTrace("CommandHandler::ProcessDataMessage parameters: SocketWrapper reference");
@@ -454,7 +499,7 @@ void CommandHandler::HandleEndOfData(SocketWrapper& socket_wrapper) {
             
             Logger::LogDebug(Base64Decode(m_access_token));
             
-            ForwardMail(message, oauth2_token);
+            //ForwardMail(message, oauth2_token);
 
             Logger::LogProd("Mail message sent successfully.");
         }
@@ -536,7 +581,7 @@ void CommandHandler::SaveMailToDatabase(const MailMessage& message)
             try
             {
                 m_data_base->InsertEmail(recipient.get_address(), message.subject,
-                                         message.body);
+                                         message.body, m_attachments);
                 Logger::LogDebug("Body: " + message.body);
                 Logger::LogDebug("subject: " + message.subject);
                 Logger::LogProd("Email inserted into database for recipient: " + recipient.get_address());
