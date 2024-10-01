@@ -498,7 +498,7 @@ void CommandHandler::HandleEndOfData(SocketWrapper& socket_wrapper) {
             
             Logger::LogDebug(Base64Decode(m_access_token));
             
-            //ForwardMail(message, oauth2_token);
+            ForwardMail(message, oauth2_token);
 
             Logger::LogProd("Mail message sent successfully.");
         }
