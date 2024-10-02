@@ -38,14 +38,20 @@ void SmtpServer::Accept()
                 Logger::LogProd("Accepted new connection.");
                 m_initializer.get_thread_pool().EnqueueDetach(
                     [this, new_socket] {
-                        unique_ptr<ClientSession> client_session;
-                        client_session = unique_ptr<ClientSession>
-                            (new ClientSession(new_socket
-                                               , m_initializer.get_ssl_context()
-                                               , m_initializer.get_timeout_seconds()));
+                        try{
+                            unique_ptr<ClientSession> client_session;
+                            client_session = unique_ptr<ClientSession>
+                                (new ClientSession(new_socket
+                                                   , m_initializer.get_ssl_context()
+                                                   , m_initializer.get_timeout_seconds()));
 
-                        client_session->Greet();
-                        client_session->PollForRequest();
+                            client_session->Greet();
+                            client_session->PollForRequest();
+                        }
+                        catch (const std::exception& e)
+                        {
+                            Logger::LogError("Error in SmtpServer::Accept: " + std::string(e.what()));
+                        }
                     }
                 );
             }
