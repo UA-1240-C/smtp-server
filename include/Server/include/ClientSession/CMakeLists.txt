@@ -10,9 +10,9 @@ target_include_directories(ClientSession PUBLIC
 )
 
 target_link_libraries(ClientSession
-    CommandHandler
     MailMessage
     SocketWrapper
     Boost::log
     Boost::log_setup
+    MailDB
 )

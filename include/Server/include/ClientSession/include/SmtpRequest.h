@@ -32,6 +32,7 @@ private:
 
 public:
     static SmtpRequest Parse(const std::string& request);
+    static std::string ExtractUsername(std::string auth_data);
 };
     
 }; // namespace ISXCState
