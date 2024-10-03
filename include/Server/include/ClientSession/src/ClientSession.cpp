@@ -1,6 +1,8 @@
 #include "ClientSession.h"
-#include "Base64.h"
+
+#include "SmtpRequest.h"
 #include "SmtpResponse.h"
+#include "MailMessage.h"
 #include "MailDB/MailException.h"
 
 #include <boost/asio/ssl/context.hpp>
@@ -10,10 +12,10 @@ using ISXSmtpResponse::SmtpResponseCode;
 using ISXMM::MailMessageBuilder;
 using ISXMailDB::MailException;
 
+using ISXMM::MailMessage;
+
 using ISXSmtpRequest::RequestParser;
 using ISXSmtpRequest::SmtpCommand;
-
-using ISXBase64::Base64Decode;
 
 namespace ISXCState {
 
@@ -152,6 +154,9 @@ void ClientSession::ProcessRequest(const SmtpRequest& request) {
     case ClientState::EHLO_SENT:
         HandleEhloSentState(request);
         break;
+    case ClientState::STARTTLS_SENT:
+        HandleStartTlsSentState(request);
+        break;
     case ClientState::AUTH_SENT:
         HandleAuthSentState(request);
         break;
@@ -162,7 +167,10 @@ void ClientSession::ProcessRequest(const SmtpRequest& request) {
         HandleRcptToSentState(request);
         break;
     default:
-        break;
+        // Unreachable
+        Logger::LogError("Invalid state: " + std::to_string(static_cast<int>(m_current_state)));
+        m_socket.WriteAsync(SmtpResponse(SmtpResponseCode::BAD_SEQUENCE).ToString()).get();
+        throw std::runtime_error("Invalid state.");
     }
 
     Logger::LogDebug("Exiting ClientSession::ProcessRequest");
@@ -179,6 +187,23 @@ bool ClientSession::HandleStaticCommands(const SmtpRequest& request)
     bool command_handled = false;
 
     if (m_current_state == ClientState::CONNECTED) return false;
+
+    if (request.command == SmtpCommand::RSET && 
+        (m_current_state == ClientState::MAILFROM_SENT
+        || m_current_state == ClientState::RCPTTO_SENT
+        || m_current_state == ClientState::DATA_SENT)
+    )
+    {
+        try
+        {
+            HandleRset(request);
+            return true;
+        }
+        catch (const std::exception& e)
+        {
+            Logger::LogError("Exception in HandleStaticCommands: " + std::string(e.what()));
+        }
+    }
 
     try
     {
@@ -211,6 +236,47 @@ bool ClientSession::HandleStaticCommands(const SmtpRequest& request)
     return command_handled;
 }
 
+void ClientSession::HandleRegister(const SmtpRequest& request)
+{
+    Logger::LogDebug("Entering ClientSession::HandleRegister");
+    Logger::LogTrace("ClientSession::HandleRegister parameter: const SmtpRequest reference: " + request.data);
+
+    try
+    {
+        // Decode the username and password from the AUTH command line
+        auto [username, password] = RequestParser::DecodeAndSplitPlain(request.data.substr(REGISTER_PREFIX_LENGTH));
+        Logger::LogTrace("Decoded username: " + username);
+        Logger::LogTrace("Decoded password: [hidden]");
+
+        // Check if the user exists
+        if (m_data_base->UserExists(username))
+        {
+            Logger::LogWarning("Registration failed: user already exists - " + username);
+            m_socket.WriteAsync(SmtpResponse(SmtpResponseCode::USER_ALREADY_EXISTS).ToString()).get();
+            return;
+        }
+
+        // Attempt to register the user with the provided credentials
+        try
+        {
+            m_data_base->SignUp(username, password);
+            Logger::LogProd("User registered successfully");
+            m_socket.WriteAsync(SmtpResponse(SmtpResponseCode::REGISTER_SUCCESSFUL).ToString()).get();
+        }
+        catch (const MailException& e)
+        {
+            Logger::LogError("MailException in : " + std::string(e.what()));
+            m_socket.WriteAsync(SmtpResponse(SmtpResponseCode::REGISTRATION_FAILED).ToString()).get();
+        }
+    }
+    catch (const std::exception& e)
+    {
+        Logger::LogError(std::string(e.what()));
+    }
+
+    Logger::LogDebug("Exiting ClientSession::HandleRegister");
+}
+
 void ClientSession::HandleAuth(const SmtpRequest& request)
 {
     Logger::LogDebug("Entering ClientSession::HandleAuth");
@@ -219,7 +285,7 @@ void ClientSession::HandleAuth(const SmtpRequest& request)
     try
     {
         // Decode the username and password from the AUTH command line
-        auto [username, password] = DecodeAndSplitPlain(request.data.substr(AUTH_PREFIX_LENGTH));
+        auto [username, password] = RequestParser::DecodeAndSplitPlain(request.data.substr(AUTH_PREFIX_LENGTH));
         Logger::LogTrace("Decoded username: " + username);
         Logger::LogTrace("Decoded password: [hidden]");
 
@@ -388,8 +454,28 @@ void ClientSession::HandleData(const SmtpRequest& request)
 
         try
         {
-            std::string buffer = m_socket.ReadAsync(MAX_LENGTH).get();
+            std::string buffer = ReadDataUntilEOM();
+            m_socket.ResetTimeoutTimer(m_timeout_duration);
             Logger::LogProd("Received data: " + buffer);
+            
+            BuildMessageData(buffer);
+            MailMessage message = m_mail_builder.Build();
+            
+            if (message.from.get_address().empty()
+                || message.body.empty()
+                || message.to.empty()
+                || message.subject.empty())
+            {
+                Logger::LogError("Subject or body is empty.");
+                m_socket.WriteAsync(SmtpResponse(SmtpResponseCode::SYNTAX_ERROR).ToString()).get();
+                return;
+            }
+            else
+            {
+                SaveMessageToDataBase(message);
+                m_socket.WriteAsync(SmtpResponse(SmtpResponseCode::OK).ToString()).get();
+            }
+
         }
         catch (const boost::system::system_error& e)
         {
@@ -410,8 +496,26 @@ void ClientSession::HandleData(const SmtpRequest& request)
         Logger::LogError("Exception in ClientSession::HandleData: " + std::string(e.what()));
     }
 
-    m_socket.WriteAsync(SmtpResponse(SmtpResponseCode::OK).ToString()).get();
     Logger::LogDebug("Exiting ClientSession::HandleData");
+}
+
+void ClientSession::HandleRset(const SmtpRequest& request)
+{
+    Logger::LogDebug("Entering ClientSession::HandleRset");
+    Logger::LogTrace("ClientSession::HandleRset parameter: const SmtpRequest reference: " + request.data);
+
+    try
+    {
+        m_mail_builder = MailMessageBuilder();
+        m_socket.WriteAsync(SmtpResponse(SmtpResponseCode::OK).ToString()).get();
+        m_current_state = ClientState::AUTH_SENT;
+    }
+    catch (const std::exception& e)
+    {
+        Logger::LogError("Exception in ClientSession::HandleRset: " + std::string(e.what()));
+    }
+
+    Logger::LogDebug("Exiting ClientSession::HandleRset");
 }
 
 /******************/
@@ -426,8 +530,8 @@ void ClientSession::HandleConnectedState(const SmtpRequest& request)
     {
         if (request.command == SmtpCommand::EHLO)
         {
-            m_current_state = ClientState::EHLO_SENT;
             m_socket.WriteAsync(SmtpResponse(SmtpResponseCode::OK).ToString()).get();
+            m_current_state = ClientState::EHLO_SENT;
         }
         else 
         {
@@ -451,11 +555,7 @@ void ClientSession::HandleEhloSentState(const SmtpRequest& request)
     if (request.command == SmtpCommand::STARTTLS)
     {
         HadleStartTls(request);
-    }
-    else if (request.command == SmtpCommand::AUTH)
-    {
-        HandleAuth(request);
-        m_current_state = ClientState::AUTH_SENT;
+        m_current_state = ClientState::STARTTLS_SENT;
     }
     else
     {
@@ -464,6 +564,29 @@ void ClientSession::HandleEhloSentState(const SmtpRequest& request)
     }
 
     Logger::LogDebug("Exiting HandleEhloSentState");
+}
+
+void ClientSession::HandleStartTlsSentState(const SmtpRequest& request)
+{
+    Logger::LogDebug("Entering ClientSession::HandleStartTlsSentState");
+    Logger::LogTrace("ClientSession::HandleStartTlsSentState parameter: const SmtpRequest reference: " + request.data);
+
+    if (request.command == SmtpCommand::AUTH)
+    {
+        HandleAuth(request);
+        m_current_state = ClientState::AUTH_SENT;
+    }
+    else if (request.command == SmtpCommand::REGISTER)
+    {
+        HandleRegister(request);
+        m_current_state = ClientState::AUTH_SENT;
+    }    else
+    {
+        Logger::LogError(std::to_string(static_cast<int>(m_current_state)));
+        m_socket.WriteAsync(SmtpResponse(SmtpResponseCode::BAD_SEQUENCE).ToString()).get();
+    }
+
+    Logger::LogDebug("Exiting ClientSession::HandleStartTlsSentState");
 }
 
 void ClientSession::HandleAuthSentState(const SmtpRequest& request)
@@ -510,7 +633,7 @@ void ClientSession::HandleRcptToSentState(const SmtpRequest& request)
     if (request.command == SmtpCommand::DATA)
     {
         HandleData(request);
-        m_current_state = ClientState::DATA_SENT;
+        m_current_state = ClientState::AUTH_SENT;
     }
     else
     {
@@ -524,6 +647,44 @@ void ClientSession::HandleRcptToSentState(const SmtpRequest& request)
 /*********************/
 /* Utility functions */
 /*********************/
+std::string ClientSession::ReadDataUntilEOM()
+{
+    Logger::LogDebug("Entering ClientSession::ReadDataUntilEOM");
+
+    std::string buffer;
+    std::string data;
+
+    try
+    {
+        do
+        {
+            buffer = m_socket.ReadAsync(MAX_LENGTH).get();
+            if (buffer.empty())
+            {
+                Logger::LogWarning("Client disconnected.");
+                throw std::runtime_error("Client disconnected.");
+            }
+            m_socket.ResetTimeoutTimer(m_timeout_duration);
+            data += buffer;
+        } while (buffer.find("\r\n.\r\n") == std::string::npos);
+
+        Logger::LogProd("Data received: " + data);
+    }
+    catch (const boost::system::system_error& e)
+    {
+        Logger::LogError("System error in ClientSession::ReadDataUntilEOM: " + std::string(e.what()));
+        throw;
+    }
+    catch (const std::exception& e)
+    {
+        Logger::LogError("Exception in ClientSession::ReadDataUntilEOM: " + std::string(e.what()));
+        throw;
+    }
+
+    Logger::LogDebug("Exiting ClientSession::ReadDataUntilEOM");
+    return data;
+}
+
 void ClientSession::ConnectToDataBase()
 {
     Logger::LogDebug("Entering ClientSession::ConnectToDataBase");
@@ -549,54 +710,59 @@ void ClientSession::ConnectToDataBase()
     Logger::LogDebug("Exiting ClientSession::ConnectToDataBase");
 }
 
-std::pair<std::string, std::string> ClientSession::DecodeAndSplitPlain(const std::string& encoded_data)
+void ClientSession::BuildMessageData(const std::string& data)
 {
-    Logger::LogDebug("Entering ClientSession::DecodeAndSplitPlain");
-    Logger::LogTrace("ClientSession::DecodeAndSplitPlain parameters: std::string reference" + encoded_data);
+    Logger::LogDebug("Entering ClientSession::BuildMessage");
+    Logger::LogTrace("ClientSession::BuildMessage parameter: const std::string reference: " + data);
 
-    // Decode Base64-encoded data
-    std::string decoded_data;
     try
     {
-        decoded_data = Base64Decode(encoded_data);
-        Logger::LogDebug(decoded_data);
+        std::string subject = RequestParser::ExtractSubject(data);
+        std::string body = RequestParser::ExtractBody(data);
+
+        m_mail_builder.set_subject(subject);
+        m_mail_builder.set_body(body);
     }
     catch (const std::exception& e)
     {
-        Logger::LogError("Base64 decoding failed: " + std::string(e.what()));
-        throw std::runtime_error("Base64 decoding failed.");
+        Logger::LogError("Exception in ClientSession::BuildMessage: " + std::string(e.what()));
+        throw;
     }
 
-    // Find the first null byte
-    const size_t first_null = decoded_data.find('\0');
-    if (first_null == std::string::npos)
+    Logger::LogDebug("Exiting ClientSession::BuildMessage");
+}
+
+void ClientSession::SaveMessageToDataBase(MailMessage& message)
+{
+    Logger::LogDebug("Entering ClientSession::SaveMessageToDataBase");
+
+    try
     {
-        Logger::LogError("Invalid PLAIN format: Missing first null byte.");
-        throw std::runtime_error("Invalid PLAIN format: Missing first null byte.");
+        for (const auto& recipient : message.to)
+        {
+            try
+            {
+                m_data_base->InsertEmail(message.from.get_address(), recipient.get_address(), message.subject,
+                                         message.body);
+                Logger::LogDebug("Body: " + message.body);
+                Logger::LogDebug("subject: " + message.subject);
+                Logger::LogProd("Email inserted into database for recipient: " + recipient.get_address());
+            }
+            catch (const std::exception& e)
+            {
+                Logger::LogError(
+                    "Exception in ClientSession::SaveMessageToDataBase: " + std::string(e.what()));
+            }
+        }
     }
-    Logger::LogProd("First null byte at position: " + std::to_string(first_null));
-
-    // Find the second null byte
-    const size_t second_null = decoded_data.find('\0', first_null + 1);
-    if (second_null == std::string::npos)
+    catch (const std::exception& e)
     {
-        Logger::LogError("Invalid PLAIN format: Missing second null byte.");
-        throw std::runtime_error("Invalid PLAIN format: Missing second null byte.");
+        Logger::LogError("Exception in ClientSession::SaveMessageToDataBase: " + std::string(e.what()));
+        throw;
     }
-    Logger::LogProd("Second null byte at position: " + std::to_string(second_null));
 
-    // Extract username and password
-    std::string username = decoded_data.substr(first_null + 1, second_null - first_null - 1);
-    std::string password = decoded_data.substr(second_null + 1);
 
-    // Log the extracted username and password (password should be handled securely in real applications)
-    Logger::LogProd("Extracted username: " + username);
-    Logger::LogProd("Extracted password: [hidden]");
-
-    Logger::LogTrace("Extracted username: " + username + ", Extracted password: [hidden]");
-    Logger::LogDebug("Exiting ClientSession::DecodeAndSplitPlain");
-
-    return {username, password};
+    Logger::LogDebug("Exiting ClientSession::SaveMessageToDataBase");
 }
 
 } // namespace ISXCState

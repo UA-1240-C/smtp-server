@@ -2,13 +2,20 @@
 #define SmtpRequest_H
 
 #include <string>
+#include "MailMessage.h"
+
+using ISXMM::MailMessage;
 
 namespace ISXSmtpRequest {
+
+constexpr std::size_t DELIMITER_OFFSET = 2;
+
 enum class SmtpCommand {
     EHLO,
     HELP,
     NOOP,
     STARTTLS,
+    REGISTER,
     AUTH,
     MAILFROM,
     RCPTTO,
@@ -32,7 +39,11 @@ private:
 
 public:
     static SmtpRequest Parse(const std::string& request);
+
     static std::string ExtractUsername(std::string auth_data);
+    static std::string ExtractSubject(std::string data);
+    static std::string ExtractBody(std::string data);
+    static std::pair<std::string, std::string> DecodeAndSplitPlain(const std::string& encoded_data);
 };
     
 }; // namespace ISXCState
