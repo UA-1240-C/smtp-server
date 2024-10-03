@@ -64,7 +64,6 @@ FetchContent_MakeAvailable(cares)
 
 
 # Add subdirectories
-add_subdirectory(include/CommandHandler)
 add_subdirectory(include/DataBase/MailDB)
 add_subdirectory(include/Server)
 add_subdirectory(include/SignalHandler)
@@ -79,7 +78,6 @@ add_executable(SMTP_server src/main.cpp)
 
 # Link libraries
 target_link_libraries(SMTP_server PRIVATE
-    CommandHandler
     MailMessage
     MailDB
     Server
@@ -98,7 +96,6 @@ target_link_libraries(SMTP_server PRIVATE
 
 # Include directories
 target_include_directories(SMTP_server PRIVATE
-    ${CMAKE_SOURCE_DIR}/include/CommandHandler/include
     ${CMAKE_SOURCE_DIR}/include/DataBase/include
     ${CMAKE_SOURCE_DIR}/include/MailMessage/include
     ${CMAKE_SOURCE_DIR}/include/Parser/include
@@ -109,5 +106,4 @@ target_include_directories(SMTP_server PRIVATE
     ${CMAKE_SOURCE_DIR}/include/Logger/include
     ${Boost_INCLUDE_DIRS}
     ${OPENSSL_INCLUDE_DIR}
-    #   ${LIBSODIUM_INCLUDE_DIRS}
 )
