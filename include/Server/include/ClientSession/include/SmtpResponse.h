@@ -1,5 +1,5 @@
-#ifndef ISXSMTPRESPONSE_H
-#define ISXSMTPRESPONSE_H
+#ifndef SMTP_RESPONSE_H
+#define SMTP_RESPONSE_H
 
 #include <string>
 
@@ -72,4 +72,4 @@ private:
 };
 } // namespace ISXSmtpResponse
 
-#endif // !ISXSMTPRESPONSE_H
+#endif // !SMTP_RESPONSE_H

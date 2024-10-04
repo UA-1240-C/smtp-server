@@ -1,5 +1,5 @@
-#ifndef ClientState_H
-#define ClientState_H
+#ifndef CLIENT_SESSION_H
+#define CLIENT_SESSION_H
 
 #include <boost/asio.hpp>
 #include <memory>
@@ -95,4 +95,4 @@ private:
 };
 }; // namespace ISXCState
 
-#endif // !ClientState_H
+#endif // !CLIENT_SESSION_H

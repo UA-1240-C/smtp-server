@@ -1,5 +1,5 @@
-#ifndef SmtpRequest_H
-#define SmtpRequest_H
+#ifndef SMTP_REQUEST_H
+#define SMTP_REQUEST_H
 
 #include <string>
 #include "MailMessage.h"
@@ -48,4 +48,4 @@ public:
     
 }; // namespace ISXCState
 
-#endif // SmtpRequest_H
+#endif // !SMTP_REQUEST_H
