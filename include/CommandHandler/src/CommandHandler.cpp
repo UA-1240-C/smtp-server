@@ -453,19 +453,19 @@ void CommandHandler::ProcessMIMEDataMessage(std::string& body)
         {
             m_mail_builder.add_to(std::get<0>(recipient), std::get<1>(recipient));
         }
+
         for(auto&& cc: parser.RetrieveCCs())
         {
             m_mail_builder.add_cc(std::get<0>(cc), std::get<1>(cc));
         }
 
+        for(auto&& bcc: parser.RetrieveBCCs())
+        {
+            m_mail_builder.add_bcc(std::get<0>(bcc), std::get<1>(bcc));
+        }
+        
         m_mail_builder.set_body(parser.RetrieveBody());
         m_attachments = parser.RetrieveAttachments();
-
-        for(auto&& att: m_attachments)
-        {
-            std::cout << att << '\n';
-            std::cout << Base64Decode(att) << '\n';
-        }
     }
     catch(const std::exception& e)
     {
@@ -677,8 +677,6 @@ void CommandHandler::HandleAuth(SocketWrapper& socket_wrapper, const std::string
             Logger::LogError("MailException in CommandHandler::HandleAuth: " + std::string(e.what()));
             socket_wrapper.WriteAsync(ToString(SmtpResponseCode::AUTH_SUCCESSFUL)).get();
         }
-       
-      
     }
     catch (const std::exception& e)
     {

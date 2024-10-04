@@ -8,6 +8,14 @@
 
 namespace ISXMailDB
 {
+
+enum ReceivedState
+{
+    TRUE,
+    FALSE,
+    BOTH,
+};
+
 /**
  * @brief Represents a user with a username, password, and host name.
  */
@@ -41,10 +49,11 @@ struct Mail
      * @param body The body of the email.
      */
     Mail(const std::string_view recipient, const std::string_view sender,
-         const std::string_view subject, const std::string_view body, const std::string_view attachment)
+         const std::string_view subject, const std::string_view body, const std::string_view sent_at, const std::vector<std::string>& attachments)
         : recipient(recipient), sender(sender), 
           subject(subject), body(body),
-          attachment(attachment)
+          sent_at(sent_at),
+          attachments(attachments)
     {
     }
     
@@ -52,7 +61,84 @@ struct Mail
     std::string sender;
     std::string subject;
     std::string body;
-    std::string attachment;
+    std::string sent_at;
+    std::vector<std::string> attachments;
+};
+
+class FlagsSearchBy
+{
+
+public:
+    FlagsSearchBy& AddFlagToInclude(const std::string_view flag)
+    {
+        include.emplace_back(flag);
+        return *this;
+    }
+
+    FlagsSearchBy& AddFlagToExclude(const std::string_view flag)
+    {
+        exclude.emplace_back(flag);
+        return *this;
+    }
+
+    FlagsSearchBy& AddFlagToEither(const std::string_view flag)
+    {
+        either.emplace_back(flag);
+        return *this;
+    }
+
+    std::string BuildQuery(uint32_t folder_id)
+    {
+        std::string query = "SELECT DISTINCT mf.email_message_id FROM \"messageFlags\" AS mf LEFT JOIN \"folderMessages\" AS fm ON mf.email_message_id = fm.email_message_id "
+                            "LEFT JOIN \"folders\" AS f ON fm.folder_id = f.folder_id WHERE f.folder_id = " + std::to_string(folder_id) + " AND (";
+
+        if(!include.empty())
+        {
+
+            AppendQuery(query, include, " mf.email_message_id IN(SELECT email_message_id FROM \"messageFlags\" AS mf LEFT JOIN flags AS f ON f.flag_id = mf.flag_id WHERE f.flag_name = '", "') AND");        
+        }
+        else if(!either.empty())
+        {
+            query.append("(");
+
+            AppendQuery(query, either, " mf.email_message_id IN(SELECT email_message_id FROM \"messageFlags\" AS mf LEFT JOIN flags AS f ON f.flag_id = mf.flag_id WHERE f.flag_name = '", "') OR");
+            
+            query.append(")");
+        }
+
+        if(!exclude.empty())
+        {
+            if(query.find_last_of('(') != query.length() - 1)
+            {
+                query.append(" AND");
+            }
+
+            AppendQuery(query, exclude, " mf.email_message_id NOT IN(SELECT email_message_id FROM \"messageFlags\" AS mf LEFT JOIN flags AS f ON f.flag_id = mf.flag_id WHERE f.flag_name = '", "') AND");
+        }
+
+        query.append(")");
+
+        return query;
+    }
+
+private:
+
+    void AppendQuery(std::string& query, std::vector<std::string> flags, const std::string& before_flag, const std::string& after_flag)
+    {
+        for(size_t i{}; i < flags.size(); i++)
+        {
+            if(i == flags.size()-1)
+            {
+                query.append(before_flag + flags[i] + after_flag.substr(0, 2));
+                break;
+            }
+            query.append(before_flag + flags[i] + after_flag);
+        }        
+    }   
+
+    std::vector<std::string> include;
+    std::vector<std::string> exclude;
+    std::vector<std::string> either;
 };
 
 /**
@@ -252,7 +338,20 @@ public:
      */
     virtual void DeleteUser(const std::string_view user_name, const std::string_view password) = 0;
 
+    
+    virtual void InsertFolder(const std::string_view folder_name) = 0;
+    virtual void AddMessageToFolder(const std::string_view folder_name, const Mail& message) = 0;
+    virtual void MoveMessageToFolder(const std::string_view from, const std::string_view to, const Mail& message) = 0;
+    virtual void FlagMessage(const std::string_view flag_name, const Mail& message) = 0;
 
+    virtual void DeleteFolder(const std::string_view folder_name) = 0;
+    virtual void RemoveMessageFromFolder(const std::string_view folder_name, const Mail& message) = 0;
+    virtual void RemoveFlagFromMessage(const std::string_view flag_name, const Mail& message) = 0;
+    
+    
+    virtual std::vector<Mail> RetrieveMessagesFromFolder(const std::string_view folder_name, const ReceivedState& is_received) = 0;
+    virtual std::vector<Mail> RetrieveMessagesFromFolderWithFlags(const std::string_view folder_name, FlagsSearchBy& flags, const ReceivedState& is_received) = 0;
+    
     /**
      * @brief Returns name of current logged in user. If nobody is logged in, returns empty string.
      */

@@ -232,8 +232,8 @@ TEST_F(PgMailDBTest, RetrieveEmailsTest)
   pg.InsertEmail(user_name, "sub1", "body1", {});
   pg.InsertEmail(user_name, "sub2", "body2", {});
 
-  std::vector<Mail> expected_result = {{"testuser1", "testuser1", "sub2", "body2", ""}, 
-  {"testuser1", "testuser1", "sub1", "body1", ""}};
+  std::vector<Mail> expected_result = {{"testuser1", "testuser1", "sub2", "body2", "",{}}, 
+  {"testuser1", "testuser1", "sub1", "body1", "",{}}};
 
   std::vector<Mail> result = pg.RetrieveEmails();
   EXPECT_TRUE(expected_result==result);

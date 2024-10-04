@@ -107,7 +107,8 @@ private:
      * @param transaction The `pqxx::transaction_base` object used for database operations.
      * @return The ID of the inserted email attachment.
      */
-    uint32_t InsertAttachment(const std::string_view attachment, pqxx::transaction_base &transaction);
+    void InsertAttachment(const std::string_view attachment_data, const std::vector<uint32_t>& email_ids, pqxx::transaction_base &transaction) const;
+    uint32_t InsertAttachmentData(const std::string_view attachment_data, pqxx::transaction_base &transaction) const;
 
     /**
      * @brief Performs the insertion of an email into the database.
@@ -121,9 +122,8 @@ private:
      * @param attachments_id A vector of attachments's id
      * @param transaction The `pqxx::transaction_base` object used for database operations.
      */
-    void PerformEmailInsertion(const uint32_t sender_id, const uint32_t receiver_id,
+    uint32_t PerformEmailInsertion(const uint32_t sender_id, const uint32_t receiver_id,
                                const std::string_view subject, const uint32_t body_id,
-                               const std::vector<uint32_t> attachments_id, 
                                pqxx::transaction_base& transaction);
 
     std::queue<EmailsInstance> m_queue;                ///< Queue of email instances to be processed

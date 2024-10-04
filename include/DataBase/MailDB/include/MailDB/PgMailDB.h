@@ -92,6 +92,18 @@ public:
      */    
     void DeleteUser(const std::string_view user_name, const std::string_view password) override;
 
+    void InsertFolder(const std::string_view folder_name) override;
+    void AddMessageToFolder(const std::string_view folder_name, const Mail& message) override;
+    void MoveMessageToFolder(const std::string_view from, const std::string_view to, const Mail& message) override;
+    void FlagMessage(const std::string_view flag_name, const Mail& message) override;
+
+    void DeleteFolder(const std::string_view folder_name) override;
+    void RemoveMessageFromFolder(const std::string_view folder_name, const Mail& message) override;
+    void RemoveFlagFromMessage(const std::string_view flag_name, const Mail& message) override;
+
+    std::vector<Mail> RetrieveMessagesFromFolder(const std::string_view folder_name, const ReceivedState& is_received) override;
+    std::vector<Mail> RetrieveMessagesFromFolderWithFlags(const std::string_view folder_name, FlagsSearchBy& flags, const ReceivedState& is_received) override;
+    
 protected:
     /**
      * @copydoc IMailDB::HashPassword
@@ -149,8 +161,8 @@ protected:
      * @throws MailException If the insertion fails or if any exception is thrown during the execution of the 
      *         database query.
      */
-    void PerformEmailInsertion(const uint32_t sender_id, const uint32_t receiver_id,
-                               const std::string_view subject, const uint32_t body_id, const std::vector<uint32_t> attachment_id, pqxx::transaction_base& transaction);
+    uint32_t PerformEmailInsertion(const uint32_t sender_id, const uint32_t receiver_id,
+                               const std::string_view subject, const uint32_t body_id, pqxx::transaction_base& transaction);
 
     /**
      * @brief Check if there is a logged in user.
@@ -176,7 +188,16 @@ protected:
      * @throws MailException If the database connection is lost or manually closed, or if any exception is thrown 
      *         during the execution of the database query.
      */
-    uint32_t InsertAttachment(const std::string_view attachment, pqxx::transaction_base &transaction) const;
+    void InsertAttachment(const std::string_view attachment_data, const std::vector<uint32_t>& email_ids, pqxx::transaction_base &transaction) const;
+    uint32_t InsertAttachmentData(const std::string_view attachment_data, pqxx::transaction_base &transaction) const;
+
+    std::vector<std::string> RetrieveAttachments(const uint32_t email_id, pqxx::transaction_base& transaction) const;
+
+    uint32_t RetrieveMessageID(const Mail& message, pqxx::transaction_base& transaction) const;
+    uint32_t RetrieveFolderID(const std::string_view folder_name, pqxx::transaction_base& transaction) const;
+    uint32_t RetrieveFlagID(const std::string_view flag_name, pqxx::transaction_base& transaction) const;
+
+    std::string get_received_state_string(const ReceivedState& is_received);
 
     const std::string HOST_NAME; ///< The host name associated with the database.
     const uint32_t HOST_ID; ///< The host ID associated with the database.
