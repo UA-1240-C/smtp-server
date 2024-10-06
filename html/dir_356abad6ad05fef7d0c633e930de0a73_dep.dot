@@ -1,0 +1,16 @@
+digraph "include/SignalHandler"
+{
+ // LATEX_PDF_SIZE
+  bgcolor="transparent";
+  edge [fontname=Helvetica,fontsize=10,labelfontname=Helvetica,labelfontsize=10];
+  node [fontname=Helvetica,fontsize=10,shape=box,height=0.2,width=0.4];
+  compound=true
+  subgraph clusterdir_d44c64559bbebec7f509842c48db8b23 {
+    graph [ bgcolor="#edf0f7", pencolor="grey25", label="include", fontname=Helvetica,fontsize=10 style="filled,dashed", URL="dir_d44c64559bbebec7f509842c48db8b23.html",tooltip=""]
+  subgraph clusterdir_356abad6ad05fef7d0c633e930de0a73 {
+    graph [ bgcolor="#edf0f7", pencolor="grey25", label="", fontname=Helvetica,fontsize=10 style="filled,bold", URL="dir_356abad6ad05fef7d0c633e930de0a73.html",tooltip=""]
+    dir_356abad6ad05fef7d0c633e930de0a73 [shape=plaintext, label="SignalHandler"];
+  dir_a9f8377d4b34306fe95fad09268e612a [label="include", fillcolor="#a2b4d6", color="grey25", style="filled", URL="dir_a9f8377d4b34306fe95fad09268e612a.html",tooltip=""];
+  }
+  }
+}
