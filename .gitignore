@@ -15,3 +15,5 @@ latex
 .vscode
 build
 .clang-format
+
+include/Logger/serverlog.txt
