@@ -8,6 +8,14 @@
 
 namespace ISXMailDB
 {
+
+enum ReceivedState
+{
+    TRUE,
+    FALSE,
+    BOTH,
+};
+
 /**
  * @brief Represents a user with a username, password, and host name.
  */
@@ -41,9 +49,11 @@ struct Mail
      * @param body The body of the email.
      */
     Mail(const std::string_view recipient, const std::string_view sender,
-         const std::string_view subject, const std::string_view body)
+         const std::string_view subject, const std::string_view body, const std::string_view sent_at, const std::vector<std::string>& attachments)
         : recipient(recipient), sender(sender), 
-          subject(subject), body(body)
+          subject(subject), body(body),
+          sent_at(sent_at),
+          attachments(attachments)
     {
     }
     
@@ -51,6 +61,84 @@ struct Mail
     std::string sender;
     std::string subject;
     std::string body;
+    std::string sent_at;
+    std::vector<std::string> attachments;
+};
+
+class FlagsSearchBy
+{
+
+public:
+    FlagsSearchBy& AddFlagToInclude(const std::string_view flag)
+    {
+        include.emplace_back(flag);
+        return *this;
+    }
+
+    FlagsSearchBy& AddFlagToExclude(const std::string_view flag)
+    {
+        exclude.emplace_back(flag);
+        return *this;
+    }
+
+    FlagsSearchBy& AddFlagToEither(const std::string_view flag)
+    {
+        either.emplace_back(flag);
+        return *this;
+    }
+
+    std::string BuildQuery(uint32_t folder_id)
+    {
+        std::string query = "SELECT DISTINCT mf.email_message_id FROM \"messageFlags\" AS mf LEFT JOIN \"folderMessages\" AS fm ON mf.email_message_id = fm.email_message_id "
+                            "LEFT JOIN \"folders\" AS f ON fm.folder_id = f.folder_id WHERE f.folder_id = " + std::to_string(folder_id) + " AND (";
+
+        if(!include.empty())
+        {
+
+            AppendQuery(query, include, " mf.email_message_id IN(SELECT email_message_id FROM \"messageFlags\" AS mf LEFT JOIN flags AS f ON f.flag_id = mf.flag_id WHERE f.flag_name = '", "') AND");        
+        }
+        else if(!either.empty())
+        {
+            query.append("(");
+
+            AppendQuery(query, either, " mf.email_message_id IN(SELECT email_message_id FROM \"messageFlags\" AS mf LEFT JOIN flags AS f ON f.flag_id = mf.flag_id WHERE f.flag_name = '", "') OR");
+            
+            query.append(")");
+        }
+
+        if(!exclude.empty())
+        {
+            if(query.find_last_of('(') != query.length() - 1)
+            {
+                query.append(" AND");
+            }
+
+            AppendQuery(query, exclude, " mf.email_message_id NOT IN(SELECT email_message_id FROM \"messageFlags\" AS mf LEFT JOIN flags AS f ON f.flag_id = mf.flag_id WHERE f.flag_name = '", "') AND");
+        }
+
+        query.append(")");
+
+        return query;
+    }
+
+private:
+
+    void AppendQuery(std::string& query, std::vector<std::string> flags, const std::string& before_flag, const std::string& after_flag)
+    {
+        for(size_t i{}; i < flags.size(); i++)
+        {
+            if(i == flags.size()-1)
+            {
+                query.append(before_flag + flags[i] + after_flag.substr(0, 2));
+                break;
+            }
+            query.append(before_flag + flags[i] + after_flag);
+        }        
+    }   
+
+    std::vector<std::string> include;
+    std::vector<std::string> exclude;
+    std::vector<std::string> either;
 };
 
 /**
@@ -73,28 +161,22 @@ class IMailDB
 {
 public:
     /**
-     * @brief Constructs an IMailDB object with the given host name.
-     * @param host_name The host name associated with the mail database.
-     * @throw MailException If the host name is empty.
+     * @brief Constructs an IMailDB object.
      */
-    IMailDB(const std::string_view host_name)
+    IMailDB() : m_user_id(0)
     {
-        if (host_name.empty())
-        {
-            throw MailException("Host name couldn't be empty"); // change
-        }
-        m_host_name = host_name;
     }
+
+    /**
+     * @brief Copy constructor is deletd.
+     */
+    IMailDB(const IMailDB&) = delete;
+
     /**
      * @brief Virtual destructor.
      */
     virtual ~IMailDB() = default;
 
-    /**
-    * @brief Copy constructor.
-    * Constructs an IMailDB object with the other.m_host_name host name.
-    */
-    IMailDB(const IMailDB&);
     /**
      * @brief Deleted copy assignment operator.
      */
@@ -108,25 +190,6 @@ public:
      * @brief Deleted move assignment operator.
      */    
     IMailDB& operator=(IMailDB&&) = delete;
-
-    /**
-     * @brief Connects to the mail database.
-     * 
-     * This method also calls the `InsertHost` method to add the host to the database.
-     * 
-     * @param connection_string The connection string used to connect to the database.
-     * @throw MailException if the connection to the database fails.
-     */
-    virtual void Connect(const std::string &connection_string) = 0;
-    /**
-     * @brief Disconnects from the mail database.
-     */
-    virtual void Disconnect() = 0;
-    /**
-     * @brief Checks if the connection to the mail database is active.
-     * @return True if connected, otherwise false.
-     */
-    virtual bool IsConnected() const = 0;
 
     /**
      * @brief Registers a new user in the mail database.
@@ -144,7 +207,8 @@ public:
      * @brief Authenticates a user in the mail database.
      * 
      * This method checks equality of 'password' parameter and hashed password stored in the mail database
-     * using 'VerifyPassword' method.
+     * using 'VerifyPassword' method. 
+     * If user is successfully logged in, saves user_name in m_user_name and user_id in m_user_id
      * 
      * @param user_name The username of the user.
      * @param password The password of the user.
@@ -152,6 +216,12 @@ public:
      */
     virtual void Login(const std::string_view user_name, const std::string_view password) = 0;
 
+
+    /**
+     * @brief Logs out user. Set m_user_name and m_user_id to default value.
+     * 
+     */
+    virtual void Logout() = 0;
     /**
      * @brief Retrieves a list of users from the database.
      * 
@@ -177,45 +247,44 @@ public:
      */
     virtual std::vector<std::string> RetrieveEmailContentInfo(const std::string_view content) = 0;
     /**
-     * @brief Inserts an email with a single receiver into the database.
+     * @brief Inserts an email with a single receiver into the database. The sender is current logged in user.
      * 
      * This method inserts an email with the specified sender, receiver, subject, 
      * and body content into the database. It also implicitly inserts the mail 
      * content into the database.
      * 
-     * @param sender The email address of the sender.
      * @param receiver The email address of the receiver.
      * @param subject The subject of the email.
      * @param body The body content of the email.
+     * @param attachments A vector of attachments.
      * 
      * @return bool Returns `true` if the email was successfully inserted, otherwise `false`.
      * 
-     * @throw MailException if the process fails.
+     * @throw MailException if the process fails or if current user is not logged in.
      */
-    virtual void InsertEmail(const std::string_view sender, const std::string_view receiver,
-                                const std::string_view subject, const std::string_view body) = 0;
+    virtual void InsertEmail(const std::string_view receiver,
+                             const std::string_view subject, const std::string_view body, const std::vector<std::string> attachments) = 0;
     
     /**
-     * @brief Inserts an email with multiple receivers into the database.
+     * @brief Inserts an email with multiple receivers into the database. The sender is current logged in user.
      * 
      * This method inserts an email with the specified sender, a list of receivers, 
      * subject, and body content into the database. It also implicitly inserts the 
      * mail content into the database.
      * 
-     * @param sender The email address of the sender.
      * @param receivers A vector of email addresses representing the receivers.
      * @param subject The subject of the email.
      * @param body The body content of the email.
-     * 
+     * @param attachments A vector of attachments.
      * @return bool Returns `true` if the email was successfully inserted, otherwise `false`.
      * 
-     * @throw MailException if the process fails.
+     * @throw MailException if the process fails if current user is not logged in.
      */
-    virtual void InsertEmail(const std::string_view sender, const std::vector<std::string_view> receivers,
-                                const std::string_view subject, const std::string_view body) = 0;
+    virtual void InsertEmail(const std::vector<std::string_view> receivers,
+                                const std::string_view subject, const std::string_view body, const std::vector<std::string> attachments) = 0;
 
     /**
-     * @brief Retrieves emails for a specific user.
+     * @brief Retrieves emails for a current logged in user.
      * 
      * If `should_retrieve_all` is `false`, retrieves emails that have not yet been marked as received.
      * If `should_retrieve_all` is `true`, retrieves all emails for the specified user.
@@ -223,22 +292,21 @@ public:
      * 
      * The emails are returned in the order from newest to oldest.
      * 
-     * @param user_name The username to retrieve emails for.
      * @param should_retrieve_all If true, retrieves all emails; otherwise, retrieves only emails that haven't been received.
      * @return A vector of Mail objects for the specified user.
-     * @throw MailException if the user doesn't exist.
+     * @throw MailException if the user is not logged in.
      */
-    virtual std::vector<Mail> RetrieveEmails(const std::string_view user_name, bool should_retrieve_all = false) const = 0;
+    virtual std::vector<Mail> RetrieveEmails( bool should_retrieve_all = false) = 0;
 
     /**
-     * @brief Marks all emails as received for a specific user.
+     * @brief Marks all emails as received for a current logged in user.
      * 
-     * This method updates the status of all emails for the user identified by `user_name` to indicate that they have been received.
+     * This method updates the status of all emails for the the current logged in user to indicate that they have been received.
      * 
-     * @param user_name The username for which to mark all emails as received.
-     * @throw MailException if the user doesn't exist.
+     * @throw MailException if the user is not logged in.
      */
-    virtual void MarkEmailsAsReceived(const std::string_view user_name) = 0;
+    virtual void MarkEmailsAsReceived() = 0;
+    
     /**
      * @brief Checks if a user exists.
      * 
@@ -270,13 +338,31 @@ public:
      */
     virtual void DeleteUser(const std::string_view user_name, const std::string_view password) = 0;
 
-protected:
-    /**
-     * @brief Inserts the host name into the database if does not exist.
-     * @param host_name The host name to insert.
-     */
-    virtual void InsertHost(const std::string_view host_name) = 0;
+    
+    virtual void InsertFolder(const std::string_view folder_name) = 0;
+    virtual void AddMessageToFolder(const std::string_view folder_name, const Mail& message) = 0;
+    virtual void MoveMessageToFolder(const std::string_view from, const std::string_view to, const Mail& message) = 0;
+    virtual void FlagMessage(const std::string_view flag_name, const Mail& message) = 0;
 
+    virtual void DeleteFolder(const std::string_view folder_name) = 0;
+    virtual void RemoveMessageFromFolder(const std::string_view folder_name, const Mail& message) = 0;
+    virtual void RemoveFlagFromMessage(const std::string_view flag_name, const Mail& message) = 0;
+    
+    
+    virtual std::vector<Mail> RetrieveMessagesFromFolder(const std::string_view folder_name, const ReceivedState& is_received) = 0;
+    virtual std::vector<Mail> RetrieveMessagesFromFolderWithFlags(const std::string_view folder_name, FlagsSearchBy& flags, const ReceivedState& is_received) = 0;
+    
+    /**
+     * @brief Returns name of current logged in user. If nobody is logged in, returns empty string.
+     */
+    std::string get_user_name() const {return m_user_name;}
+
+    /**
+     * @brief Returns id of current logged in user. If nobody is logged in, returns zero.
+     */
+    uint32_t get_user_id() const {return m_user_id;}
+
+protected:
     /**
      * @brief Hashes a password for secure storage.
      * @param password The password to hash.
@@ -292,8 +378,8 @@ protected:
      */
     virtual bool VerifyPassword(const std::string& password, const std::string& hashed_password) = 0;
 
-    std::string m_host_name; ///< The host name associated with the database.
-    uint32_t m_host_id; ///< The host ID associated with the database.
+    std::string m_user_name; ///< The name of current logged in user.
+    uint32_t m_user_id; ///< The ID of current logged in user.
 };
 
 }

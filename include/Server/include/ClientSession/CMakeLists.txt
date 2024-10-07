@@ -6,6 +6,7 @@ add_library(ClientSession STATIC
 
 target_include_directories(ClientSession PUBLIC
     include
+    ${CMAKE_SOURCE_DIR}/include/MIMEParser/include
     ${CMAKE_SOURCE_DIR}/include/Logger/include
 )
 
@@ -15,4 +16,5 @@ target_link_libraries(ClientSession
     Boost::log
     Boost::log_setup
     MailDB
+    MIMEParser
 )

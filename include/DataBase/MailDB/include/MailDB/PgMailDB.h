@@ -5,9 +5,15 @@
 #include <sodium/crypto_pwhash.h>
 
 #include "IMailDB.h"
+#include "ConnectionPool.h"
+#include "ConnectionPoolWrapper.h"
+#include "PgEmailsWriter.h"
+#include "PgManager.h"
+#include "EmailsInstance.h"
 
 namespace ISXMailDB
 {
+
 /**
  * @class PgMailDB
  * @brief Concrete implementation of the IMailDB interface using PostgreSQL as the database backend.
@@ -20,34 +26,16 @@ class PgMailDB : public IMailDB
 
 public:
     /**
-     * @brief Constructs a PgMailDB instance with the given host name.
-     * @param host_name The name of the host for the database connection.
+     * @brief Constructs a PgMailDB.
+     * 
+     * @param manager The class that stores data required for initialization.
      */
-    PgMailDB(std::string_view host_name);
-
-    /**
-     * @brief Copy constructor for PgMailDB.
-     * @param other The PgMailDB instance to copy.
-     */
-    PgMailDB(const PgMailDB&);
+    PgMailDB(PgManager& manager);
 
     /**
      * @brief Destructor for PgMailDB.
      */
     ~PgMailDB() override;
-
-    /**
-     * @copydoc IMailDB::Connect
-     */
-    void Connect(const std::string &connection_string) override;
-    /**
-     * @copydoc IMailDB::Disconnect
-     */
-    void Disconnect() override;
-    /**
-     * @copydoc IMailDB::IsConnected
-     */
-    bool IsConnected() const override;
 
     /**
      * @copydoc IMailDB::SignUp
@@ -57,6 +45,11 @@ public:
      * @copydoc IMailDB::Login
      */  
     void Login(const std::string_view user_name, const std::string_view password) override;
+
+    /**
+     * @copydoc IMailDB::Logout
+     */  
+    void Logout() override;
 
     /**
      * @copydoc IMailDB::RetrieveUserInfo
@@ -69,22 +62,22 @@ public:
     /**
      * @copydoc IMailDB::InsertEmail
      */     
-    void InsertEmail(const std::string_view sender, const std::string_view receiver,
-                                const std::string_view subject, const std::string_view body) override;
+    void InsertEmail(const std::string_view receiver, const std::string_view subject,
+                     const std::string_view body, const std::vector<std::string> attachments) override;
     /**
      * @copydoc IMailDB::InsertEmail
      */      
-    void InsertEmail(const std::string_view sender, const std::vector<std::string_view> receivers,
-                                const std::string_view subject, const std::string_view body) override;
+    void InsertEmail(const std::vector<std::string_view> receivers, const std::string_view subject, 
+                     const std::string_view body, const std::vector<std::string> attachments) override;
 
     /**
      * @copydoc IMailDB::RetrieveEmails
      */    
-    std::vector<Mail> RetrieveEmails(const std::string_view user_name, bool should_retrieve_all = false) const override;
+    std::vector<Mail> RetrieveEmails(bool should_retrieve_all = false) override;
     /**
      * @copydoc IMailDB::MarkEmailsAsReceived
      */    
-    void MarkEmailsAsReceived(const std::string_view user_name) override;
+    void MarkEmailsAsReceived() override;
     /**
      * @copydoc IMailDB::UserExists
      */    
@@ -99,12 +92,19 @@ public:
      */    
     void DeleteUser(const std::string_view user_name, const std::string_view password) override;
 
-protected:
-    /**
-     * @copydoc IMailDB::InsertHost
-     */ 
-    void InsertHost(const std::string_view host_name) override;
+    void InsertFolder(const std::string_view folder_name) override;
+    void AddMessageToFolder(const std::string_view folder_name, const Mail& message) override;
+    void MoveMessageToFolder(const std::string_view from, const std::string_view to, const Mail& message) override;
+    void FlagMessage(const std::string_view flag_name, const Mail& message) override;
 
+    void DeleteFolder(const std::string_view folder_name) override;
+    void RemoveMessageFromFolder(const std::string_view folder_name, const Mail& message) override;
+    void RemoveFlagFromMessage(const std::string_view flag_name, const Mail& message) override;
+
+    std::vector<Mail> RetrieveMessagesFromFolder(const std::string_view folder_name, const ReceivedState& is_received) override;
+    std::vector<Mail> RetrieveMessagesFromFolderWithFlags(const std::string_view folder_name, FlagsSearchBy& flags, const ReceivedState& is_received) override;
+    
+protected:
     /**
      * @copydoc IMailDB::HashPassword
      */ 
@@ -154,17 +154,56 @@ protected:
      * @param receiver_id The ID of the user receiving the email.
      * @param subject A `std::string_view` representing the subject of the email.
      * @param body_id The ID of the email body content.
+     * @param attachment_id A vector of attachments's id.
      * @param transaction A `pqxx::transaction_base` object representing the ongoing database transaction. The 
      *        transaction must be active when calling this method.
      * 
      * @throws MailException If the insertion fails or if any exception is thrown during the execution of the 
      *         database query.
      */
-    void PerformEmailInsertion(const uint32_t sender_id, const uint32_t receiver_id,
-                                const std::string_view subject, const uint32_t body_id, pqxx::transaction_base& transaction);
+    uint32_t PerformEmailInsertion(const uint32_t sender_id, const uint32_t receiver_id,
+                               const std::string_view subject, const uint32_t body_id, pqxx::transaction_base& transaction);
 
-    std::unique_ptr<pqxx::connection> m_conn; ///< The connection to the PostgreSQL database.
+    /**
+     * @brief Check if there is a logged in user.
+     * 
+     * @throws MailException if the user is not logged in.
+     */
+    void CheckIfUserLoggedIn();
 
+    /**
+     * @brief Inserts a new email attachment content into the "mailAttachments" table.
+     * 
+     * This method inserts the provided email attachment content into the `mailAttachments` table and retrieves the generated 
+     * `id` for the inserted content. The method ensures that the database connection is valid before attempting 
+     * the insertion. If the connection is lost or manually closed, a `MailException` is thrown. Upon successful 
+     * insertion, the method commits the transaction and returns the ID of the newly inserted email attachment content.
+     * 
+     * @param attachment A `std::string_view` representing the email attachment content to be inserted into the database.
+     * @param transaction A `pqxx::transaction_base` object representing the ongoing database transaction. The transaction 
+     *        must be active when calling this method.
+     * 
+     * @return uint32_t The ID of the newly inserted email attachment content, as retrieved from the `mailAttachments` table.
+     * 
+     * @throws MailException If the database connection is lost or manually closed, or if any exception is thrown 
+     *         during the execution of the database query.
+     */
+    void InsertAttachment(const std::string_view attachment_data, const std::vector<uint32_t>& email_ids, pqxx::transaction_base &transaction) const;
+    uint32_t InsertAttachmentData(const std::string_view attachment_data, pqxx::transaction_base &transaction) const;
+
+    std::vector<std::string> RetrieveAttachments(const uint32_t email_id, pqxx::transaction_base& transaction) const;
+
+    uint32_t RetrieveMessageID(const Mail& message, pqxx::transaction_base& transaction) const;
+    uint32_t RetrieveFolderID(const std::string_view folder_name, pqxx::transaction_base& transaction) const;
+    uint32_t RetrieveFlagID(const std::string_view flag_name, pqxx::transaction_base& transaction) const;
+
+    std::string get_received_state_string(const ReceivedState& is_received);
+
+    const std::string HOST_NAME; ///< The host name associated with the database.
+    const uint32_t HOST_ID; ///< The host ID associated with the database.
+
+    std::shared_ptr<ConnectionPool<pqxx::connection>> m_connection_pool; ///< The connection pool of connections to the PostgreSQL database.
+    std::shared_ptr<PgEmailsWriter> m_email_writer; ///< The object that is responsible for caching emails
 };
 
 }

@@ -13,6 +13,11 @@ set(LIBRARY_HEADERS
     ${LIBRARY_HEADERS_DIR}/IMailDB.h
     ${LIBRARY_HEADERS_DIR}/PgMailDB.h
     ${LIBRARY_HEADERS_DIR}/MailException.h
+    ${LIBRARY_HEADERS_DIR}/ConnectionPool.h
+    ${LIBRARY_HEADERS_DIR}/ConnectionPoolWrapper.h
+    ${LIBRARY_HEADERS_DIR}/PgEmailsWriter.h
+    ${LIBRARY_HEADERS_DIR}/PgManager.h
+    ${LIBRARY_HEADERS_DIR}/EmailsInstance.h
 )
 
 set(LIBRARY_SOURCE_DIR
@@ -21,6 +26,9 @@ set(LIBRARY_SOURCE_DIR
 set(LIBRARY_SOURCE
     ${LIBRARY_SOURCE_DIR}/PgMailDB.cpp
     ${LIBRARY_SOURCE_DIR}/IMailDB.cpp
+    ${LIBRARY_SOURCE_DIR}/PgEmailsWriter.cpp
+    ${LIBRARY_SOURCE_DIR}/PgManager.cpp
+
 )
 
 project(${PROJECT_NAME})

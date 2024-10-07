@@ -4,6 +4,7 @@
 #include "SmtpResponse.h"
 #include "MailMessage.h"
 #include "MailDB/MailException.h"
+#include "MIMEParser.h"
 
 #include <boost/asio/ssl/context.hpp>
 
@@ -16,21 +17,21 @@ using ISXMM::MailMessage;
 
 using ISXSmtpRequest::RequestParser;
 using ISXSmtpRequest::SmtpCommand;
+using ISXMIMEParser::MIMEParser;
 
 namespace ISXCState {
 
 ClientSession::ClientSession(TcpSocketPtr socket
                              , boost::asio::ssl::context& ssl_context
+                             , ISXMailDB::PgManager& database_manager
                              , std::chrono::seconds timeout_duration)
     : m_current_state(ClientState::CONNECTED)
     , m_socket(socket)
     , m_timeout_duration(timeout_duration)
-    , m_data_base(std::make_unique<PgMailDB>("localhost"))
+    , m_data_base(std::make_unique<PgMailDB>(database_manager))
 {
     Logger::LogDebug("Entering ClientSession constructor");
     
-    ConnectToDataBase();
-
     m_socket.StartTimeoutTimer(timeout_duration);
     m_ssl_context = &ssl_context;
 
@@ -40,16 +41,6 @@ ClientSession::ClientSession(TcpSocketPtr socket
 ClientSession::~ClientSession()
 {
     Logger::LogDebug("Entering ClientSession destructor");
-
-    try
-    {
-        m_data_base->Disconnect();
-    }
-    catch (const std::exception& e)
-    {
-        Logger::LogError("Exception caught while disconnecting from database: " + std::string(e.what()));
-    }
-
     Logger::LogDebug("Exiting ClientSession destructor");
 }
 
@@ -465,9 +456,17 @@ void ClientSession::HandleData(const SmtpRequest& request)
             m_socket.ResetTimeoutTimer(m_timeout_duration);
             Logger::LogProd("Received data: " + buffer);
             
-            BuildMessageData(buffer);
-            MailMessage message = m_mail_builder.Build();
+            MailMessage message;
+            if(MIMEParser::IsMIME(buffer))
+            {
+                ProcessMIMEDataMessage(buffer);
+            }else
+            {
+                BuildMessageData(buffer);
+            }
             
+            message = m_mail_builder.Build();
+
             if (message.from.get_address().empty()
                 || message.body.empty()
                 || message.to.empty()
@@ -505,6 +504,46 @@ void ClientSession::HandleData(const SmtpRequest& request)
 
     Logger::LogDebug("Exiting ClientSession::HandleData");
 }
+
+void ClientSession::ProcessMIMEDataMessage(std::string& body)
+{
+    Logger::LogDebug("Entering CommandHandler::ProcessMIMEDataMessage");
+    Logger::LogTrace(
+        "CommandHandler::ProcessMIMEDataMessage parameters: "
+        "std::string reference ");
+    try
+    {
+        ISXMIMEParser::MIMEParser parser(body);
+        vmime::shared_ptr<vmime::messageParser> mime_parser = vmime::make_shared<vmime::messageParser>(body);
+
+        m_mail_builder.set_from(std::get<0>(parser.RetrieveSender()), std::get<1>(parser.RetrieveSender()));
+
+        for(auto&& recipient: parser.RetrieveRecipients())
+        {
+            m_mail_builder.add_to(std::get<0>(recipient), std::get<1>(recipient));
+        }
+
+        for(auto&& cc: parser.RetrieveCCs())
+        {
+            m_mail_builder.add_cc(std::get<0>(cc), std::get<1>(cc));
+        }
+
+        for(auto&& bcc: parser.RetrieveBCCs())
+        {
+            m_mail_builder.add_bcc(std::get<0>(bcc), std::get<1>(bcc));
+        }
+        
+        m_mail_builder.set_subject(parser.RetrieveSubject());
+        m_mail_builder.set_body(parser.RetrieveBody());
+        m_attachments = parser.RetrieveAttachments();
+    }
+    catch(const std::exception& e)
+    {
+        throw;
+    }
+    Logger::LogDebug("Exiting CommandHandler::ProcessMIMEDataMessage");
+}
+
 
 void ClientSession::HandleRset(const SmtpRequest& request)
 {
@@ -584,6 +623,7 @@ void ClientSession::HandleEhloSentState(const SmtpRequest& request)
 
     if (request.command == SmtpCommand::STARTTLS)
     {
+        //m_socket.WriteAsync(SmtpResponse(SmtpResponseCode::OK).ToString()).get();
         HadleStartTls(request);
         m_current_state = ClientState::STARTTLS_SENT;
     }
@@ -715,31 +755,6 @@ std::string ClientSession::ReadDataUntilEOM()
     return data;
 }
 
-void ClientSession::ConnectToDataBase()
-{
-    Logger::LogDebug("Entering ClientSession::ConnectToDataBase");
-
-    try
-    {
-        m_data_base->Connect(m_connection_string);
-
-        if (!m_data_base->IsConnected())
-        {
-            const std::string error_message = "Database connection is not established.";
-            Logger::LogError("ClientSession::ConnectToDatabase: " + error_message);
-            throw std::runtime_error(error_message);
-        }
-
-        Logger::LogDebug("Exiting ClientSession::ConnectToDatabase successfully");
-    }
-    catch (const std::exception& e)
-    {
-        Logger::LogError("ClientSession::ConnectToDatabase: Exception occurred - " + std::string(e.what()));
-        throw;
-    }
-    Logger::LogDebug("Exiting ClientSession::ConnectToDataBase");
-}
-
 void ClientSession::BuildMessageData(const std::string& data)
 {
     Logger::LogDebug("Entering ClientSession::BuildMessage");
@@ -772,8 +787,8 @@ void ClientSession::SaveMessageToDataBase(MailMessage& message)
         {
             try
             {
-                m_data_base->InsertEmail(message.from.get_address(), recipient.get_address(), message.subject,
-                                         message.body);
+                m_data_base->InsertEmail(recipient.get_address(), message.subject,
+                                         message.body, m_attachments);
                 Logger::LogDebug("Body: " + message.body);
                 Logger::LogDebug("subject: " + message.subject);
                 Logger::LogProd("Email inserted into database for recipient: " + recipient.get_address());

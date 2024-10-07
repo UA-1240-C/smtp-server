@@ -43,6 +43,7 @@ void SmtpServer::Accept()
                             client_session = unique_ptr<ClientSession>
                                 (new ClientSession(new_socket
                                                    , m_initializer.get_ssl_context()
+                                                   , m_initializer.get_database_manager()
                                                    , m_initializer.get_timeout_seconds()));
 
                             client_session->Greet();
@@ -65,5 +66,4 @@ void SmtpServer::Accept()
 
     Logger::LogDebug("Exiting Accept");
 }
-
 }  // namespace ISXSS

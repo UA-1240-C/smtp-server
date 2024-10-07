@@ -14,6 +14,9 @@
 #include "ServerConfig.h"
 #include "SignalHandler.h"
 #include "ThreadPool.h"
+#include "MailDB/PgMailDB.h"
+#include "MailDB/ConnectionPool.h"
+#include "MailDB/PgManager.h"
 
 using boost::asio::ip::tcp;
 using namespace ISXSignalHandler;
@@ -117,6 +120,20 @@ public:
      */
     [[nodiscard]] boost::asio::io_context& get_io_context() const;
 
+    /**
+     * @brief Retrieves the coonection pool of connections to database.
+     *
+     * @return The ConnectionPool.
+     */
+    [[nodiscard]] ISXMailDB::ConnectionPool<pqxx::connection>& get_connection_pool() const;
+
+    /**
+     * @brief Retrieves the manager of database.
+     *
+     * @return The PgManager.
+     */
+    [[nodiscard]] ISXMailDB::PgManager& get_database_manager() const;
+
 private:
     /**
      * @brief Initializes the logging system.
@@ -132,6 +149,12 @@ private:
      * Sets up the thread pool for managing concurrent tasks, based on the configuration settings.
      */
     void InitializeThreadPool();
+
+    /**
+     * @brief Initializes the connection pool to database.
+     *
+     */
+    void InitializeDatabaseManager();
 
     /**
      * @brief Initializes the network acceptor.
@@ -178,6 +201,16 @@ private:
     size_t m_max_threads; ///< The maximum number of threads configured for the server.
     std::chrono::seconds m_timeout_seconds; ///< The timeout duration for communication in seconds.
     uint8_t m_log_level; ///< The log level for the logging system.
+
+
+    std::unique_ptr<ISXMailDB::PgManager> m_database_manager; ///< Unique pointer to the database manager.
+
+    std::unique_ptr<ISXMailDB::ConnectionPool<pqxx::connection>> m_connection_pool; ///< Unique pointer to the connection pool.
+    const uint16_t POOL_INITIAL_SIZE = 10;  ///< Initial size of the connection pool
+    const std::string CONNECTION_STRING =
+        "postgresql://postgres.qotrdwfvknwbfrompcji:"
+        "yUf73LWenSqd9Lt4@aws-0-eu-central-1.pooler."
+        "supabase.com:6543/postgres?sslmode=require"; ;  ///< Data base connection string.
 };
 
 }  // namespace ISXSS
