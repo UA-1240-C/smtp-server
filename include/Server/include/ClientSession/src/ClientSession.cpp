@@ -166,6 +166,9 @@ void ClientSession::ProcessRequest(const SmtpRequest& request) {
     case ClientState::RCPTTO_SENT:
         HandleRcptToSentState(request);
         break;
+    case ClientState::QUIT_SENT:
+        HandleQuit(request);
+        break;
     default:
         // Unreachable
         Logger::LogError("Invalid state: " + std::to_string(static_cast<int>(m_current_state)));
@@ -186,7 +189,11 @@ bool ClientSession::HandleStaticCommands(const SmtpRequest& request)
     
     bool command_handled = false;
 
-    if (m_current_state == ClientState::CONNECTED) return false;
+    if (m_current_state == ClientState::CONNECTED
+        && request.command == SmtpCommand::EHLO)
+    {
+        return false;
+    }
 
     if (request.command == SmtpCommand::RSET && 
         (m_current_state == ClientState::MAILFROM_SENT
@@ -216,7 +223,7 @@ bool ClientSession::HandleStaticCommands(const SmtpRequest& request)
             break;
         case SmtpCommand::QUIT:
             m_current_state = ClientState::QUIT_SENT;
-            m_socket.WriteAsync(SmtpResponse(SmtpResponseCode::CLOSING_TRANSMISSION_CHANNEL).ToString()).get();
+            HandleQuit(request);
             command_handled = true;
             break;
         case SmtpCommand::HELP:
@@ -516,6 +523,29 @@ void ClientSession::HandleRset(const SmtpRequest& request)
     }
 
     Logger::LogDebug("Exiting ClientSession::HandleRset");
+}
+
+void ClientSession::HandleQuit(const SmtpRequest& request)
+{
+    Logger::LogDebug("Entering ClientSession::HandleQuit");
+    Logger::LogTrace("ClientSession::HandleQuit parameter: const SmtpRequest reference: " + request.data);
+
+    try
+    {
+        m_socket.WriteAsync(SmtpResponse(SmtpResponseCode::CLOSING_TRANSMISSION_CHANNEL).ToString()).get();
+        Logger::LogProd("Sent QUIT response to client.");
+    }
+    catch (const std::exception& e)
+    {
+        Logger::LogError("Exception in ClientSession::HandleQuit: " + std::string(e.what()));
+        return;
+    }
+
+    m_socket.Close();
+    Logger::LogProd("Connection closed by client.");
+    Logger::LogDebug("Exiting ClientSession::HandleQuit");
+
+    throw std::runtime_error("Client disconnected");
 }
 
 /******************/

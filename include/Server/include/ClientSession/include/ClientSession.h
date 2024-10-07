@@ -65,6 +65,7 @@ private:
     void HandleRcptTo(const SmtpRequest& request);
     void HandleData(const SmtpRequest& request);
     void HandleRset(const SmtpRequest& request);
+    void HandleQuit(const SmtpRequest& request);
 
     // State handlers
     void HandleConnectedState(const SmtpRequest& request);
