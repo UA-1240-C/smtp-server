@@ -316,7 +316,7 @@ void ClientSession::HandleAuth(const SmtpRequest& request)
     Logger::LogDebug("Exiting ClientSession::HandleAuth");
 }
 
-void ClientSession::HadleStartTls(const SmtpRequest& request)
+void ClientSession::HandleStartTls(const SmtpRequest& request)
 {
     Logger::LogDebug("Entering ClientSession::HandleEhloSentState");
     Logger::LogTrace("ClientSession::HandleEhloSentState parameter: const SmtpRequest reference: " + request.data);
@@ -624,7 +624,7 @@ void ClientSession::HandleEhloSentState(const SmtpRequest& request)
     if (request.command == SmtpCommand::STARTTLS)
     {
         //m_socket.WriteAsync(SmtpResponse(SmtpResponseCode::OK).ToString()).get();
-        HadleStartTls(request);
+        HandleStartTls(request);
         m_current_state = ClientState::STARTTLS_SENT;
     }
     else
