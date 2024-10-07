@@ -45,6 +45,7 @@ class ClientSession {
 public:
     ClientSession(TcpSocketPtr socket
                   , boost::asio::ssl::context& ssl_context
+                  , ISXMailDB::PgManager& database_manager
                   , std::chrono::seconds timeout_duration);
 
     ~ClientSession();
@@ -76,9 +77,9 @@ private:
 
     // Utility functions
     std::string ReadDataUntilEOM();
-    void ConnectToDataBase();
     void BuildMessageData(const std::string& data);
     void SaveMessageToDataBase(MailMessage& message);
+    void ProcessMIMEDataMessage(std::string& body);
 
     ClientState m_current_state;
     SocketWrapper m_socket;
@@ -88,10 +89,8 @@ private:
 
     std::unique_ptr<PgMailDB> m_data_base;     ///< Pointer to the mail database for storing and retrieving mail messages.
     MailMessageBuilder m_mail_builder;         ///< Instance of the mail message builder for constructing messages.
-    std::string m_connection_string =
-        "postgresql://postgres.qotrdwfvknwbfrompcji:"
-        "yUf73LWenSqd9Lt4@aws-0-eu-central-1.pooler."
-        "supabase.com:6543/postgres?sslmode=require";  ///< Data base connection string.i
+
+    std::vector<std::string> m_attachments;
 };
 }; // namespace ISXCState
 
