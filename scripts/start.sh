@@ -27,7 +27,7 @@ cmake ..
 
 # Build the project
 echo "Building the project..."
-make
+make -j$(nproc)
 
 # Create certificates and keys if they don't exist
 if [ ! -f "$CERT_FILE" ] || [ ! -f "$KEY_FILE" ]; then

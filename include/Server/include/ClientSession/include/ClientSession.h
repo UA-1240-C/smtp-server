@@ -61,7 +61,7 @@ private:
     bool HandleStaticCommands(const SmtpRequest& request);
     void HandleRegister(const SmtpRequest& request);
     void HandleAuth(const SmtpRequest& request);
-    void HadleStartTls(const SmtpRequest& request);
+    void HandleStartTls(const SmtpRequest& request);
     void HandleMailFrom(const SmtpRequest& request);
     void HandleRcptTo(const SmtpRequest& request);
     void HandleData(const SmtpRequest& request);
