@@ -167,7 +167,6 @@ private:
         {
             m_tasks[id].m_signal.acquire();
             ProcessTasks(id);
-            m_priority_queue.RotateToFront(id);
             SignalCompletion();
         } while (!stop_tok.stop_requested());
     }
