@@ -193,8 +193,12 @@ protected:
 
     std::vector<std::string> RetrieveAttachments(const uint32_t email_id, pqxx::transaction_base& transaction) const;
 
+    void InsertFolderForUser(const std::string_view folder_name, uint32_t user_id, pqxx::transaction_base& transaction) const;
+    void InsertMailToFolder(const std::string_view folder_name, uint32_t mail_id, uint32_t user_id, pqxx::transaction_base& transaction) const;
+    void InsertFlagForMessage(const std::string_view flag_name, uint32_t mail_id, pqxx::transaction_base& transaction) const;
+
     uint32_t RetrieveMessageID(const Mail& message, pqxx::transaction_base& transaction) const;
-    uint32_t RetrieveFolderID(const std::string_view folder_name, pqxx::transaction_base& transaction) const;
+    uint32_t RetrieveFolderID(const std::string_view folder_name, uint32_t user_id, pqxx::transaction_base& transaction) const;
     uint32_t RetrieveFlagID(const std::string_view flag_name, pqxx::transaction_base& transaction) const;
 
     std::string get_received_state_string(const ReceivedState& is_received);

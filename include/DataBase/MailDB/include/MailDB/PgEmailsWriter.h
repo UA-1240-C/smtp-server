@@ -110,6 +110,12 @@ private:
     void InsertAttachment(const std::string_view attachment_data, const std::vector<uint32_t>& email_ids, pqxx::transaction_base &transaction) const;
     uint32_t InsertAttachmentData(const std::string_view attachment_data, pqxx::transaction_base &transaction) const;
 
+    void InsertFolderForUser(const std::string_view folder_name, uint32_t user_id, pqxx::transaction_base& transaction) const;
+    void InsertMailToFolder(const std::string_view folder_name, uint32_t mail_id, uint32_t user_id, pqxx::transaction_base& transaction) const;
+    void InsertFlagForMessage(const std::string_view flag_name, uint32_t mail_id, pqxx::transaction_base& transaction) const;
+
+    uint32_t RetrieveFolderID(const std::string_view folder_name, uint32_t user_id, pqxx::transaction_base& transaction) const;
+    uint32_t RetrieveFlagID(const std::string_view flag_name, pqxx::transaction_base& transaction) const;
     /**
      * @brief Performs the insertion of an email into the database.
      *

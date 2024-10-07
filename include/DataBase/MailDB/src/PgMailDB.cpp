@@ -183,6 +183,8 @@ void PgMailDB::InsertEmail(const std::vector<std::string_view> receivers, const 
                            const std::string_view body, const std::vector<std::string> attachments)
 {
     CheckIfUserLoggedIn();
+
+
     if(m_email_writer)
     {
         // Current logged in user is the sender
@@ -203,6 +205,8 @@ void PgMailDB::InsertEmail(const std::vector<std::string_view> receivers, const 
         try
         {
             {
+                InsertFolder("Sent");
+                
                 pqxx::nontransaction nontransaction(*conn);
                 sender_id = m_user_id;
 
@@ -225,11 +229,15 @@ void PgMailDB::InsertEmail(const std::vector<std::string_view> receivers, const 
         for (size_t i = 0; i < receivers_id.size(); i++) 
         {
             email_id.emplace_back(PerformEmailInsertion(sender_id, receivers_id[i], subject, body_id, transaction));
+
+            InsertFolderForUser("Inbox", receivers_id[i], transaction);
+            InsertMailToFolder("Sent", email_id.back(), m_user_id, transaction);
+            InsertMailToFolder("Inbox", email_id.back(), receivers_id[i], transaction);
+            InsertFlagForMessage("\\Recent", email_id.back(), transaction);
         }
 
         for(auto&& att: attachments)
         {
-            std::cout << att << '\n';
             InsertAttachment(att, email_id, transaction);
         }
 
@@ -238,6 +246,69 @@ void PgMailDB::InsertEmail(const std::vector<std::string_view> receivers, const 
     catch (const std::exception& e) {
         throw MailException(e.what());
     }
+}
+
+void PgMailDB::InsertFolderForUser(const std::string_view folder_name, uint32_t user_id, pqxx::transaction_base& transaction) const
+{
+    try
+    {
+        pqxx::result result = transaction.exec_params("SELECT * FROM \"folders\" WHERE user_id = $1 AND folder_name = $2"
+                                                     , user_id, folder_name);
+
+        if(result.empty())
+        {
+            transaction.exec_params("INSERT INTO \"folders\" (user_id, folder_name)VALUES($1, $2)"
+                                    , user_id, folder_name);
+        }
+        transaction.commit();
+    }
+    catch(const std::exception& e)
+    {
+        throw MailException(e.what());
+    }
+}
+
+void PgMailDB::InsertMailToFolder(const std::string_view folder_name, uint32_t mail_id, uint32_t user_id, pqxx::transaction_base& transaction) const
+{
+    try
+    {
+        uint32_t folder_id = RetrieveFolderID(folder_name, user_id, transaction);
+
+        pqxx::result result = transaction.exec_params("SELECT * FROM \"folderMessages\" WHERE email_message_id = $1 AND folder_id = $2"
+                                                     , mail_id, folder_id);
+
+        if(result.empty())
+        {
+            transaction.exec_params("INSERT INTO \"folderMessages\" (email_message_id, folder_id)VALUES($1, $2)"
+                                    , mail_id, folder_id);
+        }
+    }
+    catch(const std::exception& e)
+    {
+        throw MailException(e.what());
+    }
+}
+
+void PgMailDB::InsertFlagForMessage(const std::string_view flag_name, uint32_t mail_id, pqxx::transaction_base& transaction) const
+{
+    try
+    {
+        uint32_t flag_id = RetrieveFlagID(flag_name, transaction);
+
+        pqxx::result result = transaction.exec_params("SELECT * FROM \"messageFlags\" WHERE email_message_id = $1 AND flag_id = $2"
+                                                     , mail_id, flag_id);
+
+        if(result.empty())
+        {
+            transaction.exec_params("INSERT INTO \"messageFlags\" (email_message_id, flag_id)VALUES($1, $2)"
+                                    , mail_id, flag_id);
+        }
+    }
+    catch(const std::exception& e)
+    {
+       throw MailException(e.what()); 
+    }
+
 }
 
 std::vector<Mail> PgMailDB::RetrieveEmails(bool should_retrieve_all)
@@ -529,7 +600,7 @@ void PgMailDB::AddMessageToFolder(const std::string_view folder_name, const Mail
     try
     {
         uint32_t email_message_id = RetrieveMessageID(message, transaction), 
-                 folder_id = RetrieveFolderID(folder_name, transaction);
+                 folder_id = RetrieveFolderID(folder_name, m_user_id, transaction);
 
         pqxx::result result = transaction.exec_params("SELECT * FROM \"folderMessages\" WHERE email_message_id = $1 AND folder_id = $2"
                                                      , email_message_id, folder_id);
@@ -556,8 +627,8 @@ void PgMailDB::MoveMessageToFolder(const std::string_view from, const std::strin
     try
     {
         uint32_t email_message_id = RetrieveMessageID(message, transaction), 
-                 from_folder_id = RetrieveFolderID(from, transaction),
-                 to_folder_id = RetrieveFolderID(to, transaction);
+                 from_folder_id = RetrieveFolderID(from, m_user_id, transaction),
+                 to_folder_id = RetrieveFolderID(to, m_user_id, transaction);
 
         pqxx::result result = transaction.exec_params("SELECT * FROM \"folderMessages\" WHERE email_message_id = $1 AND folder_id = $2"
                                                      , email_message_id, to_folder_id);
@@ -597,13 +668,13 @@ uint32_t PgMailDB::RetrieveMessageID(const Mail& message, pqxx::transaction_base
     }
 }
 
-uint32_t PgMailDB::RetrieveFolderID(const std::string_view folder_name, pqxx::transaction_base& transaction) const
+uint32_t PgMailDB::RetrieveFolderID(const std::string_view folder_name, uint32_t user_id, pqxx::transaction_base& transaction) const
 {
     pqxx::result folder_id;
     try
     {
         folder_id = transaction.exec_params("SELECT folder_id FROM \"folders\" WHERE user_id = $1 AND folder_name = $2"
-                                            , m_user_id, folder_name);
+                                            , user_id, folder_name);
         
         if(folder_id.empty())
         {
@@ -695,7 +766,7 @@ void PgMailDB::RemoveMessageFromFolder(const std::string_view folder_name, const
     try
     {
         uint32_t email_message_id = RetrieveMessageID(message, transaction), 
-                 folder_id = RetrieveFolderID(folder_name, transaction);
+                 folder_id = RetrieveFolderID(folder_name, m_user_id, transaction);
 
         transaction.exec_params("DELETE FROM \"folderMessages\" WHERE folder_id = $1 AND email_message_id = $2"
                                 , folder_id, email_message_id);
@@ -736,7 +807,7 @@ std::vector<Mail> PgMailDB::RetrieveMessagesFromFolder(const std::string_view fo
 
     try
     {
-        uint32_t folder_id = RetrieveFolderID(folder_name, transaction);
+        uint32_t folder_id = RetrieveFolderID(folder_name, m_user_id, transaction);
 
         std::vector<Mail> resutl_mails;
         std::string query = "SELECT em.email_message_id, u.user_name AS sender_name, em.subject, m.body_content, em.sent_at "
@@ -772,7 +843,7 @@ std::vector<Mail> PgMailDB::RetrieveMessagesFromFolderWithFlags(const std::strin
 
     try
     {
-        uint32_t folder_id = RetrieveFolderID(folder_name, transaction);
+        uint32_t folder_id = RetrieveFolderID(folder_name, m_user_id, transaction);
 
         pqxx::result mails_id = transaction.exec_params(flags.BuildQuery(folder_id));
         

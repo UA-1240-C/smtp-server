@@ -65,9 +65,11 @@ bool PgEmailsWriter::InsertEmail(const EmailsInstance &emails, pqxx::work &work)
 {
     uint32_t sender_id = emails.sender.sender_id, body_id;
     std::vector<uint32_t> receivers_id, email_id;
-
+    
     try
     {
+        InsertFolderForUser("Sent", sender_id, work);
+
         for (size_t i = 0; i < emails.receivers.size(); i++) 
         {
             receivers_id.emplace_back(RetriveUserId(emails.receivers[i], work));
@@ -76,6 +78,11 @@ bool PgEmailsWriter::InsertEmail(const EmailsInstance &emails, pqxx::work &work)
 
         for (size_t i = 0; i < receivers_id.size(); i++) {
             email_id.emplace_back(PerformEmailInsertion(sender_id, receivers_id[i], emails.subject, body_id, work));
+
+            InsertFolderForUser("Inbox", receivers_id[i], work);
+            InsertMailToFolder("Sent", email_id.back(), sender_id, work);
+            InsertMailToFolder("Inbox", email_id.back(), receivers_id[i], work);
+            InsertFlagForMessage("\\Recent", email_id.back(), work);
         }
 
         for(auto&& att: emails.attachments)
@@ -165,6 +172,113 @@ uint32_t PgEmailsWriter::InsertAttachmentData(const std::string_view attachment_
     }
 
     return attachment_id[0].at("data_id").as<uint32_t>();
+}
+
+void PgEmailsWriter::InsertFolderForUser(const std::string_view folder_name, uint32_t user_id, pqxx::transaction_base& transaction) const
+{
+    try
+    {
+        pqxx::result result = transaction.exec_params("SELECT * FROM \"folders\" WHERE user_id = $1 AND folder_name = $2"
+                                                     , user_id, folder_name);
+
+        if(result.empty())
+        {
+            transaction.exec_params("INSERT INTO \"folders\" (user_id, folder_name)VALUES($1, $2)"
+                                    , user_id, folder_name);
+
+            std::cout << "InsertFolderForUser\n";
+        }
+    }
+    catch(const std::exception& e)
+    {
+        throw MailException(e.what());
+    }
+}
+
+void PgEmailsWriter::InsertMailToFolder(const std::string_view folder_name, uint32_t mail_id, uint32_t user_id, pqxx::transaction_base& transaction) const
+{
+    try
+    {
+        uint32_t folder_id = RetrieveFolderID(folder_name, user_id, transaction);
+
+        pqxx::result result = transaction.exec_params("SELECT * FROM \"folderMessages\" WHERE email_message_id = $1 AND folder_id = $2"
+                                                     , mail_id, folder_id);
+
+        if(result.empty())
+        {
+            transaction.exec_params("INSERT INTO \"folderMessages\" (email_message_id, folder_id)VALUES($1, $2)"
+                                    , mail_id, folder_id);
+        }
+    }
+    catch(const std::exception& e)
+    {
+        throw MailException(e.what());
+    }
+}
+
+void PgEmailsWriter::InsertFlagForMessage(const std::string_view flag_name, uint32_t mail_id, pqxx::transaction_base& transaction) const
+{
+    try
+    {
+        uint32_t flag_id = RetrieveFlagID(flag_name, transaction);
+
+        pqxx::result result = transaction.exec_params("SELECT * FROM \"messageFlags\" WHERE email_message_id = $1 AND flag_id = $2"
+                                                     , mail_id, flag_id);
+
+        if(result.empty())
+        {
+            transaction.exec_params("INSERT INTO \"messageFlags\" (email_message_id, flag_id)VALUES($1, $2)"
+                                    , mail_id, flag_id);
+        }
+    }
+    catch(const std::exception& e)
+    {
+       throw MailException(e.what()); 
+    }
+
+}
+
+uint32_t PgEmailsWriter::RetrieveFlagID(const std::string_view flag_name, pqxx::transaction_base& transaction) const
+{
+    pqxx::result flag_id;
+    try
+    {
+        flag_id = transaction.exec_params("SELECT flag_id FROM \"flags\" WHERE flag_name = $1"
+                                            , flag_name);
+        
+        if(flag_id.empty())
+        {
+            throw MailException("Flag doesn't exist");
+        }
+
+        return flag_id[0].at("flag_id").as<uint32_t>();
+    }
+    catch(const std::exception& e)
+    {
+        throw MailException(e.what());
+    }
+
+}
+
+uint32_t PgEmailsWriter::RetrieveFolderID(const std::string_view folder_name, uint32_t user_id, pqxx::transaction_base& transaction) const
+{
+    pqxx::result folder_id;
+    try
+    {
+        folder_id = transaction.exec_params("SELECT folder_id FROM \"folders\" WHERE user_id = $1 AND folder_name = $2"
+                                            , user_id, folder_name);
+        
+        if(folder_id.empty())
+        {
+            throw MailException("Folder doesn't exist");
+        }
+
+        return folder_id[0].at("folder_id").as<uint32_t>();
+    }
+    catch(const std::exception& e)
+    {
+        throw MailException(e.what());
+    }
 }
 
 uint32_t PgEmailsWriter::PerformEmailInsertion(const uint32_t sender_id, const uint32_t receiver_id,
