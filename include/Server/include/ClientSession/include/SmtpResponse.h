@@ -1,18 +1,9 @@
-#ifndef STANDARTSMTPRESPONSES_H
-#define STANDARTSMTPRESPONSES_H
+#ifndef SMTP_RESPONSE_H
+#define SMTP_RESPONSE_H
 
-#include <unordered_map>
 #include <string>
-#include <stdexcept>
 
-/**
- * @enum SmtpResponseCode
- * @brief Represents SMTP response codes used in the protocol.
- *
- * This enum class defines various SMTP response codes that are used to indicate the result
- * of the command execution in the SMTP protocol. Each code is associated with a specific
- * meaning as defined by the SMTP protocol specification.
- */
+namespace ISXSmtpResponse {
 enum class SmtpResponseCode {
 	// Informational responses
 	SERVER_CONNECTION_ERROR = 101,
@@ -68,16 +59,17 @@ enum class SmtpResponseCode {
 	PARAMETERS_NOT_RECOGNIZED = 555
 };
 
-/**
- * @brief Converts an SMTP response code to its corresponding string representation.
- *
- * This function takes an `SmtpResponseCode` enum value and returns its string
- * representation. It is useful for logging and displaying human-readable
- * information about the response code.
- *
- * @param code The SMTP response code to convert.
- * @return A string representation of the SMTP response code.
- */
-std::string ToString(SmtpResponseCode code);
+class SmtpResponse {
+public:
+    SmtpResponse(SmtpResponseCode code, const std::string& message);
+    SmtpResponse(SmtpResponseCode code);
 
-#endif //STANDARTSMTPRESPONSES_H
+    std::string ToString() const;
+
+private:
+    SmtpResponseCode m_code;
+    std::string m_message;
+};
+} // namespace ISXSmtpResponse
+
+#endif // !SMTP_RESPONSE_H

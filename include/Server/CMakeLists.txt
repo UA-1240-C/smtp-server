@@ -1,8 +1,10 @@
 add_library(Server src/Server.cpp src/ServerInitializer.cpp)
 
+add_subdirectory(include/ClientSession)
+
 target_link_libraries(Server PRIVATE
+        ClientSession
         MailDB
-        CommandHandler
         MailMessage
         Encoding
         Boost::log
@@ -10,7 +12,6 @@ target_link_libraries(Server PRIVATE
 )
 
 target_include_directories(Server PUBLIC
-        ${CMAKE_SOURCE_DIR}/include/CommandHandler/include
         ${CMAKE_SOURCE_DIR}/include/SocketWrapper/include
         ${CMAKE_SOURCE_DIR}/include/Utils/include
         ${CMAKE_SOURCE_DIR}/include/Server/include

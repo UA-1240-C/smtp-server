@@ -1,11 +1,28 @@
-#include "StandartSmtpResponses.h"
+#include "SmtpResponse.h"
 
-std::string ToString(SmtpResponseCode code) {
+#include <stdexcept>
+#include <unordered_map>
+
+namespace ISXSmtpResponse {
+
+SmtpResponse::SmtpResponse(SmtpResponseCode code, const std::string& message)
+    : m_code(code), m_message(message)
+{}
+
+SmtpResponse::SmtpResponse(SmtpResponseCode code)
+    : m_code(code)
+{}
+
+std::string SmtpResponse::ToString() const {
 	static const std::unordered_map<SmtpResponseCode, std::string> smtpResponses = {
         // Informational responses
         { SmtpResponseCode::SERVER_CONNECTION_ERROR, "101 Server connection error\r\n" },
         { SmtpResponseCode::SYSTEM_STATUS, "211 System status\r\n" },
-        { SmtpResponseCode::HELP_MESSAGE, "214 Help message\r\n" },
+        { SmtpResponseCode::HELP_MESSAGE, "214 Help message\n"
+            "HELO, MAIL FROM, RCPT TO, DATA, "
+            "QUIT, NOOP, RSET, HELP, "
+            "STARTTLS, AUTH PLAIN, REGISTER\r\n"
+        },
 
         // Success responses
         { SmtpResponseCode::SERVER_READY, "220 Client was successfully connected.\r\n" },
@@ -56,9 +73,10 @@ std::string ToString(SmtpResponseCode code) {
         { SmtpResponseCode::PARAMETERS_NOT_RECOGNIZED, "555 Parameters not recognized\r\n" }
     };
 
-    auto it = smtpResponses.find(code);
+    auto it = smtpResponses.find(m_code);
     if (it != smtpResponses.end()) {
         return it->second;
     }
 	throw std::invalid_argument("Invalid SMTP response code");
 }
+} // namespace ISXSmtpResponse
