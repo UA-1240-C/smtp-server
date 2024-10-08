@@ -339,7 +339,7 @@ public:
     virtual void DeleteUser(const std::string_view user_name, const std::string_view password) = 0;
 
     
-    virtual void InsertFolder(const std::string_view folder_name) = 0;
+    virtual void AddFolder(const std::string_view folder_name) = 0;
     virtual void AddMessageToFolder(const std::string_view folder_name, const Mail& message) = 0;
     virtual void MoveMessageToFolder(const std::string_view from, const std::string_view to, const Mail& message) = 0;
     virtual void FlagMessage(const std::string_view flag_name, const Mail& message) = 0;
