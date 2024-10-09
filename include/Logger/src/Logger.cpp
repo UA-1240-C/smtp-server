@@ -17,6 +17,8 @@ void Logger::set_attributes()
 {
 	const attrs::local_clock time_stamp;
 	logging::core::get()->add_global_attribute("TimeStamp", time_stamp);
+	const attrs::current_thread_id thread_id;
+	logging::core::get()->add_global_attribute("ThreadID", thread_id);
 }
 
 void Logger::set_sink_filter()
@@ -48,9 +50,9 @@ boost::shared_ptr<sinks::asynchronous_sink<sinks::text_ostream_backend>> Logger:
 	boost::shared_ptr<sinks::asynchronous_sink<sinks::text_ostream_backend>> console_sink_point(
 		new sinks::asynchronous_sink<sinks::text_ostream_backend>);
 	const sinks::asynchronous_sink<sinks::text_ostream_backend>::locked_backend_ptr console_backend_point =
-		console_sink_point->
-		locked_backend();
+		console_sink_point->locked_backend();
 	const boost::shared_ptr<std::ostream> stream_point(&std::clog, boost::null_deleter());
+
 	console_backend_point->add_stream(stream_point);
 	console_backend_point->auto_flush(s_flush);
 
@@ -116,6 +118,7 @@ std::string Logger::SeverityToOutput() // maybe needs fixing for precision
 
 void LogToConsole(const LogMessage& log_message)
 {
+	BOOST_LOG_SCOPED_THREAD_ATTR("ThreadID", attrs::current_thread_id())
 	std::string color{};
 	switch (log_message.log_level)
 	{
@@ -163,10 +166,9 @@ void LogToFile(const LogMessage& log_message)
 				" [" << sev_level <<
 				"] - [" << log_message.location.function_name() <<
 				"] " << log_message.message << '\n';
+
 			if (Logger::get_flush())
-			{
 				Logger::get_log_file().flush();
-			}
 		}
 		catch (const std::exception& e)
 		{
