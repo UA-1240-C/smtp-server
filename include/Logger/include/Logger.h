@@ -27,6 +27,7 @@
 #include <boost/smart_ptr/shared_ptr.hpp>
 
 #include "ServerConfig.h"
+#include "ThreadSafeQueue.h"
 
 
 namespace logging = boost::log;
@@ -83,6 +84,13 @@ struct Colors
 	static const std::string RESET; // Reset for clean overall look.
 };
 
+struct LogMessage
+{
+	std::string message;
+	LogLevel log_level;
+	std::source_location location;
+};
+
 /**
  * @brief Global severity logger instance for multithreaded logging. This logger uses the specified LogLevel for filtering log messages.
  *
@@ -91,13 +99,25 @@ struct Colors
 inline src::severity_logger_mt<LogLevel> g_slg;
 
 /**
+	 * @brief Logs a message to the console with the specified log level.
+	 * @param log_message The log message + level + location to be written to the console.
+	 */
+void LogToConsole(const LogMessage& log_message);
+
+/**
+ * @brief Logs a message to the file with the specified log level.
+ * @param log_message The log message + level + location to be written to the file.
+ */
+void LogToFile(const LogMessage& log_message);
+
+/**
  * @brief Logs a message to the system log with the specified log level.
  *
  * @param message The message to be logged to the syslog.
  * @param log_level The severity level of the log, represented by the LogLevel enum.
  * @param location The source location where the log was invoked. Defaults to the current location.
  */
-void Syslog(const std::string& message, const LogLevel& log_level, const std::source_location& location);
+void Syslog(const LogMessage& log_message);
 
 /**
  * @class Logger
@@ -116,8 +136,8 @@ class Logger
 	static uint8_t s_severity_filter; // Severity filter for the sink
 	static std::ofstream s_log_file; // Log file path, in development
 	static uint8_t s_flush; // Auto flushing for console output
-	static std::mutex s_logging_mutex; // Mutex for thread safety
-	static thread_local std::unique_ptr<Logger> s_thread_local_logger; // Thread-local logger instance
+	static boost::atomic<bool> is_running; // Flag for the logger thread
+	static ISXThreadPool::ThreadSafeQueue<LogMessage> s_queue; // Thread-safe queue for log messages
 
 public:
 	Logger() = default; // Default constructor for the Logger class
@@ -152,14 +172,9 @@ public:
 	*/
 	static uint8_t get_flush() { return s_flush; }
 
-	/**
-	* @brief Get current thread-local logger instance from the Logger class
-	* @return Thread-local logger instance from the Logger class if it exists; used for testing
-	*/
-	static std::unique_ptr<Logger>& get_thread_local_logger()
-	{
-		return s_thread_local_logger;
-	}
+	static std::ofstream& get_log_file() { return s_log_file; }
+
+	static boost::atomic<bool>& get_is_running() { return is_running; }
 
 	/**
 	 * @brief Set sink for the logger.
@@ -213,23 +228,6 @@ public:
 	*/
 	static std::string SeverityToOutput();
 
-	/**
-	 * @brief Logs a message to the console with the specified log level.
-	 * @param message User-defined message to log
-	 * @param log_level Log level of the message, one from LogLevel enum
-	 * @param location The source location where the log was invoked. Defaults to the current location.
-	 */
-	void LogToConsole(const std::string& message, const LogLevel& log_level,
-					const std::source_location& location = std::source_location::current());
-
-	/**
-	 * @brief Logs a message to the file with the specified log level.
-	 * @param message The log message to be written to the file.
-	 * @param log_level The severity level of the log message.
-	 * @param location The source location where the log was invoked. Defaults to the current location.
-	 */
-	void LogToFile(const std::string& message, const LogLevel& log_level,
-					const std::source_location& location = std::source_location::current());
 
 	/**
 	 * @brief Logs a message with the specified log level, both to the console and the system log.
@@ -245,13 +243,8 @@ public:
 	template <LogLevel log_level>
 	static void Log(const std::string& message, const std::source_location& location = std::source_location::current())
 	{
-		if (!s_thread_local_logger)
-		{
-			s_thread_local_logger = std::make_unique<Logger>();
-		}
-		s_thread_local_logger->LogToConsole(message, log_level, location);
-		s_thread_local_logger->LogToFile(message, log_level, location);
-		Syslog(message, log_level, location);
+		LogMessage log_message{message, log_level, location};
+		s_queue.PushBack(std::move(log_message));
 	}
 
 	/**
@@ -299,12 +292,12 @@ public:
 #if defined (_WIN32) || (_WIN64)
 #include <Windows.h>
 
-inline void Syslog(const std::string& message, const LogLevel& log_level, const std::source_location& location)
+inline void Syslog(const LogMessage& log_message)
 {
 	DWORD event_type = EVENTLOG_INFORMATION_TYPE;
 
 	// Set the event type based on the log level
-	switch (log_level)
+	switch (log_message.log_level)
 	{
 	case TRACE:
 	case DEBUG:
@@ -327,7 +320,7 @@ inline void Syslog(const std::string& message, const LogLevel& log_level, const 
 	{
 		LPCTSTR lpsz_strings[2];
 		lpsz_strings[0] = Logger::SeverityToOutput().c_str();
-		lpsz_strings[1] = message.c_str();
+		lpsz_strings[1] = log_message.message.c_str();
 		ReportEvent(event_source, // Event log handle
 					event_type, // Event type
 					0, // Event category
@@ -342,14 +335,14 @@ inline void Syslog(const std::string& message, const LogLevel& log_level, const 
 }
 #else
 #include <syslog.h>
-inline void Syslog(const std::string &message, const LogLevel &log_level, const std::source_location &location)
+inline void Syslog(const LogMessage &log_message)
 {
 	// Open the syslog
 	openlog("Logger", LOG_PID, LOG_USER);
 	uint8_t syslog_level = LOG_INFO;
 
 	// Set the syslog level based on the log level
-	switch (log_level)
+	switch (log_message.log_level)
 	{
 	case LogLevel::TRACE:
 		syslog_level = LOG_INFO;
@@ -373,9 +366,24 @@ inline void Syslog(const std::string &message, const LogLevel &log_level, const 
 	// [LogLevel] - [Function/Method name] Log message
 	syslog(syslog_level, "[ %s ] - [ %s ] %s",
 		Logger::SeverityToOutput().c_str(),
-		location.function_name(),
-		message.c_str()
+		log_message.location.function_name(),
+		log_message.message.c_str()
 	);
 	closelog();
 }
 #endif
+
+
+static void ProcessQueue(ISXThreadPool::ThreadSafeQueue<LogMessage>& queue)
+{
+	do
+	{
+		while (auto task = queue.PopFront())
+		{
+			LogToConsole(queue.PopFront().value());
+			LogToFile(queue.PopFront().value());
+			Syslog(queue.PopFront().value());
+		}
+	}
+	while (Logger::get_is_running().load());
+}
