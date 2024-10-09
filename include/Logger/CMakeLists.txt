@@ -2,7 +2,7 @@
 
 cmake_minimum_required(VERSION 3.28)
 # Correctly set the LOGFILE_PATH variable
-set(LOGFILE_PATH "${CMAKE_SOURCE_DIR}/serverlog.txt")
+set(LOGFILE_PATH "${CMAKE_SOURCE_DIR}/threaded_logs/")
 
 # Correctly pass LOGFILE_PATH as a preprocessor definition
 add_compile_definitions(LOGFILE_PATH=\"${LOGFILE_PATH}\")
