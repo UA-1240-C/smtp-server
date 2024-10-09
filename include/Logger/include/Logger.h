@@ -134,12 +134,13 @@ class Logger
 	static boost::shared_ptr<sinks::asynchronous_sink<sinks::text_ostream_backend>> s_sink_pointer;
 	static logging::formatter s_sink_formatter; // Formatter for the sinks
 	static uint8_t s_severity_filter; // Severity filter for the sink
-	static std::ofstream s_log_file; // Log file path, in development
 	static uint8_t s_flush; // Auto flushing for console output
 	static boost::atomic<bool> is_running; // Flag for the logger thread
 	static ISXThreadPool::ThreadSafeQueue<LogMessage> s_queue; // Thread-safe queue for log messages
 
 public:
+	static std::ofstream s_log_file; // Log file path
+
 	Logger() = default; // Default constructor for the Logger class
 	Logger(const Logger&) = delete; // Deleted copy constructor
 	Logger& operator=(const Logger&) = delete; // Deleted assignment operator

@@ -76,8 +76,6 @@ void Logger::set_sink_formatter()
 
 void Logger::Setup(const Config::Logging& logging_config)
 {
-	s_log_file = std::ofstream(LOGFILE_PATH, std::ios::app);
-
 	s_severity_filter = static_cast<SeverityFilter>(logging_config.log_level);
 	s_flush = static_cast<bool>(logging_config.flush);
 
@@ -150,17 +148,29 @@ void LogToConsole(const LogMessage& log_message)
 
 void LogToFile(const LogMessage& log_message)
 {
-	if (Logger::get_log_file().is_open())
+	const std::thread::id thread_id = std::this_thread::get_id();
+	std::ostringstream filename;
+
+#if defined(_WIN32) || defined(_WIN64)
+	filename << "\\serverlog_" << thread_id << ".txt";
+#else
+	filename << "/serverlog_" << thread_id << ".txt";
+#endif
+
+	std::string logfile_path = LOGFILE_PATH + filename.str();
+	std::ofstream logfile;
+	logfile.open(logfile_path, std::ios::app);
+
+	if (logfile.is_open())
 	{
-		const std::thread::id thread_id = std::this_thread::get_id();
 		const std::string sev_level = Logger::SeverityToOutput();
-		if (!Logger::get_log_file())
+		if (!logfile)
 		{
 			std::cerr << "Error opening file" << std::endl; // check
 		}
 		try
 		{
-			Logger::get_log_file() <<
+			logfile <<
 				thread_id <<
 				" - " << boost::posix_time::second_clock::local_time() <<
 				" [" << sev_level <<
@@ -168,7 +178,7 @@ void LogToFile(const LogMessage& log_message)
 				"] " << log_message.message << '\n';
 
 			if (Logger::get_flush())
-				Logger::get_log_file().flush();
+				Logger::s_log_file.flush();
 		}
 		catch (const std::exception& e)
 		{
