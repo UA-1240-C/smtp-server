@@ -102,7 +102,7 @@ void Logger::Reset()
 	s_sink_pointer.reset();
 }
 
-std::string Logger::SeverityToOutput() // maybe needs fixing for precision
+std::string Logger::SeverityToOutput()
 {
 	switch (s_severity_filter)
 	{
@@ -166,7 +166,7 @@ void LogToFile(const LogMessage& log_message)
 		const std::string sev_level = Logger::SeverityToOutput();
 		if (!logfile)
 		{
-			std::cerr << "Error opening file" << std::endl; // check
+			std::cerr << "Error opening file" << std::endl;
 		}
 		try
 		{

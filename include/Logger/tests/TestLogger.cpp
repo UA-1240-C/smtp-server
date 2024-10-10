@@ -155,7 +155,10 @@ TEST_F(LoggerTest, LogTraceColor)
 int main(int argc, char** argv)
 {
 	/*
-	// additional workload mock for debug purposes
+	 * Additional workload mock for debug purposes,
+	 * to test the logger in a multithreaded environment.
+	 * Uncomment if needed.
+
 	Config::Logging cfg;
 	Logger::Setup(cfg);
 	auto thread_vector = std::vector<std::thread>();
