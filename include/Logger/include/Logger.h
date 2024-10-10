@@ -403,11 +403,11 @@ static void ProcessQueue(ISXThreadPool::ThreadSafeQueue<LogMessage>& queue)
 {
 	do
 	{
-		while (auto task = queue.PopFront())
+		while (std::optional<LogMessage> log_message = queue.PopFront())
 		{
-			LogToConsole(queue.PopFront().value());
-			LogToFile(queue.PopFront().value());
-			Syslog(queue.PopFront().value());
+			LogToConsole(log_message.value());
+			LogToFile(log_message.value());
+			Syslog(log_message.value());
 		}
 	}
 	while (Logger::get_is_running().load());
