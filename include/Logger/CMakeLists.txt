@@ -2,7 +2,7 @@
 
 cmake_minimum_required(VERSION 3.28)
 # Correctly set the LOGFILE_PATH variable
-set(LOGFILE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/serverlog.txt")
+set(LOGFILE_PATH "${CMAKE_SOURCE_DIR}/threaded_logs/")
 
 # Correctly pass LOGFILE_PATH as a preprocessor definition
 add_compile_definitions(LOGFILE_PATH=\"${LOGFILE_PATH}\")
@@ -17,6 +17,7 @@ target_include_directories(Logger PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${Boost_INCLUDE_DIRS}
     ${CMAKE_SOURCE_DIR}/include/Parser/include
+    ${CMAKE_SOURCE_DIR}/include/Utils/include
 )
 
 # Link libraries
