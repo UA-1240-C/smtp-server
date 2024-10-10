@@ -84,6 +84,12 @@ struct Colors
 	static const std::string RESET; // Reset for clean overall look.
 };
 
+/**
+ * @struct LogMessage
+ * @brief Struct for log message.
+ *
+ * This struct is used to store the log message, log level, and source location.
+ */
 struct LogMessage
 {
 	std::string message;
@@ -113,9 +119,7 @@ void LogToFile(const LogMessage& log_message);
 /**
  * @brief Logs a message to the system log with the specified log level.
  *
- * @param message The message to be logged to the syslog.
- * @param log_level The severity level of the log, represented by the LogLevel enum.
- * @param location The source location where the log was invoked. Defaults to the current location.
+ * @param log_message The log message + level + location to be written to the console.
  */
 void Syslog(const LogMessage& log_message);
 
@@ -130,8 +134,8 @@ void Syslog(const LogMessage& log_message);
  */
 class Logger
 {
-	// Boost sink pointer for synchronous operations
 	static boost::shared_ptr<sinks::asynchronous_sink<sinks::text_ostream_backend>> s_sink_pointer;
+	// Boost sink pointer for synchronous operations
 	static logging::formatter s_sink_formatter; // Formatter for the sinks
 	static uint8_t s_severity_filter; // Severity filter for the sink
 	static uint8_t s_flush; // Auto flushing for console output
@@ -173,8 +177,16 @@ public:
 	*/
 	static uint8_t get_flush() { return s_flush; }
 
+	/**
+	 * @brief Get current log file from the Logger class
+	 * @return Log file from the Logger class; used for testing
+	 */
 	static std::ofstream& get_log_file() { return s_log_file; }
 
+	/**
+	 * @brief Get current queue status from the Logger class
+	 * @return Queue status from the Logger class; used for testing
+	 */
 	static boost::atomic<bool>& get_is_running() { return is_running; }
 
 	/**
@@ -293,6 +305,10 @@ public:
 #if defined (_WIN32) || (_WIN64)
 #include <Windows.h>
 
+/**
+ * @brief Logs a message to the system log with the specified log level. This function is only available on Windows.
+ * @param log_message The log message + level + location to be written to the system log.
+ */
 inline void Syslog(const LogMessage& log_message)
 {
 	DWORD event_type = EVENTLOG_INFORMATION_TYPE;
@@ -336,6 +352,10 @@ inline void Syslog(const LogMessage& log_message)
 }
 #else
 #include <syslog.h>
+/**
+ * @brief Logs a message to the system log with the specified log level. This function is only available on Linux.
+ * @param log_message The log message + level + location to be written to the system log.
+ */
 inline void Syslog(const LogMessage &log_message)
 {
 	// Open the syslog
@@ -375,6 +395,10 @@ inline void Syslog(const LogMessage &log_message)
 #endif
 
 
+/**
+ * @brief Processes the log messages in the queue.
+ * @param queue The queue of log messages to process.
+ */
 static void ProcessQueue(ISXThreadPool::ThreadSafeQueue<LogMessage>& queue)
 {
 	do
